@@ -7,7 +7,7 @@ Hackforge 프론트엔드. React + Vite SPA, TypeScript, Tailwind CSS + shadcn/u
 
 ## 실행
 
-Node 26 LTS(`.nvmrc`)를 쓴다.
+Node 26 LTS(`.nvmrc`)를 쓴다. Windows에서 Node 24는 경로에 한글이 있으면 `fs.rmSync`가 비정상 종료해서, 두 번째 `npm run build`부터 실패한다(Vite가 `dist/`를 비울 때). Node 26에서는 생기지 않는다.
 
 ```bash
 npm install
