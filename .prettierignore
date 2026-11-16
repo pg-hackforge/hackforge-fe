@@ -1,0 +1,5 @@
+dist
+package-lock.json
+*.md
+# 다른 저장소와 같은 내용으로 맞춰 둔 파일
+.github/workflows/mirror.yml
