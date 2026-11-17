@@ -8,13 +8,15 @@
     <script>
       // React가 뜨기 전에 테마를 적용해 첫 화면이 깜빡이지 않게 한다(src/lib/theme.ts와 같은 규칙)
       ;(function () {
-        var theme = 'system'
+        // 저장된 값이 없거나 잘못되면 기본 테마(다크)
+        var theme = 'dark'
         try {
-          theme = localStorage.getItem('hackforge-theme') || 'system'
+          var saved = localStorage.getItem('hackforge-theme')
+          if (saved === 'light' || saved === 'dark' || saved === 'system') theme = saved
         } catch (e) {}
         var dark =
           theme === 'dark' ||
-          (theme !== 'light' && window.matchMedia('(prefers-color-scheme: dark)').matches)
+          (theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches)
         document.documentElement.classList.toggle('dark', dark)
         document.documentElement.style.colorScheme = dark ? 'dark' : 'light'
       })()

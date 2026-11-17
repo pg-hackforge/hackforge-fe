@@ -13,19 +13,23 @@ const memory = (initial: Record<string, string> = {}) => {
 }
 
 describe('theme', () => {
-  it('저장된 값이 없거나 잘못되면 system', () => {
-    expect(loadTheme(memory())).toBe('system')
-    expect(loadTheme(memory({ [THEME_STORAGE_KEY]: 'blue' }))).toBe('system')
-    expect(loadTheme(undefined)).toBe('system')
+  it('저장된 값이 없거나 잘못되면 dark(기본 테마)', () => {
+    expect(loadTheme(memory())).toBe('dark')
+    expect(loadTheme(memory({ [THEME_STORAGE_KEY]: 'blue' }))).toBe('dark')
+    expect(loadTheme(undefined)).toBe('dark')
   })
 
-  it('저장소를 읽을 수 없어도 system으로 동작', () => {
+  it('저장된 system은 그대로 유지', () => {
+    expect(loadTheme(memory({ [THEME_STORAGE_KEY]: 'system' }))).toBe('system')
+  })
+
+  it('저장소를 읽을 수 없어도 dark로 동작', () => {
     const broken = {
       getItem: () => {
         throw new Error('blocked')
       },
     }
-    expect(loadTheme(broken)).toBe('system')
+    expect(loadTheme(broken)).toBe('dark')
   })
 
   it('저장한 값을 다시 읽음', () => {
