@@ -1,6 +1,6 @@
 # hackforge-fe
 
-Hackforge 프론트엔드. **스택 미정**이다. 정해지면 이 파일에 스택과 실행·테스트 명령을 적고 `.github/workflows/ci.yml`을 추가한다.
+Hackforge 프론트엔드. React + Vite SPA, TypeScript(strict), Tailwind CSS v4 + shadcn/ui(Base UI), Node 26 LTS. 결정과 이유는 `../hackforge-docs/decisions/015-fe-스택.md`.
 
 ## 먼저 읽을 것
 
@@ -8,10 +8,21 @@ Hackforge 프론트엔드. **스택 미정**이다. 정해지면 이 파일에 �
 - 작업 중인 기능: `../hackforge-docs/specs/<기능>/tasks.md`
 - API spec: `../hackforge-be/openapi.yaml`. 타입과 API client는 이 파일로 codegen하고 손으로 쓰지 않는다. API를 바꿔야 하면 백엔드 spec PR이 먼저다.
 
+## 명령
+
+- `npm run dev`: 개발 서버
+- `npm run typecheck`, `npm run lint`, `npm run format:check`, `npm test`, `npm run build`: CI와 같은 확인. PR 전에 모두 통과해야 한다
+- `npm run format`: Prettier로 정리(Tailwind class 순서 포함)
+- `npx shadcn@latest add <컴포넌트>`: shadcn/ui 컴포넌트 추가. 추가 뒤 `npm run format`
+
 ## 작업 규칙
 
 - `tasks.md`의 `[fe]` 작업을 한 번에 하나씩 구현한다.
 - API가 바뀌는 기능은 hackforge-be PR이 머지·배포된 뒤에 머지한다.
+- 사람은 코드보다 화면으로 리뷰한다. 디자인 완성도와 UX를 우선하고, PR에는 확인할 화면 목록과 실행 방법(`npm install`, `npm run dev`, 볼 경로와 상태)을 적는다.
+- 색과 글꼴은 `src/index.css`의 토큰만 쓴다. 컴포넌트에 색 값을 직접 쓰지 않는다.
+- import는 `@/` alias를 쓴다(`src/` 기준).
+- 화면과 무관한 로직은 `src/lib/`에 두고 Vitest로 테스트한다.
 
 ## Git
 

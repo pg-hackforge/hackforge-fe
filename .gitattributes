@@ -1,0 +1,4 @@
+# Prettier가 LF를 기준으로 검사하므로 Windows에서도 LF로 둔다
+* text=auto eol=lf
+*.woff2 binary
+*.png binary
