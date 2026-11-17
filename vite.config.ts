@@ -12,6 +12,12 @@ export default defineConfig({
       '@': path.resolve(import.meta.dirname, './src'),
     },
   },
+  // 같은 주소에서 /api는 백엔드(ADR 015). 개발 때는 이 proxy가 개발 백엔드로 넘긴다
+  server: {
+    proxy: {
+      '/api': 'http://127.0.0.1:8080',
+    },
+  },
   test: {
     environment: 'jsdom',
     setupFiles: ['./src/test/setup.ts'],

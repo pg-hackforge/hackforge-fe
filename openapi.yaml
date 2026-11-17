@@ -1,0 +1,818 @@
+openapi: 3.1.0
+info:
+  title: Hackforge API
+  version: 0.2.1
+  description: >-
+    hackforge-be와 hackforge-fe 사이의 API spec.
+    API를 바꿀 때는 구현보다 이 파일을 먼저 PR로 올려 합의한다.
+
+
+    인증: 로그인하면 서버가 세션 쿠키(`SESSION`, HttpOnly, SameSite=Lax)를 준다.
+    요청이 없으면 30분 뒤 만료된다.
+
+
+    CSRF: 서버는 응답에 `XSRF-TOKEN` 쿠키(JS에서 읽을 수 있음)를 준다.
+    GET이 아닌 요청은 그 값을 `X-XSRF-TOKEN` 헤더에 넣어 보낸다. 없거나 틀리면 403.
+    로그인 전에도 필요하므로, 클라이언트는 먼저 아무 GET 요청(예: `GET /api/me`)으로 쿠키를 받는다.
+
+
+    오류: 모든 오류 응답은 RFC 9457 Problem Details(`application/problem+json`)이고,
+    클라이언트가 분기할 수 있도록 `code`를 함께 준다.
+
+
+    모든 API에 공통인 오류는 API마다 적지 않는다.
+
+
+    - 경로나 쿼리 값의 형식이 틀림(숫자가 아닌 id, 없는 `status` 값 등): 400 `VALIDATION_FAILED`, 어느 값인지는 `errors`
+
+    - 없는 경로: 404 `NOT_FOUND`. 단 로그인하지 않았으면 경로가 있든 없든 401이다(어떤 경로가 있는지 드러내지 않음)
+
+    - 그 경로가 받지 않는 HTTP method: 405 `METHOD_NOT_ALLOWED`, 받는 method는 `Allow` 헤더
+
+    - 본문이 JSON이 아님(`Content-Type`이 `application/json`이 아님): 415 `UNSUPPORTED_MEDIA_TYPE`
+
+    - 서버 내부 오류: 500 `INTERNAL_ERROR`. 원인은 응답에 담지 않고 서버 로그에만 남긴다
+servers:
+  # 이 문서를 내려준 서버. Swagger UI를 localhost로 열든 127.0.0.1로 열든 같은 origin으로 요청함
+  - url: /
+tags:
+  - name: auth
+    description: 가입, 로그인, 내 계정
+  - name: admin
+    description: 관리자 전용. 로그인하지 않으면 401, 관리자가 아니면 403
+  - name: lab
+    description: >-
+      문제 목록과 실습 세션. 학습자당 진행 중 세션은 1개.
+
+
+      시작·종료 API는 요청만 접수하고 즉시 응답한다. 실습 환경 생성·삭제는 비동기로 진행된다.
+      클라이언트는 `GET /api/labs/{id}`를 polling해 상태를 확인한다.
+      polling 간격은 `CREATING`, `INITIALIZING`, `TERMINATING`에서 2~3초, `READY`에서 10초 내외이고,
+      `DELETED`, `FAILED`가 되면 중단한다. polling 요청은 활동으로 집계하지 않는다.
+
+
+      idle 종료: `READY` 이후 `idleDeadline`까지 활동이 없으면 서버가 세션을 종료한다(`IDLE`).
+      클라이언트는 `idleWarningAt`부터 종료 경고와 [계속하기]를 표시하고,
+      [계속하기]는 `POST /api/labs/{id}/activity`를 호출한다.
+security:
+  - sessionCookie: []
+    csrfHeader: []
+paths:
+  /api/auth/signup:
+    post:
+      tags: [auth]
+      summary: 자가 가입
+      description: >-
+        계정은 승인 대기(`PENDING`), 역할 학습자(`LEARNER`)로 만들어진다.
+        가입만 하고 로그인은 하지 않는다. 이메일은 소문자로 저장한다.
+      operationId: signup
+      security:
+        - csrfHeader: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SignupRequest'
+      responses:
+        '201':
+          description: 가입됨
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserResponse'
+        '400':
+          $ref: '#/components/responses/ValidationFailed'
+        '403':
+          $ref: '#/components/responses/CsrfRejected'
+        '409':
+          description: >-
+            이미 가입된 이메일(`EMAIL_TAKEN`) 또는 닉네임(`NICKNAME_TAKEN`)
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+  /api/auth/login:
+    post:
+      tags: [auth]
+      summary: 로그인
+      description: >-
+        성공하면 세션 쿠키와 `XSRF-TOKEN` 쿠키를 새로 발급한다(세션 고정 방지). 이후 요청은 새 CSRF 값을 쓴다.
+        비밀번호를 틀린 횟수는 로그인과 내 비밀번호 변경(`PUT /api/me/password`)을 합쳐 계정마다 센다.
+        5번 연속 틀리면 15분 잠그고, 잠긴 동안은 비밀번호를 확인하지 않는다. 성공하면 횟수를 0으로 되돌린다.
+        로그인 실패로 잠겨도 이미 로그인한 세션은 끊지 않는다(남이 일부러 틀려 사용자를 쫓아낼 수 없게).
+        승인 대기·거절 계정도 로그인할 수 있다.
+      operationId: login
+      security:
+        - csrfHeader: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        '200':
+          description: 로그인됨
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserResponse'
+        '400':
+          $ref: '#/components/responses/ValidationFailed'
+        '401':
+          description: >-
+            이메일이나 비밀번호가 틀림(`INVALID_CREDENTIALS`). 어느 쪽이 틀렸는지 구분하지 않는다
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '403':
+          $ref: '#/components/responses/CsrfRejected'
+        '429':
+          $ref: '#/components/responses/AccountLocked'
+  /api/auth/logout:
+    post:
+      tags: [auth]
+      summary: 로그아웃
+      description: 지금 세션만 지운다. 로그인하지 않은 상태로 불러도 204
+      operationId: logout
+      security:
+        - csrfHeader: []
+      responses:
+        '204':
+          description: 로그아웃됨
+        '403':
+          $ref: '#/components/responses/CsrfRejected'
+  /api/me:
+    get:
+      tags: [auth]
+      summary: 내 계정
+      description: >-
+        화면은 `status`를 보고 승인 대기·거절을 안내한다.
+        승인 상태는 세션이 아니라 DB에서 매번 읽는다.
+      operationId: getMe
+      security:
+        - sessionCookie: []
+      responses:
+        '200':
+          description: 내 계정
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserResponse'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+  /api/me/password:
+    put:
+      tags: [auth]
+      summary: 내 비밀번호 변경
+      description: >-
+        성공하면 지금 세션을 뺀 내 다른 세션을 모두 지운다.
+        현재 비밀번호가 틀리면 로그인 실패와 같은 횟수에 더한다(세션을 가진 사람의 비밀번호 대입을 막음).
+        이 요청으로 5번째가 되면 계정을 15분 잠그고 내 세션을 모두 지운다.
+        잠긴 동안은 현재 비밀번호를 확인하지 않고 429로 거절한다.
+      operationId: changeMyPassword
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChangePasswordRequest'
+      responses:
+        '204':
+          description: 변경됨
+        '400':
+          description: >-
+            입력 규칙 위반(`VALIDATION_FAILED`) 또는 현재 비밀번호가 틀림(`CURRENT_PASSWORD_MISMATCH`)
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/CsrfRejected'
+        '429':
+          $ref: '#/components/responses/AccountLocked'
+  /api/admin/users:
+    get:
+      tags: [admin]
+      summary: 계정 목록
+      description: 가입 순서(오래된 것부터). v1 규모(수십 명)라 페이지 나눔은 없다
+      operationId: listUsers
+      security:
+        - sessionCookie: []
+      parameters:
+        - name: status
+          in: query
+          required: false
+          description: 생략하면 `PENDING`
+          schema:
+            $ref: '#/components/schemas/UserStatus'
+      responses:
+        '200':
+          description: 계정 목록
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/AdminUserResponse'
+        '400':
+          $ref: '#/components/responses/ValidationFailed'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+  /api/admin/users/{id}/approve:
+    post:
+      tags: [admin]
+      summary: 가입 승인
+      description: '`PENDING` 또는 `REJECTED`에서만 `APPROVED`로 바꾼다'
+      operationId: approveUser
+      parameters:
+        - $ref: '#/components/parameters/UserId'
+      responses:
+        '200':
+          description: 승인됨
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminUserResponse'
+        '400':
+          $ref: '#/components/responses/ValidationFailed'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/UserNotFound'
+        '409':
+          $ref: '#/components/responses/InvalidStatusTransition'
+  /api/admin/users/{id}/reject:
+    post:
+      tags: [admin]
+      summary: 가입 거절
+      description: '`PENDING`에서만 `REJECTED`로 바꾼다. 승인된 계정은 거절할 수 없다(계정 정지는 v1 범위 밖)'
+      operationId: rejectUser
+      parameters:
+        - $ref: '#/components/parameters/UserId'
+      responses:
+        '200':
+          description: 거절됨
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminUserResponse'
+        '400':
+          $ref: '#/components/responses/ValidationFailed'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/UserNotFound'
+        '409':
+          $ref: '#/components/responses/InvalidStatusTransition'
+  /api/admin/users/{id}/role:
+    put:
+      tags: [admin]
+      summary: 역할 변경
+      description: >-
+        대상 계정의 로그인 세션을 모두 지운다. 다시 로그인하면 새 역할이 적용된다.
+        자기 자신의 역할은 바꿀 수 없다(관리자가 0명이 되는 것을 막음)
+      operationId: changeUserRole
+      parameters:
+        - $ref: '#/components/parameters/UserId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChangeRoleRequest'
+      responses:
+        '200':
+          description: 변경됨
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminUserResponse'
+        '400':
+          $ref: '#/components/responses/ValidationFailed'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          description: 관리자가 아님(`FORBIDDEN`), 자기 역할 변경(`CANNOT_CHANGE_OWN_ROLE`), CSRF 거절(`CSRF_REJECTED`)
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '404':
+          $ref: '#/components/responses/UserNotFound'
+  /api/admin/users/{id}/temporary-password:
+    post:
+      tags: [admin]
+      summary: 임시 비밀번호 발급
+      description: >-
+        비밀번호 규칙을 만족하는 무작위 비밀번호로 바꾸고, 응답으로 한 번만 돌려준다(저장하지 않음).
+        대상 계정의 로그인 세션을 모두 지우고 잠금을 푼다
+      operationId: issueTemporaryPassword
+      parameters:
+        - $ref: '#/components/parameters/UserId'
+      responses:
+        '200':
+          description: '발급됨. 응답은 캐시하지 않는다(`Cache-Control: no-store`)'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TemporaryPasswordResponse'
+        '400':
+          $ref: '#/components/responses/ValidationFailed'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/UserNotFound'
+  /api/challenges:
+    get:
+      tags: [lab]
+      summary: 문제 목록
+      description: 승인 대기·거절 계정도 조회 가능. 승인 여부는 실습 시작 시점에만 확인한다. id 순서로 반환한다
+      operationId: listChallenges
+      security:
+        - sessionCookie: []
+      responses:
+        '200':
+          description: 문제 목록
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ChallengeResponse'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+  /api/labs:
+    post:
+      tags: [lab]
+      summary: 실습 시작
+      description: >-
+        세션을 `CREATING` 상태로 생성하고 즉시 응답한다. 실습 환경 생성은 비동기로 진행된다.
+        승인 상태는 로그인 세션이 아니라 매 요청마다 DB에서 조회한다.
+        진행 중 세션에는 `TERMINATING`도 포함되므로, 종료 직후에는 환경 삭제가 완료될 때까지 409가 발생할 수 있다.
+      operationId: startLab
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StartLabRequest'
+      responses:
+        '202':
+          description: 시작 요청 접수
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LabSessionResponse'
+        '400':
+          $ref: '#/components/responses/ValidationFailed'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          description: 승인되지 않은 계정(`ACCOUNT_NOT_APPROVED`) 또는 CSRF 거절(`CSRF_REJECTED`)
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '404':
+          description: 없는 문제(`CHALLENGE_NOT_FOUND`)
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '409':
+          description: 진행 중 세션이 이미 있음(`LAB_ALREADY_ACTIVE`). 클라이언트는 `GET /api/labs/current`로 기존 세션을 조회한다
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '503':
+          description: 동시 실습 정원 초과(`LAB_CAPACITY_FULL`). 대기열 없음
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+  /api/labs/current:
+    get:
+      tags: [lab]
+      summary: 진행 중인 내 세션
+      description: 새로고침이나 재접속 후 진행 중 세션을 복원할 때 사용. 종료된 세션(`DELETED`, `FAILED`)은 반환하지 않는다
+      operationId: getCurrentLab
+      security:
+        - sessionCookie: []
+      responses:
+        '200':
+          description: 진행 중인 세션
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LabSessionResponse'
+        '204':
+          description: 진행 중인 세션 없음
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+  /api/labs/{id}:
+    get:
+      tags: [lab]
+      summary: 세션 조회
+      description: 종료된 세션도 조회 가능. 클라이언트는 `status`와 `endReason`으로 종료 사유를 표시한다
+      operationId: getLab
+      security:
+        - sessionCookie: []
+      parameters:
+        - $ref: '#/components/parameters/LabSessionId'
+      responses:
+        '200':
+          description: 세션
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LabSessionResponse'
+        '400':
+          $ref: '#/components/responses/ValidationFailed'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '404':
+          $ref: '#/components/responses/LabNotFound'
+    delete:
+      tags: [lab]
+      summary: 실습 종료
+      description: >-
+        `TERMINATING`으로 변경하고 즉시 응답한다. 실습 환경 삭제는 비동기로 진행되며, 완료되면 `DELETED`가 된다.
+        생성 중에도 종료 가능. 이미 `TERMINATING`이거나 종료된 세션은 상태를 변경하지 않고 현재 상태를 반환한다(멱등)
+      operationId: endLab
+      parameters:
+        - $ref: '#/components/parameters/LabSessionId'
+      responses:
+        '202':
+          description: 종료 요청 접수
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LabSessionResponse'
+        '400':
+          $ref: '#/components/responses/ValidationFailed'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/CsrfRejected'
+        '404':
+          $ref: '#/components/responses/LabNotFound'
+  /api/labs/{id}/activity:
+    post:
+      tags: [lab]
+      summary: 활동 기록([계속하기])
+      description: 마지막 활동 시각을 현재 시각으로 갱신하고, 갱신된 `idleDeadline`, `idleWarningAt`을 포함한 세션을 반환한다
+      operationId: recordLabActivity
+      parameters:
+        - $ref: '#/components/parameters/LabSessionId'
+      responses:
+        '200':
+          description: 기록됨
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LabSessionResponse'
+        '400':
+          $ref: '#/components/responses/ValidationFailed'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/CsrfRejected'
+        '404':
+          $ref: '#/components/responses/LabNotFound'
+        '409':
+          description: '`READY`가 아닌 세션(`LAB_NOT_READY`)'
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+components:
+  securitySchemes:
+    sessionCookie:
+      type: apiKey
+      in: cookie
+      name: SESSION
+    csrfHeader:
+      type: apiKey
+      in: header
+      name: X-XSRF-TOKEN
+      description: '`XSRF-TOKEN` 쿠키 값을 그대로 넣는다'
+  parameters:
+    UserId:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: integer
+        format: int64
+    LabSessionId:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: integer
+        format: int64
+  responses:
+    ValidationFailed:
+      description: 입력 규칙 위반(`VALIDATION_FAILED`). 항목별 이유는 `errors`
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+    Unauthenticated:
+      description: 로그인하지 않음(`UNAUTHENTICATED`)
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+    Forbidden:
+      description: 관리자가 아님(`FORBIDDEN`) 또는 CSRF 거절(`CSRF_REJECTED`)
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+    CsrfRejected:
+      description: CSRF 토큰이 없거나 틀림(`CSRF_REJECTED`)
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+    AccountLocked:
+      description: 잠긴 계정(`ACCOUNT_LOCKED`)
+      headers:
+        Retry-After:
+          description: 잠금이 풀릴 때까지 남은 초
+          schema:
+            type: integer
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+    UserNotFound:
+      description: 없는 계정(`USER_NOT_FOUND`)
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+    InvalidStatusTransition:
+      description: 지금 상태에서 할 수 없는 승인·거절(`INVALID_STATUS_TRANSITION`)
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+    LabNotFound:
+      description: 없는 세션 또는 다른 사용자의 세션(`LAB_NOT_FOUND`). 다른 사용자 세션의 존재 여부를 노출하지 않기 위해 403 대신 404
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+  schemas:
+    Email:
+      type: string
+      format: email
+      maxLength: 254
+    Password:
+      type: string
+      description: >-
+        8~64자, 영문·숫자·특수문자를 각각 하나 이상. ASCII(공백 제외 키보드 기호)만 받는다.
+        bcrypt는 72바이트까지만 처리하는데 한글은 글자당 3바이트라 64자 안에서도 넘을 수 있다
+      minLength: 8
+      maxLength: 64
+      pattern: '^(?=.*[A-Za-z])(?=.*[0-9])(?=.*[^A-Za-z0-9])[\x21-\x7E]{8,64}$'
+    UserRole:
+      type: string
+      enum: [LEARNER, AUTHOR, ADMIN]
+    UserStatus:
+      type: string
+      enum: [PENDING, APPROVED, REJECTED]
+    SignupRequest:
+      type: object
+      required: [email, password, name, nickname, affiliation, privacyAgreed]
+      properties:
+        email:
+          $ref: '#/components/schemas/Email'
+        password:
+          $ref: '#/components/schemas/Password'
+        name:
+          type: string
+          minLength: 1
+          maxLength: 50
+        nickname:
+          type: string
+          description: 2~20자, 한글·영문·숫자·`_`. 유일
+          pattern: '^[가-힣A-Za-z0-9_]{2,20}$'
+        affiliation:
+          type: string
+          description: 학교·학과·회사 등 자유 입력
+          minLength: 1
+          maxLength: 100
+        signupNote:
+          type: string
+          description: 관리자가 본인을 확인하는 데 쓰는 메모(선택)
+          maxLength: 200
+        privacyAgreed:
+          type: boolean
+          description: 개인정보 수집·이용 동의. `true`만 받는다
+          const: true
+    LoginRequest:
+      type: object
+      required: [email, password]
+      properties:
+        email:
+          type: string
+          maxLength: 254
+        password:
+          type: string
+          maxLength: 64
+    ChangePasswordRequest:
+      type: object
+      required: [currentPassword, newPassword]
+      properties:
+        currentPassword:
+          type: string
+          maxLength: 64
+        newPassword:
+          $ref: '#/components/schemas/Password'
+    ChangeRoleRequest:
+      type: object
+      required: [role]
+      properties:
+        role:
+          $ref: '#/components/schemas/UserRole'
+    UserResponse:
+      type: object
+      required: [id, email, name, nickname, affiliation, role, status, createdAt]
+      properties:
+        id:
+          type: integer
+          format: int64
+        email:
+          type: string
+        name:
+          type: string
+        nickname:
+          type: string
+        affiliation:
+          type: string
+        role:
+          $ref: '#/components/schemas/UserRole'
+        status:
+          $ref: '#/components/schemas/UserStatus'
+        createdAt:
+          type: string
+          format: date-time
+    AdminUserResponse:
+      description: 관리자가 승인할 때 보는 정보. `UserResponse`에 가입 메모를 더한다
+      allOf:
+        - $ref: '#/components/schemas/UserResponse'
+        - type: object
+          properties:
+            signupNote:
+              type: [string, 'null']
+    TemporaryPasswordResponse:
+      type: object
+      required: [temporaryPassword]
+      properties:
+        temporaryPassword:
+          type: string
+    ChallengeResponse:
+      type: object
+      description: 힌트, 해답, 검증 스크립트는 넣지 않는다
+      required: [id, slug, title, description]
+      properties:
+        id:
+          type: integer
+          format: int64
+        slug:
+          type: string
+          description: '사람이 읽을 수 있는 문제 식별자(예: `sqli-login`)'
+        title:
+          type: string
+        description:
+          type: string
+          description: 문제 목록에 보이는 설명(Markdown). Challenge 저장소의 `meta/description.md`
+    StartLabRequest:
+      type: object
+      required: [challengeId]
+      properties:
+        challengeId:
+          type: integer
+          format: int64
+    LabStatus:
+      type: string
+      description: >-
+        `CREATING` 시작 요청 접수,
+        `INITIALIZING` 실습 환경 생성 후 준비 대기,
+        `READY` 실습 가능,
+        `TERMINATING` 실습 환경 삭제 중,
+        `DELETED` 종료,
+        `FAILED` 재시도 후에도 생성 실패.
+        생성에 실패하면 서버가 1회 재시도하며, 이때 `INITIALIZING`에서 `CREATING`으로 전이될 수 있다
+      enum: [CREATING, INITIALIZING, READY, TERMINATING, DELETED, FAILED]
+    LabEndReason:
+      type: string
+      description: '`USER` 학습자 종료, `IDLE` idle timeout, `POD_LOST` 실습 중 실습 환경 비정상 종료'
+      enum: [USER, IDLE, POD_LOST]
+    LabSessionResponse:
+      type: object
+      required: [id, challengeId, challengeTitle, status, createdAt]
+      properties:
+        id:
+          type: integer
+          format: int64
+        challengeId:
+          type: integer
+          format: int64
+        challengeTitle:
+          type: string
+        status:
+          $ref: '#/components/schemas/LabStatus'
+        endReason:
+          description: '`TERMINATING`, `DELETED` 세션의 종료 사유. 진행 중이거나 생성 실패(`FAILED`와 그 직전 `TERMINATING`)이면 `null`'
+          oneOf:
+            - $ref: '#/components/schemas/LabEndReason'
+            - type: 'null'
+        createdAt:
+          type: string
+          format: date-time
+        readyAt:
+          type: [string, 'null']
+          format: date-time
+        endedAt:
+          type: [string, 'null']
+          format: date-time
+        idleDeadline:
+          description: '`READY`에서만 값이 있음. 이 시각까지 활동이 없으면 서버가 세션을 종료한다'
+          type: [string, 'null']
+          format: date-time
+        idleWarningAt:
+          description: '`READY`에서만 값이 있음. 클라이언트가 종료 경고를 표시하기 시작하는 시각'
+          type: [string, 'null']
+          format: date-time
+    Problem:
+      description: RFC 9457 Problem Details
+      type: object
+      required: [status, title, code]
+      properties:
+        type:
+          type: string
+          format: uri-reference
+        title:
+          type: string
+        status:
+          type: integer
+        detail:
+          type: string
+        instance:
+          type: string
+          format: uri-reference
+        code:
+          type: string
+          description: 클라이언트가 분기할 때 쓰는 오류 코드
+          enum:
+            - VALIDATION_FAILED
+            - EMAIL_TAKEN
+            - NICKNAME_TAKEN
+            - INVALID_CREDENTIALS
+            - ACCOUNT_LOCKED
+            - CURRENT_PASSWORD_MISMATCH
+            - UNAUTHENTICATED
+            - FORBIDDEN
+            - CSRF_REJECTED
+            - CANNOT_CHANGE_OWN_ROLE
+            - USER_NOT_FOUND
+            - INVALID_STATUS_TRANSITION
+            - NOT_FOUND
+            - METHOD_NOT_ALLOWED
+            - UNSUPPORTED_MEDIA_TYPE
+            - INTERNAL_ERROR
+            - ACCOUNT_NOT_APPROVED
+            - CHALLENGE_NOT_FOUND
+            - LAB_NOT_FOUND
+            - LAB_ALREADY_ACTIVE
+            - LAB_NOT_READY
+            - LAB_CAPACITY_FULL
+        errors:
+          description: '`VALIDATION_FAILED`일 때 항목별 이유'
+          type: array
+          items:
+            type: object
+            required: [field, message]
+            properties:
+              field:
+                type: string
+              message:
+                type: string

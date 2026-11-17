@@ -7,11 +7,13 @@ Hackforge 프론트엔드. React + Vite SPA, TypeScript(strict), Tailwind CSS v4
 - 무엇을 왜 만드는지: `../hackforge-docs/product.md`, 결정은 `../hackforge-docs/decisions/`
 - 디자인: `DESIGN.md`(색·글꼴·배치·효과 규칙, 확정 화면 캡처는 `design/screens/`), 제품 맥락: `PRODUCT.md`. 결정은 `../hackforge-docs/decisions/016-fe-디자인-방향.md`
 - 작업 중인 기능: `../hackforge-docs/specs/<기능>/tasks.md`
-- API spec: `../hackforge-be/openapi.yaml`. 타입과 API client는 이 파일로 codegen하고 손으로 쓰지 않는다. API를 바꿔야 하면 백엔드 spec PR이 먼저다.
+- API spec: `../hackforge-be/openapi.yaml`. 타입과 API client는 이 파일로 codegen하고 손으로 쓰지 않는다(`npm run api:sync`, 생성물은 `src/api/generated/`). API를 바꿔야 하면 백엔드 spec PR이 먼저다.
+- API 호출은 생성된 SDK 함수와 TanStack Query로 한다. CSRF 헤더, 401, 오류 변환은 `src/api/client.ts`가 처리하므로 화면에서 다시 하지 않는다. 오류는 `ApiError`(`code`, 입력 칸별 `fieldErrors`)로 받는다
 
 ## 명령
 
-- `npm run dev`: 개발 서버
+- `npm run dev`: 개발 서버(`/api`는 개발 백엔드 `127.0.0.1:8080`으로 proxy)
+- `npm run api:sync`: 백엔드 `openapi.yaml`을 복사하고 생성물을 다시 만든다. 복사본과 생성물을 함께 커밋
 - `npm run typecheck`, `npm run lint`, `npm run format:check`, `npm test`, `npm run build`: CI와 같은 확인. PR 전에 모두 통과해야 한다
 - `npm run format`: Prettier로 정리(Tailwind class 순서 포함)
 - `npx shadcn@latest add <컴포넌트>`: shadcn/ui 컴포넌트 추가. 추가 뒤 `npm run format`
