@@ -637,8 +637,25 @@
 
 @theme inline {
   --font-heading: var(--font-sans);
+  /* 소개 화면 영어 헤드라인(Strike hot / Fix cold). 글꼴 파일은 소개 화면을 만들 때 추가하고, 그 전에는 Pretendard로 대신함 */
+  --font-display: 'Geist', var(--font-sans);
   --font-sans:
     'Pretendard Variable', Pretendard, -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+  --color-pass: var(--pass);
+  --color-fail: var(--fail);
+  --color-fail-foreground: var(--fail-foreground);
+  --color-ember: var(--ember);
+  --color-ember-soft: var(--ember-soft);
+  --color-subtle-foreground: var(--subtle-foreground);
+  --color-band: var(--band);
+  --color-band-foreground: var(--band-foreground);
+  --color-terminal: var(--terminal);
+  --color-terminal-foreground: var(--terminal-foreground);
+  --color-code-string: var(--code-string);
+  --color-editor: var(--editor);
+  --color-editor-chrome: var(--editor-chrome);
+  --color-editor-gutter: var(--editor-gutter);
+  --color-editor-line: var(--editor-line);
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -679,73 +696,122 @@
   --radius-4xl: calc(var(--radius) * 2.6);
 }
 
+/*
+ * 색 토큰: 흑연과 불씨(hackforge-docs ADR 016, DESIGN.md).
+ * shadcn/ui 이름(background, primary 등)에 우리 값을 넣고, 판정·터미널·편집기·템퍼링 색은 이름을 따로 둔다.
+ * 컴포넌트에는 색 값을 직접 쓰지 않고 이 토큰(bg-primary, text-pass 등)만 쓴다.
+ */
 :root {
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
-  --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
-  --chart-1: oklch(0.87 0 0);
-  --chart-2: oklch(0.556 0 0);
-  --chart-3: oklch(0.439 0 0);
-  --chart-4: oklch(0.371 0 0);
-  --chart-5: oklch(0.269 0 0);
+  --background: #f5f5f4;
+  --foreground: #17171a;
+  --card: #ffffff;
+  --card-foreground: #17171a;
+  --popover: #ffffff;
+  --popover-foreground: #17171a;
+  --primary: #e8590c;
+  --primary-foreground: #ffffff;
+  --secondary: #ebeae8;
+  --secondary-foreground: #17171a;
+  --muted: #ebeae8;
+  --muted-foreground: #5c5b60;
+  --subtle-foreground: #7e7e85;
+  --accent: #ebeae8;
+  --accent-foreground: #17171a;
+  --destructive: #c92a2a;
+  --border: #e4e3e0;
+  --input: #d3d1cd;
+  --ring: #e8590c;
+  --pass: #2b8a3e;
+  --fail: #c92a2a;
+  --fail-foreground: #ffffff;
+  --ember: #e8590c;
+  --ember-soft: #fdebdd;
+  --band: #17171a;
+  --band-foreground: #ffffff;
+  --terminal: #141416;
+  --terminal-foreground: #e6e6e9;
+  --code-string: #9a4a1b;
+  --editor: #ffffff;
+  --editor-chrome: #eeedea;
+  --editor-gutter: #f7f6f4;
+  --editor-line: #fff3ea;
+  --chart-1: #e8590c;
+  --chart-2: #2b8a3e;
+  --chart-3: #7a4a8c;
+  --chart-4: #3b4f9a;
+  --chart-5: #8e949c;
   --radius: 0.625rem;
-  --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: oklch(0.205 0 0);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.97 0 0);
-  --sidebar-accent-foreground: oklch(0.205 0 0);
-  --sidebar-border: oklch(0.922 0 0);
-  --sidebar-ring: oklch(0.708 0 0);
+  --sidebar: #ffffff;
+  --sidebar-foreground: #17171a;
+  --sidebar-primary: #e8590c;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #ebeae8;
+  --sidebar-accent-foreground: #17171a;
+  --sidebar-border: #e4e3e0;
+  --sidebar-ring: #e8590c;
 }
 
 .dark {
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.205 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.205 0 0);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.922 0 0);
-  --primary-foreground: oklch(0.205 0 0);
-  --secondary: oklch(0.269 0 0);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.269 0 0);
-  --accent-foreground: oklch(0.985 0 0);
-  --destructive: oklch(0.704 0.191 22.216);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.556 0 0);
-  --chart-1: oklch(0.87 0 0);
-  --chart-2: oklch(0.556 0 0);
-  --chart-3: oklch(0.439 0 0);
-  --chart-4: oklch(0.371 0 0);
-  --chart-5: oklch(0.269 0 0);
-  --sidebar: oklch(0.205 0 0);
-  --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.488 0.243 264.376);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.269 0 0);
-  --sidebar-accent-foreground: oklch(0.985 0 0);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.556 0 0);
+  --background: #0f0f10;
+  --foreground: #ededef;
+  --card: #161618;
+  --card-foreground: #ededef;
+  --popover: #161618;
+  --popover-foreground: #ededef;
+  --primary: #ff7a33;
+  --primary-foreground: #1a0d05;
+  --secondary: #232326;
+  --secondary-foreground: #ededef;
+  --muted: #232326;
+  --muted-foreground: #a2a2a8;
+  --subtle-foreground: #85858d;
+  --accent: #232326;
+  --accent-foreground: #ededef;
+  --destructive: #f0566a;
+  --border: #2a2a2e;
+  --input: #38383d;
+  --ring: #ff7a33;
+  --pass: #51cf66;
+  --fail: #f0566a;
+  --fail-foreground: #ffffff;
+  --ember: #ff7a33;
+  --ember-soft: #3a1e0e;
+  --band: #1c1c1f;
+  --band-foreground: #ededef;
+  --terminal: #0b0b0c;
+  --terminal-foreground: #e6e6e9;
+  --code-string: #f0a36b;
+  --editor: #111113;
+  --editor-chrome: #1b1b1e;
+  --editor-gutter: #151517;
+  --editor-line: #201914;
+  --chart-1: #ff7a33;
+  --chart-2: #51cf66;
+  --chart-3: #b08bc0;
+  --chart-4: #7b93d6;
+  --chart-5: #a2a2a8;
+  --sidebar: #161618;
+  --sidebar-foreground: #ededef;
+  --sidebar-primary: #ff7a33;
+  --sidebar-primary-foreground: #1a0d05;
+  --sidebar-accent: #232326;
+  --sidebar-accent-foreground: #ededef;
+  --sidebar-border: #2a2a2e;
+  --sidebar-ring: #ff7a33;
+}
+
+/* 모드와 상관없는 색: 템퍼링 색(진행선·구분선, 위는 뜨겁고 아래로 갈수록 식음), 불티 그라데이션(로고·불티) */
+@theme {
+  --color-temper-1: #f6ebb8;
+  --color-temper-2: #e8c46a;
+  --color-temper-3: #b5803a;
+  --color-temper-4: #7a4a8c;
+  --color-temper-5: #3b4f9a;
+  --color-temper-6: #6e9bc7;
+  --color-temper-7: #8e949c;
+  --color-spark-1: #ffe29a;
+  --color-spark-2: #ff8a3d;
+  --color-spark-3: #d9480f;
 }
 
 @layer base {

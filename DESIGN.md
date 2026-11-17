@@ -1,0 +1,259 @@
+---
+name: Hackforge
+description: 웹 취약점을 직접 공격하고, 고쳐서, 막혔는지 검증하는 실습 플랫폼
+colors:
+  graphite-canvas: "#F5F5F4"
+  graphite-surface: "#FFFFFF"
+  graphite-fill: "#EBEAE8"
+  graphite-line: "#E4E3E0"
+  graphite-line-strong: "#D3D1CD"
+  graphite-ink: "#17171A"
+  graphite-ink-2: "#5C5B60"
+  graphite-ink-3: "#7E7E85"
+  ember: "#E8590C"
+  ember-on: "#FFFFFF"
+  ember-soft: "#FDEBDD"
+  pass: "#2B8A3E"
+  fail: "#C92A2A"
+  terminal: "#141416"
+  terminal-ink: "#E6E6E9"
+  dark-canvas: "#0F0F10"
+  dark-surface: "#161618"
+  dark-fill: "#232326"
+  dark-line: "#2A2A2E"
+  dark-line-strong: "#38383D"
+  dark-ink: "#EDEDEF"
+  dark-ink-2: "#A2A2A8"
+  dark-ink-3: "#85858D"
+  dark-ember: "#FF7A33"
+  dark-ember-on: "#1A0D05"
+  dark-pass: "#51CF66"
+  dark-fail: "#F0566A"
+  temper-straw: "#F6EBB8"
+  temper-blue: "#3B4F9A"
+  temper-gray: "#8E949C"
+  spark-1: "#FFE29A"
+  spark-2: "#FF8A3D"
+  spark-3: "#D9480F"
+typography:
+  display:
+    fontFamily: "Geist, Pretendard Variable, sans-serif"
+    fontSize: "96px"
+    fontWeight: 600
+    lineHeight: 1.02
+    letterSpacing: "-0.055em"
+  headline:
+    fontFamily: "Pretendard Variable, sans-serif"
+    fontSize: "38px"
+    fontWeight: 700
+    lineHeight: 1.25
+    letterSpacing: "-0.035em"
+  title:
+    fontFamily: "Pretendard Variable, sans-serif"
+    fontSize: "17px"
+    fontWeight: 600
+    lineHeight: 1.4
+  body:
+    fontFamily: "Pretendard Variable, sans-serif"
+    fontSize: "14px"
+    fontWeight: 400
+    lineHeight: 1.6
+  label:
+    fontFamily: "Pretendard Variable, sans-serif"
+    fontSize: "12.5px"
+    fontWeight: 500
+    lineHeight: 1.4
+  code:
+    fontFamily: "JetBrains Mono, monospace"
+    fontSize: "13px"
+    fontWeight: 400
+    lineHeight: 1.7
+rounded:
+  sm: "6px"
+  md: "8px"
+  lg: "10px"
+  xl: "14px"
+  2xl: "18px"
+spacing:
+  xs: "4px"
+  sm: "8px"
+  md: "12px"
+  lg: "20px"
+  xl: "32px"
+components:
+  button-primary:
+    backgroundColor: "{colors.ember}"
+    textColor: "{colors.ember-on}"
+    rounded: "{rounded.md}"
+    height: "34px"
+  button-outline:
+    backgroundColor: "{colors.graphite-surface}"
+    textColor: "{colors.graphite-ink}"
+    rounded: "{rounded.md}"
+    height: "34px"
+  badge-pass:
+    textColor: "{colors.pass}"
+    rounded: "{rounded.sm}"
+  badge-fail:
+    backgroundColor: "{colors.fail}"
+    textColor: "{colors.ember-on}"
+    rounded: "{rounded.sm}"
+  panel:
+    backgroundColor: "{colors.graphite-surface}"
+    rounded: "{rounded.xl}"
+---
+
+# Design System: Hackforge
+
+결정 기록은 hackforge-docs [ADR 016](../hackforge-docs/decisions/016-fe-디자인-방향.md), 제품 맥락은 [PRODUCT.md](PRODUCT.md)에 있다. 정식 색 값은 `src/index.css` 토큰이고, 이 문서의 값과 같아야 한다. 확정 화면 캡처는 `design/screens/`에 있다.
+
+## Overview
+
+**Creative North Star: "흑연과 불씨"**
+
+차가운 작업대(흑연) 위에 막 달군 쇠(불씨) 하나가 놓인 장면이다. 화면 대부분은 따뜻한 흑연 회색과 흰 면으로 조용하게 두고, 주황 불씨는 지금 눌러야 할 것과 지금 일어나는 일에만 쓴다. 마감 수준은 Linear, Vercel, Raycast 같은 고급 개발 도구를 기준으로 한다.
+
+실습 화면과 메인은 작업 공간이다. 장식보다 집중이 우선이고, 대장간 비유는 로고, 진행 표시, 통과 각인 같은 디테일에만 둔다. 소개 화면만 예외로, 처음 오는 사람에게 "달구고, 두드리고, 식힌다"는 컨셉을 크게 보여 준다.
+
+피할 것: 해커 영화 같은 과장(형광 초록, 매트릭스 글자 비), 어린이 교육용 느낌(귀여운 마스코트, 게임화 배지), 평범한 무채색 관리자 화면.
+
+**Key Characteristics:**
+- 흑연 회색 바탕, 흰 면, 주황 불씨 하나
+- 라이트·다크 두 테마, 둘 다 같은 브랜드 색. 처음에는 운영체제 설정을 따름
+- 판정은 색과 글자로 함께: PASS는 초록 테두리, FAIL은 빨강 채움
+- 작업 화면은 조용하게, 소개 화면은 대장간 컨셉을 크게
+
+## Colors
+
+따뜻한 흑연 회색에 불씨 주황 하나를 둔 팔레트다. 같은 이름의 토큰에 라이트·다크 값이 하나씩 있다.
+
+### Primary
+- **불씨** (라이트 `#E8590C`, 다크 `#FF7A33`): 주 버튼, 로고의 불티, 현재 단계, 편집 커서, 수정한 줄 표시, 진행 막대, 입력 칸 포커스. 토큰 `primary`, `ember`, `ring`.
+- **불씨 위 글자** (라이트 `#FFFFFF`, 다크 `#1A0D05`): 주 버튼 글자. 토큰 `primary-foreground`.
+
+### Status
+- **PASS** (라이트 `#2B8A3E`, 다크 `#51CF66`): 통과, 막힘, 정상. 토큰 `pass`.
+- **FAIL** (라이트 `#C92A2A`, 다크 `#F0566A`): 실패, 아직 통함. 다크 FAIL은 불씨 주황과 헷갈리지 않게 붉은 분홍이다. 토큰 `fail`, 위 글자 `fail-foreground`.
+
+### Neutral
+- **바탕** (라이트 `#F5F5F4`, 다크 `#0F0F10`): 화면 바탕. 토큰 `background`.
+- **면** (라이트 `#FFFFFF`, 다크 `#161618`): 패널, 카드, 상단 줄. 토큰 `card`, `popover`.
+- **채움** (라이트 `#EBEAE8`, 다크 `#232326`): 선택, 마우스 올림, 칩. 토큰 `secondary`, `muted`, `accent`.
+- **선** (라이트 `#E4E3E0`·`#D3D1CD`, 다크 `#2A2A2E`·`#38383D`): 구분선과 입력 칸 테두리. 토큰 `border`, `input`.
+- **글자** 세 단계: 본문(`foreground`), 보조(`muted-foreground`), 흐린 글자(`subtle-foreground`, 시각·줄 번호 같은 덜 중요한 정보).
+- **띠** (라이트 `#17171A`, 다크 `#1C1C1F`): 진행 중인 실습, 소개 화면 문제 구간처럼 어둡게 강조하는 띠. 토큰 `band`, `band-foreground`.
+
+### 작업 화면 전용
+- **터미널** (`#141416` / `#0B0B0C`): 터미널과 빌드 로그는 두 모드 모두 어둡다. 토큰 `terminal`, `terminal-foreground`.
+- **편집기**: 틀(탐색기·탭 줄·상태 줄 `editor-chrome`)과 편집기 면(`editor`), 줄 번호 칸(`editor-gutter`), 현재 줄(`editor-line`)을 색으로 나눈다. 문자열은 `code-string`.
+
+### 모드와 상관없는 색
+- **템퍼링 색** (`temper-1` 밀짚 `#F6EBB8` → `temper-3` 갈색 → `temper-4` 보라 → `temper-5` 파랑 → `temper-7` 회색 `#8E949C`): 강철을 달굴 때 실제로 생기는 색 순서. 소개 화면의 진행선과 구간 구분선에만 쓰고, 위는 뜨겁고 아래로 갈수록 식은 색이 된다.
+- **불티 그라데이션** (`spark-1` `#FFE29A` → `spark-2` `#FF8A3D` → `spark-3` `#D9480F`): 로고의 불티와 불티 효과.
+
+### Named Rules
+**The One Ember Rule.** 한 화면에서 불씨 주황이 눈에 띄는 곳은 주 버튼 하나와 지금 진행 중인 것뿐이다. 장식에 주황을 쓰지 않는다.
+
+**The Target Is Not Ours Rule.** 공격 대상 화면 안의 웹 페이지는 문제가 만든 서비스라 우리 테마를 따르지 않는다. 다크 모드에서도 그대로 보여 준다.
+
+## Typography
+
+**본문 글꼴:** Pretendard Variable (시스템 글꼴로 대체)
+**소개 화면 영어 헤드라인:** Geist (글꼴 파일은 소개 화면을 만들 때 추가하고, 그 전에는 Pretendard로 대체. 토큰 `font-display`)
+**코드:** JetBrains Mono
+
+**Character:** 한글 본문은 Pretendard로 단정하게, 영어 헤드라인은 Geist로 단단하게 쓴다. 글자 간격은 큰 글씨일수록 좁힌다.
+
+### Hierarchy
+- **Display** (Geist 600, 96px → 태블릿 72px → 휴대폰 52px, 1.02): 소개 화면 헤드라인 "Strike hot / Fix cold"에만 쓴다.
+- **Headline** (700, 38px, 1.25): 소개 화면 구간 제목, 메인 페이지 제목(24px 600).
+- **Title** (600, 15~17px): 카드와 패널 제목.
+- **Body** (400, 14~15px, 1.6): 본문. 설명 문단은 560~640px 폭을 넘기지 않는다.
+- **Label** (500, 12~12.5px): 상태 막대, 칩, 표 머리글.
+- **Code** (JetBrains Mono 13px, 1.7): 편집기, 터미널, 주소창.
+
+## Layout
+
+### 실습 화면 (큰 화면 기준, 최소 폭 1280px)
+- 상단 줄 48px: 로고, 메뉴(문제·내 기록), 문제 이름, 단계 표시(공격 → 방어 → 방어 검증), 재배포·초기화·주 버튼(공격 검증 요청 또는 방어 검증 요청)·실습 종료
+- 왼쪽 레일 72px: 문제, 공격 대상, 코드, 터미널, 힌트, 기록. 하나를 고르면 오른쪽 전체가 그 화면이 된다(한 번에 한 화면). 공격 단계에서 코드는 잠긴다
+- 하단 상태 막대 30px: 단계, 마지막 검증, 자동 종료까지 남은 시간, 사용자
+- 작업 영역은 바탕 위에 12px 여백을 두고 모서리 둥근 면(패널)으로 띄운다
+
+### 메인 (로그인 후, 큰 화면 기준)
+- 문제가 수백 개로 늘어나는 것을 기준으로 한다
+- 홈에는 지금 할 것만: 진행 중인 실습 띠, 끝내지 못한 문제, 새로 추가된 문제, 분류별 진행, 최근 기록
+- 전체 문제는 문제 목록에서: 왼쪽 필터(분류·난이도·내 상태, 개수 표시), 검색, 정렬, 페이지, 목록 형태
+- 본문 최대 폭 1240px
+
+### 소개 화면 (로그인 전, 반응형)
+- 구간 순서: 첫 화면, 미리 보기, 실습 방식, 검증, 실습 환경, 문제, 마무리, 쇳물 글자, 맨 아래 줄
+- 본문 최대 폭 1160px(안쪽 1096px). 구간 사이 110px, 태블릿 84px, 휴대폰 64px. 구간 구분선은 앞뒤 구간과 같은 간격 가운데에 둔다
+- 1024px 이하: 상단 메뉴를 숨기고 여러 열을 세로로 쌓는다. 640px 이하: 버튼을 폭 가득, 양옆 여백 16px
+
+## Elevation & Depth
+
+그림자보다 면의 밝기 차이로 층을 나눈다. 바탕 → 면 → 채움 순서로 한 단계씩 밝아지거나(라이트) 어두워진다(다크). 그림자는 떠 있는 것에만 쓴다.
+
+- **떠 있는 창** (`0 24px 60px -20px rgba(0,0,0,.45)`): 확인 창, 상세 서랍
+- **알림·빌드 진행** (`0 14px 34px -14px rgba(0,0,0,.25)`): 화면 위에 잠깐 뜨는 것
+- **소개 화면 제품 화면** (`0 40px 80px -40px rgba(0,0,0,.35)` + 8px 바탕색 테두리)
+
+## Shapes
+
+- 모서리: 칩·배지 6px, 버튼·입력 칸 8~10px, 카드·패널 12~14px, 소개 화면 큰 면 16~18px
+- 선은 1px. 강조 테두리(선택된 카드, 포커스)는 2px 또는 3px 바깥 고리
+- 아이콘은 lucide, 선 굵기 1.75~2
+
+## Components
+
+### 로고
+모루와 불티(`src/components/logo.tsx`). 모루는 글자색, 불티 하나만 불티 그라데이션이다. 상단 줄 24~26px, 맨 아래 줄 18px.
+
+### 버튼
+- 주 버튼: 불씨 채움. 한 화면에 하나가 원칙
+- 보조 버튼: 면 색 + 선
+- 위험한 동작(실습 종료, 초기화)은 확인 창을 거친다
+- 방어 검증 요청에는 단축키를 두지 않는다(공격 검증만 `Ctrl+Enter`)
+
+### 판정
+- PASS 배지: 초록 테두리와 글자. FAIL 배지: 빨강 채움과 흰 글자
+- 판정 카드는 항목마다 판정 근거를 한 줄로(기존 공격 n/m 막힘, 정상 기능 n/m)
+- 통과 각인: 고리 글자 Cinzel "HACKFORGE ✦ DEFENSE VERIFIED ✦ MMXXVI ✦", 가운데 블랙레터 "Tempered", 아래 "PASSED". 영어만 쓰고 선은 얇게
+
+### 코드 편집기
+탐색기, 편집기 탭, 경로, 미니맵, 줄 번호, 수정한 줄 표시(불씨), 상태 줄. 읽기 전용 파일(`Dockerfile`, `Dockerfile.base`, `compose.yaml`, `init.sql`)에는 "읽기 전용" 표시. 편집 내용은 자동 저장한다.
+
+### 소개 화면 효과
+처음 한 번 재생되거나 스크롤에 맞춰 움직인다. 계속 반복하는 것은 미리 보기와 판정 카드뿐이다.
+
+| 구간 | 효과 |
+|---|---|
+| 첫 화면 | 망치 3박자로 첫 줄이 내려앉고 hot이 체리빛 → 주황 → 흰빛으로 달아오름. 스크롤하면 달군 쇠 색 순서로 식음. "Fix cold"는 강철빛에 광택이 한 번 지나감. 뒤로 불티가 떠오름 |
+| 미리 보기 | 공격 → 코드 수정 → 재배포 → 같은 공격이 막힘을 반복. 공격이 통하면 카드 테두리가 붉게 달아올랐다 식음 |
+| 실습 방식 | 화면 고정, 단계 선이 달궈지며 채워지고 단계 번호가 각인처럼 찍힘. 다시 들어오면 다시 보임 |
+| 검증 | 판정 카드가 한 줄씩 채워져 FAIL, 다시 검증해 PASS와 통과 각인 |
+| 실습 환경 | 그림 카드가 차례로 떠오르고 숫자가 올라감 |
+| 문제 | 분류 타일이 숯불처럼 한 번 달아올랐다 식음 |
+| 마무리 | 가입 신청 버튼 테두리를 따라 불씨가 돎. 아래 HACKFORGE 글자에 꾸덕한 쇳물이 약 2초에 꿀렁이며 차오름 |
+| 전체 | 템퍼링 색 진행선과 구간 구분선. 다크 모드 배경 양옆에 옅은 연기 결. 주 버튼을 누르면 작은 불티, 얇은 충격파, 버튼이 달았다 식음, 살짝 흔들림 |
+
+## Do's and Don'ts
+
+### Do
+- 색과 글꼴은 `src/index.css` 토큰으로만 쓴다(`bg-primary`, `text-pass`, `bg-editor-chrome` 등)
+- 라이트·다크 두 모드에서 모두 확인한다
+- 운영체제의 동작 줄이기 설정을 켜면 효과를 모두 끄고 내용만 보여 준다
+- 상태(준비 중, 실패, 곧 종료, 검증 중)를 숨기지 않고 항상 화면에 보여 준다
+- 화면 문구는 한국어 존댓말로 쓴다
+
+### Don't
+- 소개 화면이나 시연에 실제 문제의 공격 문자열이나 해답을 쓰지 않는다. 공격 입력은 가린 글자로 보여 준다
+- 소리를 쓰지 않는다
+- 작업 화면(실습, 메인)에 소개 화면 같은 큰 효과를 가져오지 않는다
+- 깨지는 파편, 화면 전체 불티, 큰 번쩍임처럼 과한 효과를 쓰지 않는다
+- 형광 초록, 매트릭스 글자, 마스코트, 게임화 배지를 쓰지 않는다
+- 컴포넌트에 색 값을 직접 쓰지 않는다
+
+### 알려진 한계
+- 라이트 모드 주 버튼(`#E8590C` 위 흰 글자) 대비는 3.6:1로 본문 글자 기준(4.5:1)보다 낮다. 원래 색을 유지하기로 했고 접근성 점검 때 다시 본다(ADR 016)

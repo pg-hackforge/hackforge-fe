@@ -5,6 +5,7 @@ Hackforge 프론트엔드. React + Vite SPA, TypeScript(strict), Tailwind CSS v4
 ## 먼저 읽을 것
 
 - 무엇을 왜 만드는지: `../hackforge-docs/product.md`, 결정은 `../hackforge-docs/decisions/`
+- 디자인: `DESIGN.md`(색·글꼴·배치·효과 규칙, 확정 화면 캡처는 `design/screens/`), 제품 맥락: `PRODUCT.md`. 결정은 `../hackforge-docs/decisions/016-fe-디자인-방향.md`
 - 작업 중인 기능: `../hackforge-docs/specs/<기능>/tasks.md`
 - API spec: `../hackforge-be/openapi.yaml`. 타입과 API client는 이 파일로 codegen하고 손으로 쓰지 않는다. API를 바꿔야 하면 백엔드 spec PR이 먼저다.
 
