@@ -24,7 +24,9 @@ npm run dev          # http://localhost:5173
 | `npm run format` / `format:check` | Prettier로 정리 / 확인 |
 | `npm test` / `test:watch` | Vitest |
 
-CI(`.github/workflows/ci.yml`)는 PR과 `main` push마다 배포 의존성 audit(`npm audit --omit=dev`), 타입 검사, lint, 포맷 확인, 테스트, 빌드를 한다.
+CI(`.github/workflows/ci.yml`)는 PR과 `main` push마다 배포 의존성 audit(`npm run audit:check`), 타입 검사, lint, 포맷 확인, 테스트, 빌드를 한다.
+
+audit은 배포 의존성에 높은 위험 이상 취약점이 있으면 실패한다. 패치가 없고 실제로 위험하지 않은 취약점만 `audit-allowlist.json`에 넣어 통과시키고, 항목마다 사유(`reason`)와 재검토 날짜(`until`)를 적는다. 날짜가 지나면 CI가 다시 실패하니, 그때 패치 여부를 확인해 의존성을 올리거나 날짜를 갱신한다.
 
 ## 구조
 

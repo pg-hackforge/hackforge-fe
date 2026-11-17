@@ -2,16 +2,19 @@ export type Theme = 'light' | 'dark' | 'system'
 
 export const THEME_STORAGE_KEY = 'hackforge-theme'
 
+/** 처음 접속하면 다크(hackforge-docs ADR 017). 시스템 설정 따라가기는 사용자가 고를 수 있다 */
+export const DEFAULT_THEME: Theme = 'dark'
+
 const isTheme = (value: unknown): value is Theme =>
   value === 'light' || value === 'dark' || value === 'system'
 
-/** 저장된 선택. 없거나 읽을 수 없으면 system */
+/** 저장된 선택. 없거나 읽을 수 없으면 기본 테마 */
 export function loadTheme(storage: Pick<Storage, 'getItem'> | undefined): Theme {
   try {
     const saved = storage?.getItem(THEME_STORAGE_KEY)
-    return isTheme(saved) ? saved : 'system'
+    return isTheme(saved) ? saved : DEFAULT_THEME
   } catch {
-    return 'system'
+    return DEFAULT_THEME
   }
 }
 
