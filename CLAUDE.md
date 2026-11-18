@@ -13,6 +13,7 @@ Hackforge 프론트엔드. React + Vite SPA, TypeScript(strict), Tailwind CSS v4
 ## 명령
 
 - `npm run dev`: 개발 서버(`/api`는 개발 백엔드 `127.0.0.1:8080`으로 proxy)
+- `npm run dev:mock`: 백엔드 없이 MSW 가짜 응답으로 띄움. 오른쪽 아래 패널에서 계정·실습 시나리오를 바꾼다. 새 API를 화면에서 쓰면 `src/mocks/handlers.ts`에 생성 타입으로 응답을 추가하고, 화면 상태별 확인과 PR 스크린샷은 이 모드로 한다
 - `npm run api:sync`: 백엔드 `openapi.yaml`을 복사하고 생성물을 다시 만든다. 복사본과 생성물을 함께 커밋
 - `npm run typecheck`, `npm run lint`, `npm run format:check`, `npm test`, `npm run build`: CI와 같은 확인. PR 전에 모두 통과해야 한다
 - `npm run format`: Prettier로 정리(Tailwind class 순서 포함)

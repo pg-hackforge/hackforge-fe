@@ -13,9 +13,15 @@ function SessionStatus() {
     return <p className="text-subtle-foreground">개발 백엔드를 확인하고 있습니다…</p>
   if (me.isError)
     return (
-      <p className="text-fail">
-        백엔드에 연결할 수 없습니다. 개발 백엔드(127.0.0.1:8080)가 켜져 있는지 확인해 주세요.
-      </p>
+      <div className="space-y-1">
+        <p className="text-fail">
+          백엔드에 연결할 수 없습니다. 개발 백엔드(127.0.0.1:8080)가 켜져 있는지 확인해 주세요.
+        </p>
+        <p className="text-muted-foreground">
+          백엔드 없이 화면만 보려면 <code className="font-mono">npm run dev:mock</code>으로
+          실행하세요.
+        </p>
+      </div>
     )
   if (me.data === null) return <p className="text-muted-foreground">로그인하지 않은 상태입니다.</p>
   return (
