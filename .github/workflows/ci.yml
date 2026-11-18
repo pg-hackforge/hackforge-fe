@@ -17,6 +17,9 @@ jobs:
       - run: npm ci
       # 배포물에 들어가는 의존성(dependencies)에 높은 위험 이상 취약점이 있으면 실패. 예외는 audit-allowlist.json(사유·재검토 날짜)
       - run: npm run audit:check
+      # openapi.yaml 복사본으로 다시 생성했을 때 커밋된 생성물과 같아야 함(api:sync 뒤 생성물 커밋을 빠뜨리면 실패)
+      - run: npm run api:gen
+      - run: git diff --exit-code -- src/api/generated
       - run: npm run typecheck
       - run: npm run lint
       - run: npm run format:check
