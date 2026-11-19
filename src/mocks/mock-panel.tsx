@@ -3,7 +3,7 @@ import { useReducer } from 'react'
 
 import { useMe } from '@/api/me'
 
-import { LOCKED_EMAIL } from './handlers'
+import { LOCKED_EMAIL, LOCKING_PASSWORD, WRONG_PASSWORD } from './handlers'
 import { ACCOUNTS, LABS, loadScenario, saveScenario, type Scenario } from './scenario'
 
 /** mock 모드에서만 화면 오른쪽 아래에 뜨는 시나리오 전환 패널. 바꾸면 모든 API 조회를 다시 한다 */
@@ -43,6 +43,9 @@ export function MockPanel() {
         <p className="text-xs leading-relaxed wrap-anywhere text-muted-foreground">
           로그인 이메일은 forge_kim(학습자), newbie(승인 대기), denied(거절), admin(관리자) 뒤에
           @example.com, 비밀번호는 아무거나. {LOCKED_EMAIL}은 잠김
+        </p>
+        <p className="text-xs leading-relaxed wrap-anywhere text-muted-foreground">
+          내 정보의 비밀번호 변경: 현재 비밀번호 {WRONG_PASSWORD}는 틀림, {LOCKING_PASSWORD}는 잠김
         </p>
       </div>
     </details>

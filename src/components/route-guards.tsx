@@ -11,11 +11,14 @@ export function RequireLogin() {
   return <Outlet />
 }
 
-/** 로그인 전 화면(로그인, 회원가입). 로그인한 상태면 원래 가려던 화면으로, 없으면 홈으로 보낸다 */
+/**
+ * 로그인 전 화면(로그인, 회원가입). 로그인한 상태면 원래 가려던 화면으로, 없으면 홈으로 보낸다.
+ * 잠겨서 로그아웃시키며 온 경우(state.locked)는 내 계정을 지우기 직전이라 보내지 않는다
+ */
 export function RequireLoggedOut() {
   const me = useMe()
-  const from = (useLocation().state as { from?: string } | null)?.from
-  if (me.data) return <Navigate to={from ?? '/'} replace />
+  const state = useLocation().state as { from?: string; locked?: boolean } | null
+  if (me.data && !state?.locked) return <Navigate to={state?.from ?? '/'} replace />
   return <Outlet />
 }
 

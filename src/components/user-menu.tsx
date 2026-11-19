@@ -1,11 +1,11 @@
 import { Menu as MenuPrimitive } from '@base-ui/react/menu'
-import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { useMutation } from '@tanstack/react-query'
 import { LogOutIcon, MonitorIcon, MoonIcon, SunIcon, UserIcon } from 'lucide-react'
-import { Link, useNavigate } from 'react-router'
+import { Link } from 'react-router'
 
 import { logoutMutation } from '@/api/generated/@tanstack/react-query.gen'
 import type { UserResponse } from '@/api/generated/types.gen'
-import { meQueryKey } from '@/api/me'
+import { useEndSession } from '@/api/me'
 import { useTheme } from '@/components/theme-provider'
 import {
   DropdownMenu,
@@ -15,14 +15,9 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
+import { ROLE_LABEL } from '@/lib/account'
 import type { Theme } from '@/lib/theme'
 import { cn } from '@/lib/utils'
-
-const ROLE_LABEL: Record<UserResponse['role'], string> = {
-  LEARNER: '학습자',
-  AUTHOR: '출제자',
-  ADMIN: '관리자',
-}
 
 const THEMES: { value: Theme; label: string; icon: typeof SunIcon }[] = [
   { value: 'light', label: '라이트', icon: SunIcon },
@@ -47,20 +42,9 @@ function Avatar({ nickname, className }: { nickname: string; className?: string 
 
 /** 상단 줄 오른쪽 사용자 메뉴. 버튼은 첫 글자 원 하나, 계정 정보는 메뉴 머리에 둔다(2026-11-19 사람이 결정) */
 export function UserMenu({ me }: { me: UserResponse }) {
-  const queryClient = useQueryClient()
-  const navigate = useNavigate()
   const { theme, setTheme } = useTheme()
-  const logout = useMutation({
-    ...logoutMutation(),
-    onSuccess: async () => {
-      // 첫 화면으로 옮기는 것을 바로 그린 뒤 계정을 지운다. 이동은 기본으로 transition이라 늦게 그려져서,
-      // 계정을 지우는 갱신이 먼저 그려지면 로그인 필요 화면이 로그인 화면으로 보낸다
-      await navigate('/', { flushSync: true })
-      queryClient.setQueryData(meQueryKey, null)
-      // 다른 사람 데이터가 남지 않게 내 계정 말고는 모두 지운다
-      queryClient.removeQueries({ predicate: (query) => query.queryKey[0] !== meQueryKey[0] })
-    },
-  })
+  const endSession = useEndSession()
+  const logout = useMutation({ ...logoutMutation(), onSuccess: () => endSession('/') })
 
   return (
     <DropdownMenu>

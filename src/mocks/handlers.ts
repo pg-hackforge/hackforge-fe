@@ -2,6 +2,7 @@ import { http, HttpResponse } from 'msw'
 
 import type {
   ChallengeResponse,
+  ChangePasswordRequest,
   LabSessionResponse,
   LoginRequest,
   Problem,
@@ -106,14 +107,23 @@ const accountByEmail = (email: string) =>
 /** 잠긴 계정으로 쓰는 이메일. 로그인하면 429 ACCOUNT_LOCKED */
 export const LOCKED_EMAIL = 'locked@example.com'
 
+/** 내 비밀번호 변경에서 현재 비밀번호로 쓰면 틀림, 잠김이 되는 값 */
+export const WRONG_PASSWORD = 'wrong'
+export const LOCKING_PASSWORD = 'locked'
+
+const PASSWORD_RULE = /^(?=.*[A-Za-z])(?=.*[0-9])(?=.*[^A-Za-z0-9])[!-~]{8,64}$/
+const PASSWORD_MESSAGE = '8~64자로 영문, 숫자, 특수문자를 하나 이상씩 넣어 주세요'
+
+const validationFailed = (errors: NonNullable<Problem['errors']>) =>
+  HttpResponse.json<Problem>(
+    { status: 400, code: 'VALIDATION_FAILED', title: '입력한 내용을 다시 확인해 주세요', errors },
+    { status: 400, headers: { 'Content-Type': 'application/problem+json' } },
+  )
+
 /** 백엔드 입력 규칙(SignupRequest)과 문구(ValidationMessages.properties) 중 화면 확인에 필요한 것만 */
 function signupFieldErrors({ password, nickname }: SignupRequest) {
-  const errors: Problem['errors'] = []
-  if (!/^(?=.*[A-Za-z])(?=.*[0-9])(?=.*[^A-Za-z0-9])[!-~]{8,64}$/.test(password))
-    errors.push({
-      field: 'password',
-      message: '8~64자로 영문, 숫자, 특수문자를 하나 이상씩 넣어 주세요',
-    })
+  const errors: NonNullable<Problem['errors']> = []
+  if (!PASSWORD_RULE.test(password)) errors.push({ field: 'password', message: PASSWORD_MESSAGE })
   if (!/^[가-힣A-Za-z0-9_]{2,20}$/.test(nickname))
     errors.push({ field: 'nickname', message: '2~20자의 한글, 영문, 숫자, _만 쓸 수 있어요' })
   return errors
@@ -145,16 +155,7 @@ export const handlers = [
   http.post('*/api/auth/signup', async ({ request }) => {
     const body = (await request.json()) as SignupRequest
     const errors = signupFieldErrors(body)
-    if (errors.length > 0)
-      return HttpResponse.json<Problem>(
-        {
-          status: 400,
-          code: 'VALIDATION_FAILED',
-          title: '입력한 내용을 다시 확인해 주세요',
-          errors,
-        },
-        { status: 400, headers: { 'Content-Type': 'application/problem+json' } },
-      )
+    if (errors.length > 0) return validationFailed(errors)
     if (accountByEmail(body.email) || body.email === LOCKED_EMAIL)
       return problem(409, 'EMAIL_TAKEN', '이미 가입된 이메일이에요')
     if (Object.values(USERS).some((u) => u.nickname === body.nickname))
@@ -171,6 +172,25 @@ export const handlers = [
   }),
   http.post('*/api/auth/logout', () => {
     saveScenario({ ...loadScenario(), account: 'logged-out' })
+    return new HttpResponse(null, { status: 204 })
+  }),
+
+  // 현재 비밀번호가 wrong이면 틀림, locked이면 이번 요청으로 잠겨 세션이 모두 지워짐(로그아웃 상태로)
+  http.put('*/api/me/password', async ({ request }) => {
+    if (!currentUser()) return unauthenticated()
+    const { currentPassword, newPassword } = (await request.json()) as ChangePasswordRequest
+    if (currentPassword === LOCKING_PASSWORD) {
+      saveScenario({ ...loadScenario(), account: 'logged-out' })
+      return problem(
+        429,
+        'ACCOUNT_LOCKED',
+        '비밀번호를 여러 번 잘못 입력해서 잠시 로그인할 수 없어요',
+      )
+    }
+    if (currentPassword === WRONG_PASSWORD)
+      return problem(400, 'CURRENT_PASSWORD_MISMATCH', '현재 비밀번호가 맞지 않아요')
+    if (!PASSWORD_RULE.test(newPassword))
+      return validationFailed([{ field: 'newPassword', message: PASSWORD_MESSAGE }])
     return new HttpResponse(null, { status: 204 })
   }),
 
