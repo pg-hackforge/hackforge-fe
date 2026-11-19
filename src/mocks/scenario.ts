@@ -1,6 +1,6 @@
 /** mock 모드의 가짜 응답 상태. 화면 구석 패널에서 고르고 localStorage에 저장한다 */
 export const ACCOUNTS = {
-  'logged-out': '로그인 안 됨',
+  'logged-out': '로그아웃 상태',
   pending: '승인 대기',
   rejected: '거절',
   learner: '학습자',

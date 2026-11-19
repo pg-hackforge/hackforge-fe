@@ -30,16 +30,16 @@ const homeButton = (
 
 export function NotFoundPage() {
   return (
-    <StatusPage mark="404" title="페이지를 찾을 수 없습니다" action={homeButton}>
-      주소가 바뀌었거나 없는 페이지입니다.
+    <StatusPage mark="404" title="페이지를 찾을 수 없어요" action={homeButton}>
+      주소가 잘못됐거나 사라진 페이지예요.
     </StatusPage>
   )
 }
 
 export function ForbiddenPage() {
   return (
-    <StatusPage mark="403" title="접근 권한이 없습니다" action={homeButton}>
-      이 화면은 관리자만 볼 수 있습니다.
+    <StatusPage mark="403" title="접근 권한이 없어요" action={homeButton}>
+      관리자만 볼 수 있는 화면이에요.
     </StatusPage>
   )
 }
@@ -48,15 +48,15 @@ export function BackendDownPage() {
   return (
     <StatusPage
       mark="연결 실패"
-      title="백엔드에 연결할 수 없습니다"
+      title="서버에 연결할 수 없어요"
       action={<Button onClick={() => window.location.reload()}>다시 시도</Button>}
     >
-      <p>서버가 꺼져 있거나 네트워크에 문제가 있습니다. 잠시 뒤 다시 시도해 주세요.</p>
+      <p>서버가 꺼져 있거나 네트워크에 문제가 있어요. 잠시 뒤 다시 시도해 주세요.</p>
       {import.meta.env.DEV && (
         <p className="mt-3 text-sm">
-          개발 중이면 개발 백엔드(127.0.0.1:8080)가 켜져 있는지 확인하거나,{' '}
+          개발 중이라면 개발 백엔드(127.0.0.1:8080)가 켜져 있는지 확인하거나,{' '}
           <code className="font-mono whitespace-nowrap">npm run dev:mock</code>으로 백엔드 없이
-          실행하세요.
+          실행해 보세요.
         </p>
       )}
     </StatusPage>

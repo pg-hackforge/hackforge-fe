@@ -45,10 +45,10 @@ function renderAt(path: string, account: Scenario['account']) {
 const nav = () => screen.findByRole('navigation', { name: '주 메뉴' })
 
 describe('로그인 안 됨', () => {
-  it('첫 화면에 로그인·가입 신청이 있고 주 메뉴는 없음', async () => {
+  it('첫 화면에 로그인·회원가입이 있고 주 메뉴는 없음', async () => {
     renderAt('/', 'logged-out')
     const topBar = within(await screen.findByRole('banner'))
-    expect(await topBar.findByRole('link', { name: '가입 신청' })).toBeInTheDocument()
+    expect(await topBar.findByRole('link', { name: '회원가입' })).toBeInTheDocument()
     expect(topBar.getByRole('link', { name: '로그인' })).toBeInTheDocument()
     expect(screen.queryByRole('navigation', { name: '주 메뉴' })).not.toBeInTheDocument()
   })
@@ -66,23 +66,23 @@ describe('로그인함', () => {
     expect(menu.getByRole('link', { name: '홈' })).toBeInTheDocument()
     expect(menu.getByRole('link', { name: '문제' })).toBeInTheDocument()
     expect(menu.getByRole('link', { name: '내 기록' })).toBeInTheDocument()
-    expect(menu.queryByRole('link', { name: '관리' })).not.toBeInTheDocument()
+    expect(menu.queryByRole('link', { name: '관리자' })).not.toBeInTheDocument()
   })
 
   it('학습자가 관리 경로로 오면 403 화면', async () => {
     renderAt('/admin', 'learner')
-    expect(await screen.findByRole('heading', { name: '접근 권한이 없습니다' })).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: '접근 권한이 없어요' })).toBeInTheDocument()
   })
 
   it('관리자는 관리 메뉴가 있고 관리 화면에 들어감', async () => {
     renderAt('/admin', 'admin')
-    expect(within(await nav()).getByRole('link', { name: '관리' })).toBeInTheDocument()
-    expect(await screen.findByRole('heading', { name: '관리' })).toBeInTheDocument()
+    expect(within(await nav()).getByRole('link', { name: '관리자' })).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: '회원 관리' })).toBeInTheDocument()
   })
 
   it.each([
-    ['pending', '승인 대기 중입니다'],
-    ['rejected', '가입이 거절되었습니다'],
+    ['pending', '가입 승인을 기다리고 있어요'],
+    ['rejected', '가입이 승인되지 않았어요'],
   ] as const)('%s 계정은 상단 줄 아래에 안내 띠', async (account, text) => {
     renderAt('/', account)
     expect(await screen.findByRole('status')).toHaveTextContent(text)
@@ -94,13 +94,13 @@ describe('로그인함', () => {
     expect(screen.queryByRole('status')).not.toBeInTheDocument()
   })
 
-  it('사용자 메뉴에 닉네임·역할·이메일이 있고, 내 계정으로 이동함', async () => {
+  it('사용자 메뉴에 닉네임·권한·이메일이 있고, 내 정보로 이동함', async () => {
     const router = renderAt('/', 'learner')
     await userEvent.click(await screen.findByRole('button', { name: /forge_kim/ }))
     const menu = within(await screen.findByRole('menu'))
     expect(menu.getByText('학습자')).toBeInTheDocument()
     expect(menu.getByText('forge_kim@example.com')).toBeInTheDocument()
-    await userEvent.click(menu.getByRole('menuitem', { name: '내 계정' }))
+    await userEvent.click(menu.getByRole('menuitem', { name: '내 정보' }))
     await waitFor(() => expect(router.state.location.pathname).toBe('/account'))
   })
 
@@ -116,7 +116,7 @@ describe('로그인함', () => {
     await userEvent.click(await screen.findByRole('button', { name: /forge_kim/ }))
     await userEvent.click(await screen.findByRole('menuitem', { name: '로그아웃' }))
     expect(
-      await within(screen.getByRole('banner')).findByRole('link', { name: '가입 신청' }),
+      await within(screen.getByRole('banner')).findByRole('link', { name: '회원가입' }),
     ).toBeInTheDocument()
     expect(router.state.location.pathname).toBe('/')
   })
@@ -126,7 +126,7 @@ describe('그 밖의 화면', () => {
   it('없는 주소는 404 화면', async () => {
     renderAt('/no-such-page', 'learner')
     expect(
-      await screen.findByRole('heading', { name: '페이지를 찾을 수 없습니다' }),
+      await screen.findByRole('heading', { name: '페이지를 찾을 수 없어요' }),
     ).toBeInTheDocument()
   })
 
@@ -134,7 +134,7 @@ describe('그 밖의 화면', () => {
     server.use(http.get('*/api/me', () => HttpResponse.error()))
     renderAt('/', 'learner')
     expect(
-      await screen.findByRole('heading', { name: '백엔드에 연결할 수 없습니다' }),
+      await screen.findByRole('heading', { name: '서버에 연결할 수 없어요' }),
     ).toBeInTheDocument()
   })
 })

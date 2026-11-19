@@ -36,13 +36,13 @@ const isProblem = (value: unknown): value is Problem =>
 export function toApiError(status: number, body: unknown): ApiError {
   if (body instanceof ApiError) return body
   if (status === 0) {
-    return new ApiError({ status: 0, code: 'NETWORK_ERROR', title: '서버에 연결할 수 없습니다' })
+    return new ApiError({ status: 0, code: 'NETWORK_ERROR', title: '서버에 연결할 수 없어요' })
   }
   if (!isProblem(body)) {
     return new ApiError({
       status,
       code: 'INTERNAL_ERROR',
-      title: `요청이 실패했습니다(HTTP ${status})`,
+      title: `요청을 처리하지 못했어요(HTTP ${status})`,
     })
   }
   const fieldErrors: Record<string, string> = {}

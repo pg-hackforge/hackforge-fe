@@ -14,7 +14,7 @@ import type { Theme } from '@/lib/theme'
 const options: { value: Theme; label: string; icon: typeof SunIcon }[] = [
   { value: 'light', label: '라이트', icon: SunIcon },
   { value: 'dark', label: '다크', icon: MoonIcon },
-  { value: 'system', label: '시스템 설정', icon: MonitorIcon },
+  { value: 'system', label: '시스템 기본값', icon: MonitorIcon },
 ]
 
 function ThemeRadioItems() {
