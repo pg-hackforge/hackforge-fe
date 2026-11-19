@@ -1,7 +1,9 @@
 import { QueryClientProvider } from '@tanstack/react-query'
 import { StrictMode, type ReactNode } from 'react'
 import { createRoot } from 'react-dom/client'
-import { createBrowserRouter, RouterProvider } from 'react-router'
+import { createBrowserRouter } from 'react-router'
+// react-router/dom의 RouterProvider는 navigate(..., { flushSync: true })를 지원한다
+import { RouterProvider } from 'react-router/dom'
 
 import { queryClient } from '@/api/query'
 import { ThemeProvider } from '@/components/theme-provider'
