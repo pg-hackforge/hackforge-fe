@@ -1,15 +1,14 @@
 import type { RouteObject } from 'react-router'
 
 import { AppLayout } from '@/components/app-layout'
-import { RequireAdmin, RequireLogin } from '@/components/route-guards'
+import { RequireAdmin, RequireLoggedOut, RequireLogin } from '@/components/route-guards'
+import { LoginPage, SignupPage } from '@/pages/auth-pages'
 import {
   AccountPage,
   AdminPage,
   IndexPage,
-  LoginPage,
   ProblemsPage,
   RecordsPage,
-  SignupPage,
 } from '@/pages/placeholder-pages'
 import { NotFoundPage } from '@/pages/status-pages'
 
@@ -18,8 +17,13 @@ export const routes: RouteObject[] = [
     element: <AppLayout />,
     children: [
       { index: true, element: <IndexPage /> },
-      { path: 'login', element: <LoginPage /> },
-      { path: 'signup', element: <SignupPage /> },
+      {
+        element: <RequireLoggedOut />,
+        children: [
+          { path: 'login', element: <LoginPage /> },
+          { path: 'signup', element: <SignupPage /> },
+        ],
+      },
       {
         element: <RequireLogin />,
         children: [

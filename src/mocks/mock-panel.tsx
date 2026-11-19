@@ -1,16 +1,21 @@
 import { useQueryClient } from '@tanstack/react-query'
-import { useState } from 'react'
+import { useReducer } from 'react'
 
+import { useMe } from '@/api/me'
+
+import { LOCKED_EMAIL } from './handlers'
 import { ACCOUNTS, LABS, loadScenario, saveScenario, type Scenario } from './scenario'
 
 /** mock 모드에서만 화면 오른쪽 아래에 뜨는 시나리오 전환 패널. 바꾸면 모든 API 조회를 다시 한다 */
 export function MockPanel() {
   const queryClient = useQueryClient()
-  const [scenario, setScenario] = useState(loadScenario)
+  const [, rerender] = useReducer((n: number) => n + 1, 0)
+  useMe() // 화면에서 로그인·로그아웃해도 시나리오가 바뀌므로, 내 계정이 바뀔 때마다 다시 읽는다
+  const scenario = loadScenario()
 
   const change = (next: Scenario) => {
     saveScenario(next)
-    setScenario(next)
+    rerender()
     void queryClient.resetQueries()
   }
 
@@ -35,6 +40,10 @@ export function MockPanel() {
           options={LABS}
           onChange={(lab) => change({ ...scenario, lab })}
         />
+        <p className="text-xs leading-relaxed wrap-anywhere text-muted-foreground">
+          로그인 이메일은 forge_kim(학습자), newbie(승인 대기), denied(거절), admin(관리자) 뒤에
+          @example.com, 비밀번호는 아무거나. {LOCKED_EMAIL}은 잠김
+        </p>
       </div>
     </details>
   )

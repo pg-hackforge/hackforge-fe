@@ -41,9 +41,9 @@ describe('계정 시나리오', () => {
     expect(await fetchMe(client)).toMatchObject({ role, status })
   })
 
-  it('로그인하면 학습자로, 로그아웃하면 로그인 안 됨으로 바뀜', async () => {
+  it('시나리오 계정의 이메일로 로그인하면 그 계정으로, 로그아웃하면 로그아웃 상태로 바뀜', async () => {
     const client = setup({ account: 'logged-out', lab: 'none' })
-    await login({ client, body: { email: 'a@example.com', password: 'Passw0rd!' } })
+    await login({ client, body: { email: 'forge_kim@example.com', password: 'Passw0rd!' } })
     expect(loadScenario().account).toBe('learner')
     await logout({ client })
     expect(loadScenario().account).toBe('logged-out')

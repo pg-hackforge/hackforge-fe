@@ -1,3 +1,5 @@
+import type { UserResponse } from '@/api/generated/types.gen'
+
 /** mock 모드의 가짜 응답 상태. 화면 구석 패널에서 고르고 localStorage에 저장한다 */
 export const ACCOUNTS = {
   'logged-out': '로그아웃 상태',
@@ -15,7 +17,12 @@ export const LABS = {
   'capacity-full': '정원 초과',
 } as const
 
-export type Scenario = { account: keyof typeof ACCOUNTS; lab: keyof typeof LABS }
+export type Scenario = {
+  account: keyof typeof ACCOUNTS
+  lab: keyof typeof LABS
+  /** 회원가입 화면으로 가입한 계정. 있으면 승인 대기 계정이 이 계정이 된다 */
+  newUser?: UserResponse
+}
 
 const KEY = 'hackforge.mock'
 const DEFAULT: Scenario = { account: 'learner', lab: 'none' }

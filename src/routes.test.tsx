@@ -1,46 +1,11 @@
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { cleanup, render, screen, waitFor, within } from '@testing-library/react'
+import { screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { http, HttpResponse } from 'msw'
-import { setupServer } from 'msw/node'
-import { createMemoryRouter } from 'react-router'
-import { RouterProvider } from 'react-router/dom'
-import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vitest'
 
-import '@/api/query' // 앱과 같은 공통 처리(CSRF, 오류 변환)를 기본 client에 붙인다
-import { client } from '@/api/generated/client.gen'
-import { ThemeProvider } from '@/components/theme-provider'
-import { handlers } from '@/mocks/handlers'
-import { saveScenario, type Scenario } from '@/mocks/scenario'
-import { routes } from '@/routes'
+import { renderAt, setupMockServer } from '@/test/app'
 
-// 화면 테스트도 mock 모드와 같은 가짜 응답을 쓴다
-const server = setupServer(...handlers)
-beforeAll(() => server.listen({ onUnhandledFrame: 'error' }))
-afterEach(() => {
-  cleanup()
-  server.resetHandlers()
-})
-afterAll(() => server.close())
-beforeEach(() => {
-  client.setConfig({ baseUrl: 'http://localhost' }) // Node의 fetch는 상대 주소를 받지 않는다
-  localStorage.clear()
-  document.cookie = 'XSRF-TOKEN=mock; path=/'
-})
-
-function renderAt(path: string, account: Scenario['account']) {
-  saveScenario({ account, lab: 'none' })
-  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
-  const router = createMemoryRouter(routes, { initialEntries: [path] })
-  render(
-    <QueryClientProvider client={queryClient}>
-      <ThemeProvider>
-        <RouterProvider router={router} />
-      </ThemeProvider>
-    </QueryClientProvider>,
-  )
-  return router
-}
+const server = setupMockServer()
 
 const nav = () => screen.findByRole('navigation', { name: '주 메뉴' })
 

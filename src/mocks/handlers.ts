@@ -3,7 +3,9 @@ import { http, HttpResponse } from 'msw'
 import type {
   ChallengeResponse,
   LabSessionResponse,
+  LoginRequest,
   Problem,
+  SignupRequest,
   UserResponse,
 } from '@/api/generated/types.gen'
 
@@ -85,10 +87,36 @@ const problem = (status: number, code: Problem['code'], title: string) =>
 
 const unauthenticated = () => problem(401, 'UNAUTHENTICATED', '로그인이 필요해요')
 
+type Account = Exclude<Scenario['account'], 'logged-out'>
+
+/** 시나리오의 계정. 회원가입 화면으로 가입했으면 승인 대기 계정은 그 계정 */
+const userOf = (account: Account) =>
+  (account === 'pending' && loadScenario().newUser) || USERS[account]
+
 /** 로그인한 계정. 로그인 안 됨이면 null */
 const currentUser = () => {
   const { account } = loadScenario()
-  return account === 'logged-out' ? null : USERS[account]
+  return account === 'logged-out' ? null : userOf(account)
+}
+
+/** 이메일로 시나리오 계정을 찾는다 */
+const accountByEmail = (email: string) =>
+  (Object.keys(USERS) as Account[]).find((account) => userOf(account).email === email)
+
+/** 잠긴 계정으로 쓰는 이메일. 로그인하면 429 ACCOUNT_LOCKED */
+export const LOCKED_EMAIL = 'locked@example.com'
+
+/** 백엔드 입력 규칙(SignupRequest)과 문구(ValidationMessages.properties) 중 화면 확인에 필요한 것만 */
+function signupFieldErrors({ password, nickname }: SignupRequest) {
+  const errors: Problem['errors'] = []
+  if (!/^(?=.*[A-Za-z])(?=.*[0-9])(?=.*[^A-Za-z0-9])[!-~]{8,64}$/.test(password))
+    errors.push({
+      field: 'password',
+      message: '8~64자로 영문, 숫자, 특수문자를 하나 이상씩 넣어 주세요',
+    })
+  if (!/^[가-힣A-Za-z0-9_]{2,20}$/.test(nickname))
+    errors.push({ field: 'nickname', message: '2~20자의 한글, 영문, 숫자, _만 쓸 수 있어요' })
+  return errors
 }
 
 export const handlers = [
@@ -97,11 +125,49 @@ export const handlers = [
     return me ? HttpResponse.json(me) : unauthenticated()
   }),
 
-  // 로그인·로그아웃은 시나리오를 바꿔서, 이후 요청이 그 상태로 응답한다
-  http.post('*/api/auth/login', () => {
-    const scenario = loadScenario()
-    if (scenario.account === 'logged-out') saveScenario({ ...scenario, account: 'learner' })
-    return HttpResponse.json(currentUser()!)
+  // 로그인·로그아웃은 시나리오를 바꿔서, 이후 요청이 그 상태로 응답한다.
+  // 로그인은 시나리오 계정의 이메일(forge_kim@example.com 등)이면 비밀번호와 상관없이 그 계정으로 된다
+  http.post('*/api/auth/login', async ({ request }) => {
+    const { email } = (await request.json()) as LoginRequest
+    if (email === LOCKED_EMAIL)
+      return problem(
+        429,
+        'ACCOUNT_LOCKED',
+        '비밀번호를 여러 번 잘못 입력해서 잠시 로그인할 수 없어요',
+      )
+    const account = accountByEmail(email)
+    if (!account)
+      return problem(401, 'INVALID_CREDENTIALS', '이메일 또는 비밀번호를 다시 확인해 주세요')
+    saveScenario({ ...loadScenario(), account })
+    return HttpResponse.json(userOf(account))
+  }),
+  // 가입한 계정은 승인 대기 계정이 된다. 로그인은 하지 않는다(openapi.yaml)
+  http.post('*/api/auth/signup', async ({ request }) => {
+    const body = (await request.json()) as SignupRequest
+    const errors = signupFieldErrors(body)
+    if (errors.length > 0)
+      return HttpResponse.json<Problem>(
+        {
+          status: 400,
+          code: 'VALIDATION_FAILED',
+          title: '입력한 내용을 다시 확인해 주세요',
+          errors,
+        },
+        { status: 400, headers: { 'Content-Type': 'application/problem+json' } },
+      )
+    if (accountByEmail(body.email) || body.email === LOCKED_EMAIL)
+      return problem(409, 'EMAIL_TAKEN', '이미 가입된 이메일이에요')
+    if (Object.values(USERS).some((u) => u.nickname === body.nickname))
+      return problem(409, 'NICKNAME_TAKEN', '이미 사용 중인 닉네임이에요')
+    const newUser: UserResponse = {
+      ...user(5, body.nickname, 'LEARNER', 'PENDING'),
+      email: body.email,
+      name: body.name,
+      affiliation: body.affiliation,
+      createdAt: new Date().toISOString(),
+    }
+    saveScenario({ ...loadScenario(), newUser })
+    return HttpResponse.json(newUser, { status: 201 })
   }),
   http.post('*/api/auth/logout', () => {
     saveScenario({ ...loadScenario(), account: 'logged-out' })

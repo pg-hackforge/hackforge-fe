@@ -27,7 +27,8 @@ Hackforge 프론트엔드. React + Vite SPA, TypeScript(strict), Tailwind CSS v4
 - 색과 글꼴은 `src/index.css`의 토큰만 쓴다. 컴포넌트에 색 값을 직접 쓰지 않는다.
 - import는 `@/` alias를 쓴다(`src/` 기준).
 - 화면과 무관한 로직은 `src/lib/`에 두고 Vitest로 테스트한다.
-- 새 화면은 `src/pages/`에 만들고 `src/routes.tsx`에 경로를 추가한다. 로그인이 필요하면 `RequireLogin`, 관리자만이면 `RequireAdmin` 아래에 둔다. 경로별 접근과 메뉴는 `src/routes.test.tsx`처럼 mock handler(`msw/node`)로 테스트한다.
+- 새 화면은 `src/pages/`에 만들고 `src/routes.tsx`에 경로를 추가한다. 로그인이 필요하면 `RequireLogin`, 관리자만이면 `RequireAdmin`, 로그인 전 화면이면 `RequireLoggedOut` 아래에 둔다. 화면 테스트는 `src/test/app.tsx`의 `setupMockServer`와 `renderAt`으로 mock handler(`msw/node`)를 붙여 앱 전체를 띄운다(`src/routes.test.tsx`, `src/pages/auth-pages.test.tsx`).
+- 입력 화면은 `src/components/form.tsx`의 `Field`(이름표, 칸별 오류, 도움말), `FormAlert`(폼 전체 안내), `PasswordRules`를 쓴다. form 라이브러리는 쓰지 않는다(ADR 018).
 - 버튼 모양 링크는 `Button`이 아니라 `Link`에 `buttonVariants()`를 쓴다(Base UI `Button`은 `role="button"`을 붙여 링크 의미가 사라진다).
 
 ## Git

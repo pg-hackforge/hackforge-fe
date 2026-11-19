@@ -53,12 +53,6 @@ function LandingPage() {
   )
 }
 
-export const LoginPage = () => (
-  <Placeholder title="로그인" note="로그인 화면은 계정 화면 이슈에서 만들어요." />
-)
-export const SignupPage = () => (
-  <Placeholder title="회원가입" note="회원가입 화면은 계정 화면 이슈에서 만들어요." />
-)
 export const ProblemsPage = () => (
   <Placeholder title="문제" note="문제 목록은 문제 목록 이슈에서 만들어요." />
 )
