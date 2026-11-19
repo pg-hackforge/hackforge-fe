@@ -23,7 +23,7 @@ function HomePage({ nickname }: { nickname: string }) {
   return (
     <Placeholder
       title={`안녕하세요, ${nickname}님`}
-      note="홈 화면은 문제 목록 이슈에서 만듭니다."
+      note="홈 화면은 문제 목록 이슈에서 만들어요."
     />
   )
 }
@@ -37,12 +37,12 @@ function LandingPage() {
             공격하고, 고치고, 검증한다
           </h1>
           <p className="text-pretty text-muted-foreground">
-            웹 보안 공격·방어 실습 플랫폼입니다. 소개 화면은 따로 만듭니다.
+            웹 보안 공격과 방어를 직접 해 보는 실습 플랫폼이에요. 소개 화면은 따로 만들어요.
           </p>
         </div>
         <div className="flex justify-center gap-2">
           <Link to="/signup" className={buttonVariants()}>
-            가입 신청
+            회원가입
           </Link>
           <Link to="/login" className={buttonVariants({ variant: 'outline' })}>
             로그인
@@ -54,20 +54,20 @@ function LandingPage() {
 }
 
 export const LoginPage = () => (
-  <Placeholder title="로그인" note="로그인 화면은 계정 화면 이슈에서 만듭니다." />
+  <Placeholder title="로그인" note="로그인 화면은 계정 화면 이슈에서 만들어요." />
 )
 export const SignupPage = () => (
-  <Placeholder title="가입 신청" note="가입 화면은 계정 화면 이슈에서 만듭니다." />
+  <Placeholder title="회원가입" note="회원가입 화면은 계정 화면 이슈에서 만들어요." />
 )
 export const ProblemsPage = () => (
-  <Placeholder title="문제" note="문제 목록은 문제 목록 이슈에서 만듭니다." />
+  <Placeholder title="문제" note="문제 목록은 문제 목록 이슈에서 만들어요." />
 )
 export const RecordsPage = () => (
-  <Placeholder title="내 기록" note="내 기록은 실습 기록 이슈에서 만듭니다." />
+  <Placeholder title="내 기록" note="내 기록은 실습 기록 이슈에서 만들어요." />
 )
 export const AccountPage = () => (
-  <Placeholder title="내 계정" note="내 정보 보기와 비밀번호 변경은 계정 화면 이슈에서 만듭니다." />
+  <Placeholder title="내 정보" note="내 정보 보기와 비밀번호 변경은 계정 화면 이슈에서 만들어요." />
 )
 export const AdminPage = () => (
-  <Placeholder title="관리" note="가입 승인과 사용자 관리는 관리자 화면 이슈에서 만듭니다." />
+  <Placeholder title="회원 관리" note="가입 승인과 권한 변경은 계정 화면 이슈에서 만들어요." />
 )

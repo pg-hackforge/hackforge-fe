@@ -27,7 +27,7 @@ const ROLE_LABEL: Record<UserResponse['role'], string> = {
 const THEMES: { value: Theme; label: string; icon: typeof SunIcon }[] = [
   { value: 'light', label: '라이트', icon: SunIcon },
   { value: 'dark', label: '다크', icon: MoonIcon },
-  { value: 'system', label: '시스템 설정', icon: MonitorIcon },
+  { value: 'system', label: '시스템 기본값', icon: MonitorIcon },
 ]
 
 /** 닉네임 첫 글자 원. 불씨색 면 위 불씨색 글자 */
@@ -65,7 +65,7 @@ export function UserMenu({ me }: { me: UserResponse }) {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger
-        aria-label={`${me.nickname} 계정 메뉴`}
+        aria-label={`${me.nickname}님 메뉴`}
         className="grid size-8 place-items-center rounded-full transition-shadow outline-none hover:ring-1 hover:ring-input focus-visible:ring-3 focus-visible:ring-ring/50 aria-expanded:shadow-[0_0_0_2px_var(--card),0_0_0_3px_var(--primary)] aria-expanded:ring-0"
       >
         <Avatar nickname={me.nickname} className="size-7 text-[13px]" />
@@ -85,7 +85,7 @@ export function UserMenu({ me }: { me: UserResponse }) {
         </div>
         <DropdownMenuSeparator />
         <DropdownMenuItem className="gap-2.5 px-2 py-1.5" render={<Link to="/account" />}>
-          <UserIcon className="text-muted-foreground" />내 계정
+          <UserIcon className="text-muted-foreground" />내 정보
         </DropdownMenuItem>
         <div className="flex items-center justify-between px-2 py-1">
           <span className="text-sm text-muted-foreground">테마</span>

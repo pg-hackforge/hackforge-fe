@@ -36,7 +36,7 @@ export function AppLayout() {
                 로그인
               </Link>
               <Link to="/signup" className={buttonVariants({ size: 'sm' })}>
-                가입 신청
+                회원가입
               </Link>
             </>
           ) : null}
@@ -51,7 +51,7 @@ export function AppLayout() {
 }
 
 function MainMenu({ me }: { me: UserResponse }) {
-  const items = me.role === 'ADMIN' ? [...MENU, { to: '/admin', label: '관리' }] : MENU
+  const items = me.role === 'ADMIN' ? [...MENU, { to: '/admin', label: '관리자' }] : MENU
   return (
     <nav aria-label="주 메뉴" className="flex items-center gap-0.5 text-sm sm:gap-1">
       {items.map((item) => (
@@ -79,8 +79,8 @@ function AccountBanner({ status }: { status: UserResponse['status'] }) {
   return (
     <div role="status" className="border-b bg-muted px-4 py-2 text-center text-sm sm:px-6">
       {status === 'PENDING'
-        ? '승인 대기 중입니다. 관리자가 승인하면 실습을 시작할 수 있습니다. 문제는 지금도 볼 수 있습니다.'
-        : '가입이 거절되었습니다. 실습을 시작할 수 없습니다. 문의는 관리자에게 해 주세요.'}
+        ? '가입 승인을 기다리고 있어요. 승인되면 실습을 시작할 수 있어요. 문제는 지금도 둘러볼 수 있어요.'
+        : '가입이 승인되지 않았어요. 실습을 하려면 관리자에게 문의해 주세요.'}
     </div>
   )
 }

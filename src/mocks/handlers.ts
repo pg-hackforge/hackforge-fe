@@ -41,19 +41,19 @@ const CHALLENGES: ChallengeResponse[] = [
     id: 1,
     slug: 'sqli-login',
     title: '로그인 우회',
-    description: '로그인 폼의 SQL Injection을 찾아 공격하고, 코드를 고쳐 막습니다.',
+    description: '로그인 폼의 SQL Injection을 찾아 공격하고, 코드를 고쳐 막아요.',
   },
   {
     id: 2,
     slug: 'xss-board',
     title: '게시판 스크립트 삽입',
-    description: '게시글에 스크립트를 넣어 실행시키고, 출력 처리를 고쳐 막습니다.',
+    description: '게시글에 스크립트를 넣어 실행시키고, 출력 처리를 고쳐 막아요.',
   },
   {
     id: 3,
     slug: 'idor-orders',
     title: '남의 주문 보기',
-    description: '주문 번호를 바꿔 다른 사람의 주문을 보고, 권한 확인을 넣어 막습니다.',
+    description: '주문 번호를 바꿔 다른 사람의 주문을 보고, 권한 확인을 넣어 막아요.',
   },
 ]
 
@@ -83,7 +83,7 @@ const problem = (status: number, code: Problem['code'], title: string) =>
     { status, headers: { 'Content-Type': 'application/problem+json' } },
   )
 
-const unauthenticated = () => problem(401, 'UNAUTHENTICATED', '로그인이 필요합니다')
+const unauthenticated = () => problem(401, 'UNAUTHENTICATED', '로그인이 필요해요')
 
 /** 로그인한 계정. 로그인 안 됨이면 null */
 const currentUser = () => {
@@ -125,12 +125,16 @@ export const handlers = [
     const me = currentUser()
     if (!me) return unauthenticated()
     if (me.status !== 'APPROVED')
-      return problem(403, 'ACCOUNT_NOT_APPROVED', '승인된 계정만 실습할 수 있습니다')
+      return problem(403, 'ACCOUNT_NOT_APPROVED', '가입이 승인되면 실습을 시작할 수 있어요')
     const { lab: state } = loadScenario()
     if (state === 'capacity-full')
-      return problem(503, 'LAB_CAPACITY_FULL', '동시 실습 정원이 찼습니다')
+      return problem(
+        503,
+        'LAB_CAPACITY_FULL',
+        '지금은 실습 자리가 모두 찼어요. 잠시 뒤 다시 시도해 주세요',
+      )
     if (state === 'CREATING' || state === 'READY')
-      return problem(409, 'LAB_ALREADY_ACTIVE', '진행 중인 실습이 있습니다')
+      return problem(409, 'LAB_ALREADY_ACTIVE', '이미 진행 중인 실습이 있어요')
     return HttpResponse.json(lab('CREATING'), { status: 202 })
   }),
 
