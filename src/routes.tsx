@@ -3,6 +3,7 @@ import type { RouteObject } from 'react-router'
 import { AppLayout } from '@/components/app-layout'
 import { RequireAdmin, RequireLogin } from '@/components/route-guards'
 import {
+  AccountPage,
   AdminPage,
   IndexPage,
   LoginPage,
@@ -24,6 +25,7 @@ export const routes: RouteObject[] = [
         children: [
           { path: 'problems', element: <ProblemsPage /> },
           { path: 'records', element: <RecordsPage /> },
+          { path: 'account', element: <AccountPage /> },
           { element: <RequireAdmin />, children: [{ path: 'admin', element: <AdminPage /> }] },
         ],
       },

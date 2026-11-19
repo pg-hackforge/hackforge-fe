@@ -93,6 +93,23 @@ describe('로그인함', () => {
     expect(screen.queryByRole('status')).not.toBeInTheDocument()
   })
 
+  it('사용자 메뉴에 닉네임·역할·이메일이 있고, 내 계정으로 이동함', async () => {
+    const router = renderAt('/', 'learner')
+    await userEvent.click(await screen.findByRole('button', { name: /forge_kim/ }))
+    const menu = within(await screen.findByRole('menu'))
+    expect(menu.getByText('학습자')).toBeInTheDocument()
+    expect(menu.getByText('forge_kim@example.com')).toBeInTheDocument()
+    await userEvent.click(menu.getByRole('menuitem', { name: '내 계정' }))
+    await waitFor(() => expect(router.state.location.pathname).toBe('/account'))
+  })
+
+  it('사용자 메뉴의 테마 선택이 저장됨', async () => {
+    renderAt('/', 'learner')
+    await userEvent.click(await screen.findByRole('button', { name: /forge_kim/ }))
+    await userEvent.click(await screen.findByRole('menuitemradio', { name: '라이트' }))
+    expect(localStorage.getItem('hackforge-theme')).toBe('light')
+  })
+
   it('사용자 메뉴에서 로그아웃하면 첫 화면의 로그인 상태로', async () => {
     const router = renderAt('/problems', 'learner')
     await userEvent.click(await screen.findByRole('button', { name: /forge_kim/ }))

@@ -17,8 +17,7 @@ const options: { value: Theme; label: string; icon: typeof SunIcon }[] = [
   { value: 'system', label: '시스템 설정', icon: MonitorIcon },
 ]
 
-/** 테마 선택 항목. 로그인 전에는 상단 줄 아이콘 메뉴, 로그인 후에는 사용자 메뉴 안에서 쓴다 */
-export function ThemeRadioItems() {
+function ThemeRadioItems() {
   const { theme, setTheme } = useTheme()
   return (
     <DropdownMenuRadioGroup value={theme} onValueChange={(value) => setTheme(value as Theme)}>
@@ -32,6 +31,7 @@ export function ThemeRadioItems() {
   )
 }
 
+/** 로그인 전 상단 줄의 테마 메뉴. 로그인 후에는 사용자 메뉴 안에서 고른다 */
 export function ModeToggle() {
   return (
     <DropdownMenu>

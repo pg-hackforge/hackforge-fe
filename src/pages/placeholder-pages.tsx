@@ -65,6 +65,9 @@ export const ProblemsPage = () => (
 export const RecordsPage = () => (
   <Placeholder title="내 기록" note="내 기록은 실습 기록 이슈에서 만듭니다." />
 )
+export const AccountPage = () => (
+  <Placeholder title="내 계정" note="내 정보 보기와 비밀번호 변경은 계정 화면 이슈에서 만듭니다." />
+)
 export const AdminPage = () => (
   <Placeholder title="관리" note="가입 승인과 사용자 관리는 관리자 화면 이슈에서 만듭니다." />
 )

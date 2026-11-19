@@ -45,9 +45,9 @@ audit은 배포 의존성에 높은 위험 이상 취약점이 있으면 실패�
 | `src/api/` | API 공통 처리: `client.ts`(CSRF 헤더, 401 처리, 오류 변환), `errors.ts`(`ApiError`, 입력 칸별 오류 `fieldErrors`), `me.ts`(`useMe`, 로그인 안 했으면 `null`), `query.ts`(QueryClient와 기본 client 설정) |
 | `src/mocks/` | mock 모드: `handlers.ts`(API별 가짜 응답, 생성 타입 사용), `scenario.ts`(시나리오와 저장), `mock-panel.tsx`(전환 패널), `browser.ts`(worker 시작) |
 | `src/components/ui/` | shadcn/ui 컴포넌트 복사본. `npx shadcn@latest add <이름>`으로 추가 |
-| `src/routes.tsx` | 경로 표. `/`(로그인 전 소개, 후 홈), `/login`, `/signup`, 로그인 필요 구간 `/problems`·`/records`, 관리자 구간 `/admin`, 그 밖은 404 |
+| `src/routes.tsx` | 경로 표. `/`(로그인 전 소개, 후 홈), `/login`, `/signup`, 로그인 필요 구간 `/problems`·`/records`·`/account`, 관리자 구간 `/admin`, 그 밖은 404 |
 | `src/pages/` | 화면. `status-pages.tsx`(404, 403, 백엔드 연결 실패), `placeholder-pages.tsx`(기능별 이슈에서 채울 화면의 자리) |
-| `src/components/` | 공통 컴포넌트: `app-layout.tsx`(상단 줄, 주 메뉴, 승인 대기·거절 안내 띠), `user-menu.tsx`(계정, 테마, 로그아웃), `route-guards.tsx`(로그인 필요, 관리자만), 테마 provider와 전환, 로고 |
+| `src/components/` | 공통 컴포넌트: `app-layout.tsx`(상단 줄, 주 메뉴, 승인 대기·거절 안내 띠), `user-menu.tsx`(첫 글자 원 버튼, 계정 정보, 내 계정, 테마, 로그아웃), `route-guards.tsx`(로그인 필요, 관리자만), 테마 provider와 전환, 로고 |
 | `src/lib/` | 화면과 무관한 로직(`theme.ts`)과 `cn` 등 유틸 |
 | `src/index.css` | Tailwind, shadcn/ui 테마 토큰(라이트·다크 색), 글꼴(Pretendard). shadcn의 `tailwind.css`는 `shadcn eject`로 이 파일에 넣었고 `shadcn` 패키지는 설치하지 않음(CLI 하위 의존성 취약점 경고 때문) |
 | `components.json` | shadcn/ui 설정(Base UI, Nova 프리셋, lucide 아이콘) |
