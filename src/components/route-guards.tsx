@@ -11,6 +11,14 @@ export function RequireLogin() {
   return <Outlet />
 }
 
+/** 로그인 전 화면(로그인, 회원가입). 로그인한 상태면 원래 가려던 화면으로, 없으면 홈으로 보낸다 */
+export function RequireLoggedOut() {
+  const me = useMe()
+  const from = (useLocation().state as { from?: string } | null)?.from
+  if (me.data) return <Navigate to={from ?? '/'} replace />
+  return <Outlet />
+}
+
 /** 관리자 구간. 화면만 가리고, 최종 권한 확인은 백엔드가 한다 */
 export function RequireAdmin() {
   const me = useMe()
