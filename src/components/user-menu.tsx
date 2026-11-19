@@ -53,8 +53,9 @@ export function UserMenu({ me }: { me: UserResponse }) {
   const logout = useMutation({
     ...logoutMutation(),
     onSuccess: async () => {
-      // 먼저 첫 화면으로 옮긴다. 계정을 먼저 지우면 로그인 필요 화면에서 로그인 화면으로 튕긴다
-      await navigate('/')
+      // 첫 화면으로 옮기는 것을 바로 그린 뒤 계정을 지운다. 이동은 기본으로 transition이라 늦게 그려져서,
+      // 계정을 지우는 갱신이 먼저 그려지면 로그인 필요 화면이 로그인 화면으로 보낸다
+      await navigate('/', { flushSync: true })
       queryClient.setQueryData(meQueryKey, null)
       // 다른 사람 데이터가 남지 않게 내 계정 말고는 모두 지운다
       queryClient.removeQueries({ predicate: (query) => query.queryKey[0] !== meQueryKey[0] })
