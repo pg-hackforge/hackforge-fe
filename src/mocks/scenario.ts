@@ -1,4 +1,4 @@
-import type { UserResponse } from '@/api/generated/types.gen'
+import type { AdminUserResponse, UserResponse } from '@/api/generated/types.gen'
 
 /** mock 모드의 가짜 응답 상태. 화면 구석 패널에서 고르고 localStorage에 저장한다 */
 export const ACCOUNTS = {
@@ -22,6 +22,8 @@ export type Scenario = {
   lab: keyof typeof LABS
   /** 회원가입 화면으로 가입한 계정. 있으면 승인 대기 계정이 이 계정이 된다 */
   newUser?: UserResponse
+  /** 회원 관리에서 바꾼 회원 목록. 없으면 처음 목록 */
+  adminUsers?: AdminUserResponse[]
 }
 
 const KEY = 'hackforge.mock'
