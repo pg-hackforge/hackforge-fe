@@ -47,6 +47,9 @@ export function MockPanel() {
         <p className="text-xs leading-relaxed wrap-anywhere text-muted-foreground">
           내 정보의 비밀번호 변경: 현재 비밀번호 {WRONG_PASSWORD}는 틀림, {LOCKING_PASSWORD}는 잠김
         </p>
+        <p className="text-xs leading-relaxed wrap-anywhere text-muted-foreground">
+          회원 관리: 박준호는 승인·거절하면 다른 관리자가 먼저 처리한 상황
+        </p>
       </div>
     </details>
   )

@@ -4,7 +4,8 @@ import { AppLayout } from '@/components/app-layout'
 import { RequireAdmin, RequireLoggedOut, RequireLogin } from '@/components/route-guards'
 import { LoginPage, SignupPage } from '@/pages/auth-pages'
 import { AccountPage } from '@/pages/account-page'
-import { AdminPage, IndexPage, ProblemsPage, RecordsPage } from '@/pages/placeholder-pages'
+import { AdminPage } from '@/pages/admin-page'
+import { IndexPage, ProblemsPage, RecordsPage } from '@/pages/placeholder-pages'
 import { NotFoundPage } from '@/pages/status-pages'
 
 export const routes: RouteObject[] = [

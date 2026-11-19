@@ -1,7 +1,9 @@
 import { http, HttpResponse } from 'msw'
 
 import type {
+  AdminUserResponse,
   ChallengeResponse,
+  ChangeRoleRequest,
   ChangePasswordRequest,
   LabSessionResponse,
   LoginRequest,
@@ -129,6 +131,102 @@ function signupFieldErrors({ password, nickname }: SignupRequest) {
   return errors
 }
 
+/** 회원 관리 목록의 처음 상태. 관리자(id 1)는 시나리오의 관리자 계정과 같은 사람 */
+const ADMIN_USERS: AdminUserResponse[] = [
+  member(1, '관리자', 'admin', 'ADMIN', 'APPROVED', '11-01T10:00', '보안연구실'),
+  member(3, '김대장', 'forge_kim', 'LEARNER', 'APPROVED', '11-03T13:21'),
+  member(6, '정하늘', 'sky_j', 'AUTHOR', 'APPROVED', '11-05T18:09'),
+  member(4, '한도윤', 'denied', 'LEARNER', 'REJECTED', '11-10T11:30', '보안 동아리 HackLab'),
+  member(
+    2,
+    '이수민',
+    'newbie',
+    'LEARNER',
+    'PENDING',
+    '11-18T14:02',
+    undefined,
+    '웹보안 3분반 수강생입니다.',
+  ),
+  member(8, '박준호', 'junho_p', 'LEARNER', 'PENDING', '11-18T16:47', '보안 동아리 HackLab'),
+  member(
+    7,
+    '최예린',
+    'yerin',
+    'LEARNER',
+    'PENDING',
+    '11-19T09:15',
+    '한빛대학교 컴퓨터공학과',
+    '조교 추천으로 가입합니다.',
+  ),
+]
+
+/** 승인·거절하면 다른 관리자가 먼저 승인해 둔 것처럼 409가 나는 회원(박준호) */
+export const RACE_USER_ID = 8
+
+function member(
+  id: number,
+  name: string,
+  nickname: string,
+  role: UserResponse['role'],
+  status: UserResponse['status'],
+  joined: string,
+  affiliation = '한빛대학교 정보보호학과',
+  signupNote: string | null = null,
+): AdminUserResponse {
+  return {
+    ...user(id, nickname, role, status),
+    name,
+    affiliation,
+    signupNote,
+    createdAt: `2026-${joined}:00+09:00`,
+  }
+}
+
+/** 지금 회원 목록. 회원가입 화면으로 가입한 계정도 승인 대기로 들어온다 */
+function adminUsers(): AdminUserResponse[] {
+  const { adminUsers: saved, newUser } = loadScenario()
+  const users = saved ?? ADMIN_USERS
+  return newUser && !users.some((u) => u.id === newUser.id) ? [...users, newUser] : users
+}
+
+const saveAdminUsers = (users: AdminUserResponse[]) =>
+  saveScenario({ ...loadScenario(), adminUsers: users })
+
+/** 관리자 API 공통: 로그인과 관리자 확인 */
+function asAdmin(action: (me: UserResponse) => Response | Promise<Response>) {
+  const me = currentUser()
+  if (!me) return unauthenticated()
+  if (me.role !== 'ADMIN') return problem(403, 'FORBIDDEN', '권한이 없어요')
+  return action(me)
+}
+
+/** 경로의 id로 대상 회원을 찾는 관리자 API */
+const withTarget = (
+  params: { id?: string | readonly string[] },
+  action: (target: AdminUserResponse, me: UserResponse) => Response | Promise<Response>,
+) =>
+  asAdmin((me) => {
+    const target = adminUsers().find((u) => u.id === Number(params.id))
+    if (!target) return problem(404, 'USER_NOT_FOUND', '회원을 찾을 수 없어요')
+    return action(target, me)
+  })
+
+/** 상태 전이(ADR 011): PENDING → APPROVED·REJECTED, REJECTED → APPROVED */
+function transition(target: AdminUserResponse, to: 'APPROVED' | 'REJECTED') {
+  const allowed = target.status === 'PENDING' || (target.status === 'REJECTED' && to === 'APPROVED')
+  const update = (status: UserResponse['status']) => {
+    const updated = { ...target, status }
+    saveAdminUsers(adminUsers().map((u) => (u.id === target.id ? updated : u)))
+    return updated
+  }
+  if (target.id === RACE_USER_ID && target.status === 'PENDING') {
+    update('APPROVED') // 다른 관리자가 먼저 승인함
+    return problem(409, 'INVALID_STATUS_TRANSITION', '이미 처리된 회원이에요')
+  }
+  if (!allowed) return problem(409, 'INVALID_STATUS_TRANSITION', '이미 처리된 회원이에요')
+  return HttpResponse.json(update(to))
+}
+
 export const handlers = [
   http.get('*/api/me', () => {
     const me = currentUser()
@@ -193,6 +291,33 @@ export const handlers = [
       return validationFailed([{ field: 'newPassword', message: PASSWORD_MESSAGE }])
     return new HttpResponse(null, { status: 204 })
   }),
+
+  http.get('*/api/admin/users', ({ request }) =>
+    asAdmin(() => {
+      const status = new URL(request.url).searchParams.get('status') ?? 'PENDING'
+      return HttpResponse.json(adminUsers().filter((u) => u.status === status))
+    }),
+  ),
+  http.post('*/api/admin/users/:id/approve', ({ params }) =>
+    withTarget(params, (target) => transition(target, 'APPROVED')),
+  ),
+  http.post('*/api/admin/users/:id/reject', ({ params }) =>
+    withTarget(params, (target) => transition(target, 'REJECTED')),
+  ),
+  http.put('*/api/admin/users/:id/role', ({ params, request }) =>
+    withTarget(params, async (target, me) => {
+      if (target.id === me.id)
+        return problem(403, 'CANNOT_CHANGE_OWN_ROLE', '내 권한은 바꿀 수 없어요')
+      const { role } = (await request.json()) as ChangeRoleRequest
+      const updated = { ...target, role }
+      saveAdminUsers(adminUsers().map((u) => (u.id === target.id ? updated : u)))
+      return HttpResponse.json(updated)
+    }),
+  ),
+  // 실제로는 무작위 값. 화면 확인용으로 고정한다
+  http.post('*/api/admin/users/:id/temporary-password', ({ params }) =>
+    withTarget(params, () => HttpResponse.json({ temporaryPassword: 'Tq7#mW2pLx9!' })),
+  ),
 
   http.get('*/api/challenges', () =>
     currentUser() ? HttpResponse.json(CHALLENGES) : unauthenticated(),
