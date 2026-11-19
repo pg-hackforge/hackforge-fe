@@ -2,6 +2,7 @@
 export const ACCOUNTS = {
   'logged-out': '로그인 안 됨',
   pending: '승인 대기',
+  rejected: '거절',
   learner: '학습자',
   admin: '관리자',
 } as const

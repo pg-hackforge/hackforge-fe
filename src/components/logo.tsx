@@ -28,12 +28,12 @@ export function LogoMark({ className }: { className?: string }) {
   )
 }
 
-/** 로고와 이름 */
-export function Logo({ className }: { className?: string }) {
+/** 로고와 이름. compact면 좁은 화면(640px 미만)에서 이름을 숨긴다 */
+export function Logo({ className, compact }: { className?: string; compact?: boolean }) {
   return (
     <span className={cn('inline-flex items-center gap-2 font-semibold tracking-tight', className)}>
       <LogoMark />
-      Hackforge
+      <span className={cn(compact && 'max-sm:sr-only')}>Hackforge</span>
     </span>
   )
 }
