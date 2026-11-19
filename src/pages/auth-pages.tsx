@@ -9,10 +9,13 @@ import type { LoginRequest, SignupRequest, UserResponse } from '@/api/generated/
 import { meQueryKey } from '@/api/me'
 import { Field, FormAlert, PasswordRules } from '@/components/form'
 import { Button } from '@/components/ui/button'
-import { cn } from '@/lib/utils'
+import { cn, formText } from '@/lib/utils'
 
-/** 로그인 화면으로 넘기는 state. 가입은 됐는데 이어서 하는 로그인이 실패했을 때 */
-type LoginState = { from?: string; signedUpEmail?: string } | null
+/**
+ * 로그인 화면으로 넘기는 state. signedUpEmail: 가입은 됐는데 이어서 하는 로그인이 실패함.
+ * locked: 내 정보에서 비밀번호를 바꾸다 잠겨 로그아웃됨
+ */
+export type LoginState = { from?: string; signedUpEmail?: string; locked?: boolean } | null
 
 /**
  * 로그인·회원가입 카드(DESIGN.md "계정 화면"). 가로는 가운데, 세로는 가운데보다 살짝 위(위아래 여백 2:3)이고
@@ -75,7 +78,15 @@ function useLogIn() {
   return (user: UserResponse) => queryClient.setQueryData(meQueryKey, user)
 }
 
-const text = (form: FormData, name: string) => String(form.get(name) ?? '')
+/** 계정 잠김 안내. 로그인 실패나 비밀번호 변경 실패가 합쳐 5번이면 15분 잠긴다(ADR 011) */
+export function LockedAlert() {
+  return (
+    <FormAlert tone="locked" title="로그인이 잠겼어요">
+      비밀번호를 5번 잘못 입력해서 15분 동안 로그인할 수 없어요. 잠시 뒤 다시 시도하거나 관리자에게
+      임시 비밀번호를 요청해 주세요.
+    </FormAlert>
+  )
+}
 
 export function LoginPage() {
   const state = useLocation().state as LoginState
@@ -90,18 +101,15 @@ export function LoginPage() {
   const submit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
     const form = new FormData(event.currentTarget)
-    mutation.mutate({ email: text(form, 'email'), password: text(form, 'password') })
+    mutation.mutate({ email: formText(form, 'email'), password: formText(form, 'password') })
   }
 
   return (
     <AuthCard title="로그인">
       {code === 'INVALID_CREDENTIALS' ? (
         <FormAlert tone="error">이메일 또는 비밀번호를 다시 확인해 주세요.</FormAlert>
-      ) : code === 'ACCOUNT_LOCKED' ? (
-        <FormAlert tone="locked" title="로그인이 잠겼어요">
-          비밀번호를 5번 잘못 입력해서 15분 동안 로그인할 수 없어요. 잠시 뒤 다시 시도하거나
-          관리자에게 임시 비밀번호를 요청해 주세요.
-        </FormAlert>
+      ) : code === 'ACCOUNT_LOCKED' || (!error && state?.locked) ? (
+        <LockedAlert />
       ) : error ? (
         <FormAlert tone="error">{error.message}</FormAlert>
       ) : state?.signedUpEmail ? (
@@ -190,17 +198,17 @@ export function SignupPage() {
     event.preventDefault()
     setFormError(undefined)
     const form = new FormData(event.currentTarget)
-    if (text(form, 'passwordConfirm') !== password) {
+    if (formText(form, 'passwordConfirm') !== password) {
       setFieldErrors({ passwordConfirm: '비밀번호가 일치하지 않아요' })
       return
     }
     mutation.mutate({
-      email: text(form, 'email'),
+      email: formText(form, 'email'),
       password,
-      name: text(form, 'name'),
-      nickname: text(form, 'nickname'),
-      affiliation: text(form, 'affiliation'),
-      signupNote: text(form, 'signupNote') || undefined,
+      name: formText(form, 'name'),
+      nickname: formText(form, 'nickname'),
+      affiliation: formText(form, 'affiliation'),
+      signupNote: formText(form, 'signupNote') || undefined,
       privacyAgreed: true, // 체크하지 않으면 브라우저가 제출을 막는다(required)
     })
   }

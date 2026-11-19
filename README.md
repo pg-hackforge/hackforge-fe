@@ -17,7 +17,7 @@ npm run dev:mock     # 백엔드 없이 가짜 응답으로
 
 개발 서버는 `/api` 요청을 개발 백엔드(`127.0.0.1:8080`)로 넘긴다(`vite.config.ts` proxy). 백엔드를 켜면 `GET /api/me` 결과에 따라 상단 줄(로그인 전후 메뉴)이 바뀌고, 꺼져 있으면 연결 실패 화면이 나온다.
 
-`npm run dev:mock`은 백엔드 없이 띄운다. 브라우저의 `/api` 요청을 MSW service worker가 가짜 응답으로 바꾸고, 화면 오른쪽 아래 패널에서 계정(로그아웃 상태, 승인 대기, 거절, 학습자, 관리자)과 실습(없음, CREATING, READY, FAILED, 정원 초과) 상태를 고른다. 고른 값은 `localStorage`의 `hackforge.mock`에 남는다. 로그인 화면에서는 `forge_kim`(학습자), `newbie`(승인 대기), `denied`(거절), `admin`(관리자) 뒤에 `@example.com`을 붙인 이메일로 로그인하고(비밀번호는 아무거나), 그 밖의 이메일은 틀림, `locked@example.com`은 잠김이다. 회원가입하면 그 계정이 승인 대기 계정이 되고, 이미 있는 이메일·닉네임은 중복 오류가 난다. mock 코드와 worker 파일은 이 모드에서만 들어가고 `npm run dev`와 배포 빌드에는 없다.
+`npm run dev:mock`은 백엔드 없이 띄운다. 브라우저의 `/api` 요청을 MSW service worker가 가짜 응답으로 바꾸고, 화면 오른쪽 아래 패널에서 계정(로그아웃 상태, 승인 대기, 거절, 학습자, 관리자)과 실습(없음, CREATING, READY, FAILED, 정원 초과) 상태를 고른다. 고른 값은 `localStorage`의 `hackforge.mock`에 남는다. 로그인 화면에서는 `forge_kim`(학습자), `newbie`(승인 대기), `denied`(거절), `admin`(관리자) 뒤에 `@example.com`을 붙인 이메일로 로그인하고(비밀번호는 아무거나), 그 밖의 이메일은 틀림, `locked@example.com`은 잠김이다. 회원가입하면 그 계정이 승인 대기 계정이 되고, 이미 있는 이메일·닉네임은 중복 오류가 난다. 내 정보의 비밀번호 변경은 현재 비밀번호가 `wrong`이면 틀림, `locked`이면 잠겨 로그아웃된다. mock 코드와 worker 파일은 이 모드에서만 들어가고 `npm run dev`와 배포 빌드에는 없다.
 
 | 명령 | 하는 일 |
 |---|---|
@@ -42,13 +42,13 @@ audit은 배포 의존성에 높은 위험 이상 취약점이 있으면 실패�
 | 경로 | 내용 |
 |---|---|
 | `src/api/generated/` | `openapi.yaml`로 만든 타입, API 함수(SDK), TanStack Query 옵션. 손으로 고치지 않음(lint·Prettier 제외) |
-| `src/api/` | API 공통 처리: `client.ts`(CSRF 헤더, 401 처리, 오류 변환), `errors.ts`(`ApiError`, 입력 칸별 오류 `fieldErrors`), `me.ts`(`useMe`, 로그인 안 했으면 `null`), `query.ts`(QueryClient와 기본 client 설정) |
+| `src/api/` | API 공통 처리: `client.ts`(CSRF 헤더, 401 처리, 오류 변환), `errors.ts`(`ApiError`, 입력 칸별 오류 `fieldErrors`), `me.ts`(`useMe`, 로그인 안 했으면 `null`. 세션이 끝났을 때 화면 정리 `useEndSession`), `query.ts`(QueryClient와 기본 client 설정) |
 | `src/mocks/` | mock 모드: `handlers.ts`(API별 가짜 응답, 생성 타입 사용), `scenario.ts`(시나리오와 저장), `mock-panel.tsx`(전환 패널), `browser.ts`(worker 시작) |
 | `src/components/ui/` | shadcn/ui 컴포넌트 복사본. `npx shadcn@latest add <이름>`으로 추가 |
 | `src/routes.tsx` | 경로 표. `/`(로그인 전 소개, 후 홈), 로그인 전 구간 `/login`·`/signup`(로그인했으면 원래 가려던 화면이나 홈으로), 로그인 필요 구간 `/problems`·`/records`·`/account`, 관리자 구간 `/admin`, 그 밖은 404 |
-| `src/pages/` | 화면. `auth-pages.tsx`(로그인, 회원가입), `status-pages.tsx`(404, 403, 백엔드 연결 실패), `placeholder-pages.tsx`(기능별 이슈에서 채울 화면의 자리) |
+| `src/pages/` | 화면. `auth-pages.tsx`(로그인, 회원가입), `account-page.tsx`(내 정보: 기본 정보, 비밀번호 변경), `status-pages.tsx`(404, 403, 백엔드 연결 실패), `placeholder-pages.tsx`(기능별 이슈에서 채울 화면의 자리) |
 | `src/components/` | 공통 컴포넌트: `form.tsx`(입력 칸, 칸별 오류, 폼 안내 상자, 비밀번호 규칙), `app-layout.tsx`(상단 줄, 주 메뉴, 승인 대기·거절 안내 띠), `user-menu.tsx`(첫 글자 원 버튼, 계정 정보, 내 정보, 테마, 로그아웃), `route-guards.tsx`(로그인 필요, 관리자만, 로그인 전 화면), 테마 provider와 전환, 로고 |
-| `src/lib/` | 화면과 무관한 로직(`theme.ts`, `password.ts`)과 `cn` 등 유틸 |
+| `src/lib/` | 화면과 무관한 로직(`theme.ts`, `password.ts`), 권한·승인 상태의 화면 이름(`account.ts`), `cn` 등 유틸 |
 | `src/test/` | 테스트 준비: `setup.ts`(jsdom 보충), `app.tsx`(mock 응답을 붙여 앱 전체를 띄우는 `setupMockServer`, `renderAt`) |
 | `src/index.css` | Tailwind, shadcn/ui 테마 토큰(라이트·다크 색), 글꼴(Pretendard). shadcn의 `tailwind.css`는 `shadcn eject`로 이 파일에 넣었고 `shadcn` 패키지는 설치하지 않음(CLI 하위 의존성 취약점 경고 때문) |
 | `components.json` | shadcn/ui 설정(Base UI, Nova 프리셋, lucide 아이콘) |
