@@ -15,7 +15,7 @@ npm run dev          # http://localhost:5173, 개발 백엔드에 붙음
 npm run dev:mock     # 백엔드 없이 가짜 응답으로
 ```
 
-개발 서버는 `/api` 요청을 개발 백엔드(`127.0.0.1:8080`)로 넘긴다(`vite.config.ts` proxy). 백엔드를 켜면 시작 화면에 `GET /api/me` 결과(로그인 상태)가 보이고, 꺼져 있으면 연결할 수 없다는 안내가 나온다.
+개발 서버는 `/api` 요청을 개발 백엔드(`127.0.0.1:8080`)로 넘긴다(`vite.config.ts` proxy). 백엔드를 켜면 `GET /api/me` 결과에 따라 상단 줄(로그인 전후 메뉴)이 바뀌고, 꺼져 있으면 연결 실패 화면이 나온다.
 
 `npm run dev:mock`은 백엔드 없이 띄운다. 브라우저의 `/api` 요청을 MSW service worker가 가짜 응답으로 바꾸고, 화면 오른쪽 아래 패널에서 계정(로그인 안 됨, 승인 대기, 학습자, 관리자)과 실습(없음, CREATING, READY, FAILED, 정원 초과) 상태를 고른다. 고른 값은 `localStorage`의 `hackforge.mock`에 남는다. mock 코드와 worker 파일은 이 모드에서만 들어가고 `npm run dev`와 배포 빌드에는 없다.
 
@@ -45,7 +45,9 @@ audit은 배포 의존성에 높은 위험 이상 취약점이 있으면 실패�
 | `src/api/` | API 공통 처리: `client.ts`(CSRF 헤더, 401 처리, 오류 변환), `errors.ts`(`ApiError`, 입력 칸별 오류 `fieldErrors`), `me.ts`(`useMe`, 로그인 안 했으면 `null`), `query.ts`(QueryClient와 기본 client 설정) |
 | `src/mocks/` | mock 모드: `handlers.ts`(API별 가짜 응답, 생성 타입 사용), `scenario.ts`(시나리오와 저장), `mock-panel.tsx`(전환 패널), `browser.ts`(worker 시작) |
 | `src/components/ui/` | shadcn/ui 컴포넌트 복사본. `npx shadcn@latest add <이름>`으로 추가 |
-| `src/components/` | 공통 컴포넌트(테마 provider, 테마 전환, 로고) |
+| `src/routes.tsx` | 경로 표. `/`(로그인 전 소개, 후 홈), `/login`, `/signup`, 로그인 필요 구간 `/problems`·`/records`, 관리자 구간 `/admin`, 그 밖은 404 |
+| `src/pages/` | 화면. `status-pages.tsx`(404, 403, 백엔드 연결 실패), `placeholder-pages.tsx`(기능별 이슈에서 채울 화면의 자리) |
+| `src/components/` | 공통 컴포넌트: `app-layout.tsx`(상단 줄, 주 메뉴, 승인 대기·거절 안내 띠), `user-menu.tsx`(계정, 테마, 로그아웃), `route-guards.tsx`(로그인 필요, 관리자만), 테마 provider와 전환, 로고 |
 | `src/lib/` | 화면과 무관한 로직(`theme.ts`)과 `cn` 등 유틸 |
 | `src/index.css` | Tailwind, shadcn/ui 테마 토큰(라이트·다크 색), 글꼴(Pretendard). shadcn의 `tailwind.css`는 `shadcn eject`로 이 파일에 넣었고 `shadcn` 패키지는 설치하지 않음(CLI 하위 의존성 취약점 경고 때문) |
 | `components.json` | shadcn/ui 설정(Base UI, Nova 프리셋, lucide 아이콘) |

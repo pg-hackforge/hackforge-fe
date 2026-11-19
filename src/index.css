@@ -819,7 +819,8 @@
     @apply border-border outline-ring/50;
   }
   body {
-    @apply bg-background text-foreground;
+    /* 한글이 낱말 중간에서 줄바꿈되지 않게 */
+    @apply bg-background break-keep text-foreground;
   }
   html {
     @apply font-sans;

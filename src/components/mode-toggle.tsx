@@ -17,9 +17,22 @@ const options: { value: Theme; label: string; icon: typeof SunIcon }[] = [
   { value: 'system', label: '시스템 설정', icon: MonitorIcon },
 ]
 
-export function ModeToggle() {
+/** 테마 선택 항목. 로그인 전에는 상단 줄 아이콘 메뉴, 로그인 후에는 사용자 메뉴 안에서 쓴다 */
+export function ThemeRadioItems() {
   const { theme, setTheme } = useTheme()
+  return (
+    <DropdownMenuRadioGroup value={theme} onValueChange={(value) => setTheme(value as Theme)}>
+      {options.map(({ value, label, icon: Icon }) => (
+        <DropdownMenuRadioItem key={value} value={value}>
+          <Icon />
+          {label}
+        </DropdownMenuRadioItem>
+      ))}
+    </DropdownMenuRadioGroup>
+  )
+}
 
+export function ModeToggle() {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger render={<Button variant="ghost" size="icon" aria-label="화면 테마" />}>
@@ -27,14 +40,7 @@ export function ModeToggle() {
         <MoonIcon className="hidden dark:block" />
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-36">
-        <DropdownMenuRadioGroup value={theme} onValueChange={(value) => setTheme(value as Theme)}>
-          {options.map(({ value, label, icon: Icon }) => (
-            <DropdownMenuRadioItem key={value} value={value}>
-              <Icon />
-              {label}
-            </DropdownMenuRadioItem>
-          ))}
-        </DropdownMenuRadioGroup>
+        <ThemeRadioItems />
       </DropdownMenuContent>
     </DropdownMenu>
   )

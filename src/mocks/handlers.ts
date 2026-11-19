@@ -13,6 +13,7 @@ import { loadScenario, saveScenario, type Scenario } from './scenario'
 
 const USERS: Record<Exclude<Scenario['account'], 'logged-out'>, UserResponse> = {
   pending: user(2, 'newbie', 'LEARNER', 'PENDING'),
+  rejected: user(4, 'denied', 'LEARNER', 'REJECTED'),
   learner: user(3, 'forge_kim', 'LEARNER', 'APPROVED'),
   admin: user(1, 'admin', 'ADMIN', 'APPROVED'),
 }
