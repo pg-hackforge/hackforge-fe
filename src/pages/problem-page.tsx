@@ -1,0 +1,163 @@
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { ArrowLeftIcon, ClockIcon } from 'lucide-react'
+import { Link, useNavigate, useParams } from 'react-router'
+
+import { ApiError } from '@/api/errors'
+import {
+  getChallengeOptions,
+  getCurrentLabQueryKey,
+} from '@/api/generated/@tanstack/react-query.gen'
+import { useCurrentLab } from '@/api/labs'
+import { startLab } from '@/api/generated/sdk.gen'
+import { useMe } from '@/api/me'
+import { FormAlert } from '@/components/form'
+import { Markdown } from '@/components/markdown'
+import { Button, buttonVariants } from '@/components/ui/button'
+import { NotFoundPage } from '@/pages/status-pages'
+import { Difficulty, MyStatus } from '@/pages/problems-page'
+import { cn } from '@/lib/utils'
+
+/** 실습 시작이 거절된 이유 */
+function startErrorText(error: Error) {
+  if (!(error instanceof ApiError)) return error.message
+  if (error.code === 'LAB_CAPACITY_FULL')
+    return '지금은 실습 자리가 모두 찼어요. 잠시 뒤 다시 시도해 주세요.'
+  if (error.code === 'ACCOUNT_NOT_APPROVED') return '가입이 승인되면 실습을 시작할 수 있어요.'
+  if (error.code === 'LAB_ALREADY_ACTIVE')
+    return '이미 진행 중인 실습이 있어요. 그 실습을 끝내면 새로 시작할 수 있어요.'
+  return error.message
+}
+
+/** `/problems/:id` 문제 상세와 실습 시작(ADR 027). 시작하면 `/labs/:id`로 간다 */
+export function ProblemPage() {
+  const id = Number(useParams().id)
+  const me = useMe().data
+  const navigate = useNavigate()
+  const queryClient = useQueryClient()
+  const challenge = useQuery({
+    ...getChallengeOptions({ path: { id } }),
+    enabled: Number.isInteger(id),
+  })
+  const currentLab = useCurrentLab().data
+  const start = useMutation({
+    mutationFn: async () =>
+      (await startLab({ body: { challengeId: id }, throwOnError: true })).data,
+    onSuccess: (lab) => navigate(`/labs/${lab.id}`),
+    // 진행 중 세션이 있다고 하면 그 세션을 다시 읽어 안내에 쓴다
+    onError: () => queryClient.invalidateQueries({ queryKey: getCurrentLabQueryKey() }),
+  })
+
+  if (
+    !Number.isInteger(id) ||
+    (challenge.error instanceof ApiError && challenge.error.code === 'CHALLENGE_NOT_FOUND')
+  )
+    return <NotFoundPage />
+  const c = challenge.data
+
+  return (
+    <div className="mx-auto w-full max-w-310 px-4 pt-8 pb-14 sm:px-6">
+      <Link
+        to="/problems"
+        className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"
+      >
+        <ArrowLeftIcon className="size-4" aria-hidden />
+        문제 목록
+      </Link>
+      {challenge.isError && (
+        <FormAlert tone="error">문제를 불러오지 못했어요. 잠시 뒤 다시 시도해 주세요.</FormAlert>
+      )}
+      {c && (
+        <div className="mt-4 grid grid-cols-[1fr_320px] items-start gap-8">
+          <article className="min-w-0">
+            <div className="flex items-center gap-2 font-mono text-[13px] text-muted-foreground">
+              No.{c.id}
+              {c.isNew && (
+                <span className="rounded border border-foreground/70 px-1 font-sans text-[10px] leading-3.5 font-bold text-foreground">
+                  NEW
+                </span>
+              )}
+            </div>
+            <h1 className="mt-1 text-2xl font-semibold tracking-tight">{c.title}</h1>
+            <p className="mt-2 max-w-160 text-muted-foreground">{c.summary}</p>
+            <div className="mt-4 flex flex-wrap items-center gap-x-5 gap-y-2 border-b pb-5 text-sm">
+              <span className="rounded-md border px-2 py-0.5 text-xs">{c.category.name}</span>
+              <Difficulty value={c.difficulty} />
+              <span className="flex items-center gap-1.5">
+                <ClockIcon className="size-4 text-muted-foreground" aria-hidden />
+                예상 {c.estimatedMinutes}분
+              </span>
+              <MyStatus value={c.myStatus} active={currentLab?.challengeId === c.id} />
+            </div>
+            <Markdown className="mt-6 max-w-160">{c.description}</Markdown>
+          </article>
+          <aside className="sticky top-20 rounded-xl border bg-card p-5">
+            <StartPanel
+              challengeId={c.id}
+              approved={me?.status === 'APPROVED'}
+              currentLab={currentLab ?? undefined}
+              pending={start.isPending}
+              error={start.error ? startErrorText(start.error) : undefined}
+              onStart={() => start.mutate()}
+            />
+          </aside>
+        </div>
+      )}
+    </div>
+  )
+}
+
+function StartPanel({
+  challengeId,
+  approved,
+  currentLab,
+  pending,
+  error,
+  onStart,
+}: {
+  challengeId: number
+  approved: boolean
+  currentLab?: { id: number; challengeId: number; challengeTitle: string }
+  pending: boolean
+  error?: string
+  onStart: () => void
+}) {
+  if (currentLab?.challengeId === challengeId)
+    return (
+      <>
+        <p className="font-semibold">이 문제를 실습 중이에요</p>
+        <p className="mt-1 text-sm text-muted-foreground">하던 실습으로 돌아가요.</p>
+        <Link to={`/labs/${currentLab.id}`} className={cn(buttonVariants(), 'mt-4 w-full')}>
+          실습으로 돌아가기
+        </Link>
+      </>
+    )
+  if (currentLab)
+    return (
+      <>
+        <p className="font-semibold">다른 실습이 진행 중이에요</p>
+        <p className="mt-1 text-sm text-muted-foreground">
+          {currentLab.challengeTitle} 실습을 끝내면 이 문제를 시작할 수 있어요. 실습은 한 번에
+          하나만 해요.
+        </p>
+        <Link
+          to={`/labs/${currentLab.id}`}
+          className={cn(buttonVariants({ variant: 'outline' }), 'mt-4 w-full')}
+        >
+          진행 중인 실습으로
+        </Link>
+      </>
+    )
+  return (
+    <>
+      <p className="font-semibold">전용 실습 환경을 만들어요</p>
+      <p className="mt-1 text-sm text-muted-foreground">
+        준비에 1분 정도 걸려요. 30분 동안 아무 입력이 없으면 자동으로 끝나요.
+      </p>
+      {error && <FormAlert tone="error">{error}</FormAlert>}
+      {!approved && <FormAlert tone="info">가입이 승인되면 실습을 시작할 수 있어요.</FormAlert>}
+      <Button className="mt-4 w-full" disabled={!approved || pending} onClick={onStart}>
+        {pending ? '시작하는 중…' : '실습 시작'}
+      </Button>
+    </>
+  )
+}

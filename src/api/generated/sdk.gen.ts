@@ -2,7 +2,7 @@
 
 import type { Client, ClientMeta, Options as Options2, RequestResult, TDataShape } from './client';
 import { client } from './client.gen';
-import type { ApproveUserData, ApproveUserErrors, ApproveUserResponses, ChangeMyPasswordData, ChangeMyPasswordErrors, ChangeMyPasswordResponses, ChangeUserRoleData, ChangeUserRoleErrors, ChangeUserRoleResponses, EndLabData, EndLabErrors, EndLabResponses, GetCurrentLabData, GetCurrentLabErrors, GetCurrentLabResponses, GetLabData, GetLabErrors, GetLabResponses, GetMeData, GetMeErrors, GetMeResponses, IssueTemporaryPasswordData, IssueTemporaryPasswordErrors, IssueTemporaryPasswordResponses, ListChallengesData, ListChallengesErrors, ListChallengesResponses, ListUsersData, ListUsersErrors, ListUsersResponses, LoginData, LoginErrors, LoginResponses, LogoutData, LogoutErrors, LogoutResponses, RecordLabActivityData, RecordLabActivityErrors, RecordLabActivityResponses, RejectUserData, RejectUserErrors, RejectUserResponses, SignupData, SignupErrors, SignupResponses, StartLabData, StartLabErrors, StartLabResponses } from './types.gen';
+import type { ApproveUserData, ApproveUserErrors, ApproveUserResponses, ChangeMyPasswordData, ChangeMyPasswordErrors, ChangeMyPasswordResponses, ChangeUserRoleData, ChangeUserRoleErrors, ChangeUserRoleResponses, EndLabData, EndLabErrors, EndLabResponses, GetChallengeData, GetChallengeErrors, GetChallengeResponses, GetCurrentLabData, GetCurrentLabErrors, GetCurrentLabResponses, GetLabData, GetLabErrors, GetLabFileData, GetLabFileErrors, GetLabFileResponses, GetLabResponses, GetMeData, GetMeErrors, GetMeResponses, GetMyProgressData, GetMyProgressErrors, GetMyProgressResponses, GetRedeployData, GetRedeployErrors, GetRedeployResponses, GetSolutionData, GetSolutionErrors, GetSolutionResponses, GetVerificationData, GetVerificationErrors, GetVerificationResponses, IssueTemporaryPasswordData, IssueTemporaryPasswordErrors, IssueTemporaryPasswordResponses, ListAdminLabsData, ListAdminLabsErrors, ListAdminLabsResponses, ListChallengesData, ListChallengesErrors, ListChallengesResponses, ListLabEventsData, ListLabEventsErrors, ListLabEventsResponses, ListLabFilesData, ListLabFilesErrors, ListLabFilesResponses, ListLabHintsData, ListLabHintsErrors, ListLabHintsResponses, ListLabsData, ListLabsErrors, ListLabsResponses, ListRedeploysData, ListRedeploysErrors, ListRedeploysResponses, ListUsersData, ListUsersErrors, ListUsersResponses, ListVerificationsData, ListVerificationsErrors, ListVerificationsResponses, LoginData, LoginErrors, LoginResponses, LogoutData, LogoutErrors, LogoutResponses, OpenLabTerminalData, OpenLabTerminalErrors, OpenSolutionData, OpenSolutionErrors, OpenSolutionResponses, RecordLabActivityData, RecordLabActivityErrors, RecordLabActivityResponses, RejectUserData, RejectUserErrors, RejectUserResponses, RequestAttackVerificationData, RequestAttackVerificationErrors, RequestAttackVerificationResponses, RequestDefenseVerificationData, RequestDefenseVerificationErrors, RequestDefenseVerificationResponses, RequestRedeployData, RequestRedeployErrors, RequestRedeployResponses, ResetLabData, ResetLabErrors, ResetLabResponses, RevealAttackHintData, RevealAttackHintErrors, RevealAttackHintResponses, RevealDefenseHintData, RevealDefenseHintErrors, RevealDefenseHintResponses, RevertLabFileData, RevertLabFileErrors, RevertLabFileResponses, SaveLabFileData, SaveLabFileErrors, SaveLabFileResponses, SignupData, SignupErrors, SignupResponses, SkipAttackData, SkipAttackErrors, SkipAttackResponses, StartLabData, StartLabErrors, StartLabResponses, TerminateLabData, TerminateLabErrors, TerminateLabResponses } from './types.gen';
 
 export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends boolean = boolean, TResponse = unknown> = Options2<TData, ThrowOnError, TResponse> & {
     /**
@@ -71,6 +71,21 @@ export const getMe = <ThrowOnError extends boolean = false>(options?: Options<Ge
             type: 'apiKey'
         }],
     url: '/api/me',
+    ...options
+});
+
+/**
+ * 내 진행 요약
+ *
+ * 홈의 내 진행(hackforge-docs ADR 027). 전체 문제 수, 완료한 문제 수, 끝내지 못한 문제 수, 분류별 전체·완료 수. 문제별 상태는 `ChallengeMyStatus`와 같은 규칙으로 센다
+ */
+export const getMyProgress = <ThrowOnError extends boolean = false>(options?: Options<GetMyProgressData, ThrowOnError>): RequestResult<GetMyProgressResponses, GetMyProgressErrors, ThrowOnError> => (options?.client ?? client).get<GetMyProgressResponses, GetMyProgressErrors, ThrowOnError>({
+    security: [{
+            in: 'cookie',
+            name: 'SESSION',
+            type: 'apiKey'
+        }],
+    url: '/api/me/progress',
     ...options
 });
 
@@ -173,9 +188,39 @@ export const issueTemporaryPassword = <ThrowOnError extends boolean = false>(opt
 });
 
 /**
+ * 세션 목록
+ *
+ * 모든 학습자의 실습 세션을 최근 시작 순으로 준다(hackforge-docs ADR 026). 기본은 종료 전 세션이고, `status=ALL`이면 종료한 세션(`DELETED`, `FAILED`)도 준다. 한 세션의 기록은 학습자와 같은 조회 API (`GET /api/labs/{id}`, 검증, 재배포, 힌트, 상태 기록)로 본다
+ */
+export const listAdminLabs = <ThrowOnError extends boolean = false>(options?: Options<ListAdminLabsData, ThrowOnError>): RequestResult<ListAdminLabsResponses, ListAdminLabsErrors, ThrowOnError> => (options?.client ?? client).get<ListAdminLabsResponses, ListAdminLabsErrors, ThrowOnError>({
+    security: [{
+            in: 'cookie',
+            name: 'SESSION',
+            type: 'apiKey'
+        }, { name: 'X-XSRF-TOKEN', type: 'apiKey' }],
+    url: '/api/admin/labs',
+    ...options
+});
+
+/**
+ * 세션 강제 종료
+ *
+ * 학습자의 세션을 `TERMINATING`(종료 사유 `ADMIN`)으로 바꾸고 바로 응답한다(hackforge-docs ADR 026). 실습 환경 삭제는 비동기이고 열린 터미널은 닫힌다. 이미 종료 중이거나 끝난 세션은 바꾸지 않고 지금 상태를 준다
+ */
+export const terminateLab = <ThrowOnError extends boolean = false>(options: Options<TerminateLabData, ThrowOnError>): RequestResult<TerminateLabResponses, TerminateLabErrors, ThrowOnError> => (options.client ?? client).post<TerminateLabResponses, TerminateLabErrors, ThrowOnError>({
+    security: [{
+            in: 'cookie',
+            name: 'SESSION',
+            type: 'apiKey'
+        }, { name: 'X-XSRF-TOKEN', type: 'apiKey' }],
+    url: '/api/admin/labs/{id}/terminate',
+    ...options
+});
+
+/**
  * 문제 목록
  *
- * 승인 대기·거절 계정도 조회 가능. 승인 여부는 실습 시작 시점에만 확인한다. id 순서로 반환한다
+ * 검색, 필터, 정렬, 페이지(20개). 같은 조건의 여러 값은 "또는", 다른 조건끼리는 "그리고"로 묶는다. 범위를 넘은 페이지는 빈 `items`를 반환하고 개수 값은 그대로다. 승인 대기·거절 계정도 조회 가능. 승인 여부는 실습 시작 시점에만 확인한다
  */
 export const listChallenges = <ThrowOnError extends boolean = false>(options?: Options<ListChallengesData, ThrowOnError>): RequestResult<ListChallengesResponses, ListChallengesErrors, ThrowOnError> => (options?.client ?? client).get<ListChallengesResponses, ListChallengesErrors, ThrowOnError>({
     security: [{
@@ -184,6 +229,36 @@ export const listChallenges = <ThrowOnError extends boolean = false>(options?: O
             type: 'apiKey'
         }],
     url: '/api/challenges',
+    ...options
+});
+
+/**
+ * 문제 조회
+ *
+ * 목록 항목에 설명 전문(Markdown)을 더해 반환한다. 승인 대기·거절 계정도 조회 가능
+ */
+export const getChallenge = <ThrowOnError extends boolean = false>(options: Options<GetChallengeData, ThrowOnError>): RequestResult<GetChallengeResponses, GetChallengeErrors, ThrowOnError> => (options.client ?? client).get<GetChallengeResponses, GetChallengeErrors, ThrowOnError>({
+    security: [{
+            in: 'cookie',
+            name: 'SESSION',
+            type: 'apiKey'
+        }],
+    url: '/api/challenges/{id}',
+    ...options
+});
+
+/**
+ * 내 실습 기록
+ *
+ * 내 세션을 최근 시작 순으로 준다. 종료한 세션도 포함한다(hackforge-docs ADR 026). 한 세션의 기록은 `GET /api/labs/{id}`, 검증, 재배포, 힌트, 상태 기록 API로 본다
+ */
+export const listLabs = <ThrowOnError extends boolean = false>(options?: Options<ListLabsData, ThrowOnError>): RequestResult<ListLabsResponses, ListLabsErrors, ThrowOnError> => (options?.client ?? client).get<ListLabsResponses, ListLabsErrors, ThrowOnError>({
+    security: [{
+            in: 'cookie',
+            name: 'SESSION',
+            type: 'apiKey'
+        }],
+    url: '/api/labs',
     ...options
 });
 
@@ -248,6 +323,320 @@ export const getLab = <ThrowOnError extends boolean = false>(options: Options<Ge
             type: 'apiKey'
         }],
     url: '/api/labs/{id}',
+    ...options
+});
+
+/**
+ * 웹 터미널(WebSocket)
+ *
+ * WebSocket upgrade 요청이다(`Upgrade: websocket`). 실습 Pod에 exec(TTY)로 `sh`를 띄워 연결한다(hackforge-docs ADR 022).
+ *
+ * 연결 전 확인: 로그인하지 않았으면 401, `Origin`이 플랫폼 origin이 아니면 403으로 upgrade를 거절한다 (다른 사이트가 학습자 브라우저로 터미널을 여는 것을 막음). CSRF 헤더는 필요 없다.
+ *
+ * 메시지: 클라이언트 → 서버의 binary 메시지는 셸 입력(바이트 그대로), text 메시지는 제어 JSON `{"type":"resize","cols":<1~500>,"rows":<1~200>}`이다. 서버 → 클라이언트는 binary 메시지로 셸 출력(바이트 그대로)만 보낸다. 형식이 틀린 text 메시지는 무시한다.
+ *
+ * 서버가 닫는 코드(reason에는 이름을 넣음): `1000 EXITED` 셸이 끝남, `4404 LAB_NOT_FOUND` 없는 세션 또는 다른 사용자의 세션, `4409 LAB_NOT_READY` 연결할 때 `READY`가 아님, `4410 LAB_ENDED` 연결 중 세션이 `READY`가 아니게 됨(종료, idle 종료, 실습 환경 비정상 종료), `4429 TERMINAL_LIMIT` 이 세션에 이미 터미널 3개가 열려 있음, `1011 INTERNAL_ERROR` 실습 환경 연결 실패. 세션 확인 결과는 브라우저 WebSocket API가 upgrade 응답의 상태와 본문을 읽지 못해서, upgrade를 받은 뒤 닫는 코드로 알린다. 다시 연결하면 새 셸이다
+ */
+export const openLabTerminal = <ThrowOnError extends boolean = false>(options: Options<OpenLabTerminalData, ThrowOnError>): RequestResult<unknown, OpenLabTerminalErrors, ThrowOnError> => (options.client ?? client).get<unknown, OpenLabTerminalErrors, ThrowOnError>({
+    security: [{
+            in: 'cookie',
+            name: 'SESSION',
+            type: 'apiKey'
+        }],
+    url: '/api/labs/{id}/terminal',
+    ...options
+});
+
+/**
+ * 공격 검증 요청
+ *
+ * 공격 검증을 `RUNNING`으로 접수하고 바로 응답한다(hackforge-docs ADR 023). 서버가 응답 뒤 실습 Pod 안에서 문제의 `attack-check.sh`를 실행하고 결과를 저장한다. 클라이언트는 `GET /api/labs/{id}/verifications/{verificationId}`를 1초 간격으로 polling해 `RUNNING`이 끝나기를 기다린다. `ATTACK`, `DEFENSE` 단계 모두 받고 횟수 제한은 없다. `ATTACK` 단계에서 `PASS`가 나오면 세션 단계가 `DEFENSE`로 바뀐다. 이 요청은 활동으로 집계한다
+ */
+export const requestAttackVerification = <ThrowOnError extends boolean = false>(options: Options<RequestAttackVerificationData, ThrowOnError>): RequestResult<RequestAttackVerificationResponses, RequestAttackVerificationErrors, ThrowOnError> => (options.client ?? client).post<RequestAttackVerificationResponses, RequestAttackVerificationErrors, ThrowOnError>({
+    security: [{
+            in: 'cookie',
+            name: 'SESSION',
+            type: 'apiKey'
+        }, { name: 'X-XSRF-TOKEN', type: 'apiKey' }],
+    url: '/api/labs/{id}/attack-verifications',
+    ...options
+});
+
+/**
+ * 검증 기록
+ *
+ * 이 세션의 공격·방어 검증을 최근 순으로 반환한다. 끝난 세션도 조회 가능
+ */
+export const listVerifications = <ThrowOnError extends boolean = false>(options: Options<ListVerificationsData, ThrowOnError>): RequestResult<ListVerificationsResponses, ListVerificationsErrors, ThrowOnError> => (options.client ?? client).get<ListVerificationsResponses, ListVerificationsErrors, ThrowOnError>({
+    security: [{
+            in: 'cookie',
+            name: 'SESSION',
+            type: 'apiKey'
+        }, { name: 'X-XSRF-TOKEN', type: 'apiKey' }],
+    url: '/api/labs/{id}/verifications',
+    ...options
+});
+
+/**
+ * 검증 하나
+ *
+ * 검증 결과를 polling할 때 쓴다. polling은 활동으로 집계하지 않는다
+ */
+export const getVerification = <ThrowOnError extends boolean = false>(options: Options<GetVerificationData, ThrowOnError>): RequestResult<GetVerificationResponses, GetVerificationErrors, ThrowOnError> => (options.client ?? client).get<GetVerificationResponses, GetVerificationErrors, ThrowOnError>({
+    security: [{
+            in: 'cookie',
+            name: 'SESSION',
+            type: 'apiKey'
+        }, { name: 'X-XSRF-TOKEN', type: 'apiKey' }],
+    url: '/api/labs/{id}/verifications/{verificationId}',
+    ...options
+});
+
+/**
+ * 다음 공격 힌트 공개
+ *
+ * 공격 힌트를 1(방향) → 2(위치) → 3(공격 방법) 순서로 하나 공개하고 공개 시각을 기록한다(hackforge-docs ADR 023). `READY`이고 `ATTACK` 단계일 때만 받는다. 이 요청은 활동으로 집계한다
+ */
+export const revealAttackHint = <ThrowOnError extends boolean = false>(options: Options<RevealAttackHintData, ThrowOnError>): RequestResult<RevealAttackHintResponses, RevealAttackHintErrors, ThrowOnError> => (options.client ?? client).post<RevealAttackHintResponses, RevealAttackHintErrors, ThrowOnError>({
+    security: [{
+            in: 'cookie',
+            name: 'SESSION',
+            type: 'apiKey'
+        }, { name: 'X-XSRF-TOKEN', type: 'apiKey' }],
+    url: '/api/labs/{id}/attack-hints',
+    ...options
+});
+
+/**
+ * 공개한 힌트
+ *
+ * 이 세션에서 공개한 힌트(공격·방어)를 공개 순서로, 단계별 전체 개수와 함께 반환한다. 단계와 상관없이 조회 가능
+ */
+export const listLabHints = <ThrowOnError extends boolean = false>(options: Options<ListLabHintsData, ThrowOnError>): RequestResult<ListLabHintsResponses, ListLabHintsErrors, ThrowOnError> => (options.client ?? client).get<ListLabHintsResponses, ListLabHintsErrors, ThrowOnError>({
+    security: [{
+            in: 'cookie',
+            name: 'SESSION',
+            type: 'apiKey'
+        }, { name: 'X-XSRF-TOKEN', type: 'apiKey' }],
+    url: '/api/labs/{id}/hints',
+    ...options
+});
+
+/**
+ * 공격 건너뛰기
+ *
+ * 공격 단계에서 힌트를 몇 개 봤든 방어 단계로 넘어가고 `attackSkipped`를 기록한다(hackforge-docs ADR 023). `READY`이고 `ATTACK` 단계일 때만 받는다. 이 요청은 활동으로 집계한다
+ */
+export const skipAttack = <ThrowOnError extends boolean = false>(options: Options<SkipAttackData, ThrowOnError>): RequestResult<SkipAttackResponses, SkipAttackErrors, ThrowOnError> => (options.client ?? client).post<SkipAttackResponses, SkipAttackErrors, ThrowOnError>({
+    security: [{
+            in: 'cookie',
+            name: 'SESSION',
+            type: 'apiKey'
+        }, { name: 'X-XSRF-TOKEN', type: 'apiKey' }],
+    url: '/api/labs/{id}/attack-skip',
+    ...options
+});
+
+/**
+ * 코드 파일 목록
+ *
+ * 실습 Pod의 `/app` 아래 파일 목록(hackforge-docs ADR 024). `READY`이고 `DEFENSE` 단계일 때만 받는다. `readOnly`는 문제가 정한 수정 불가 파일이고, `openable`이 false인 파일(1MB 초과, 바이너리)은 IDE에서 열 수 없다
+ */
+export const listLabFiles = <ThrowOnError extends boolean = false>(options: Options<ListLabFilesData, ThrowOnError>): RequestResult<ListLabFilesResponses, ListLabFilesErrors, ThrowOnError> => (options.client ?? client).get<ListLabFilesResponses, ListLabFilesErrors, ThrowOnError>({
+    security: [{
+            in: 'cookie',
+            name: 'SESSION',
+            type: 'apiKey'
+        }, { name: 'X-XSRF-TOKEN', type: 'apiKey' }],
+    url: '/api/labs/{id}/files',
+    ...options
+});
+
+/**
+ * 코드 파일 읽기
+ *
+ * 파일 내용(UTF-8)과 SHA-256. 저장할 때 이 해시를 `baseSha256`으로 보낸다
+ */
+export const getLabFile = <ThrowOnError extends boolean = false>(options: Options<GetLabFileData, ThrowOnError>): RequestResult<GetLabFileResponses, GetLabFileErrors, ThrowOnError> => (options.client ?? client).get<GetLabFileResponses, GetLabFileErrors, ThrowOnError>({
+    security: [{
+            in: 'cookie',
+            name: 'SESSION',
+            type: 'apiKey'
+        }, { name: 'X-XSRF-TOKEN', type: 'apiKey' }],
+    url: '/api/labs/{id}/files/content',
+    ...options
+});
+
+/**
+ * 코드 파일 저장
+ *
+ * 자동 저장에 쓴다. `baseSha256`이 지금 파일의 해시와 다르면(터미널 등에서 바뀜) 저장하지 않고 409 `FILE_CHANGED`. 화면이 다시 불러오거나, 사용자가 덮어쓰기를 고르면 `baseSha256` 없이 보낸다. 이 요청은 활동으로 집계한다
+ */
+export const saveLabFile = <ThrowOnError extends boolean = false>(options: Options<SaveLabFileData, ThrowOnError>): RequestResult<SaveLabFileResponses, SaveLabFileErrors, ThrowOnError> => (options.client ?? client).put<SaveLabFileResponses, SaveLabFileErrors, ThrowOnError>({
+    security: [{
+            in: 'cookie',
+            name: 'SESSION',
+            type: 'apiKey'
+        }, { name: 'X-XSRF-TOKEN', type: 'apiKey' }],
+    url: '/api/labs/{id}/files/content',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * 코드 파일을 원본으로 되돌리기
+ *
+ * 문제의 원본(Challenge 이미지의 `/hackforge/original`)으로 되돌린다. 이 요청은 활동으로 집계한다
+ */
+export const revertLabFile = <ThrowOnError extends boolean = false>(options: Options<RevertLabFileData, ThrowOnError>): RequestResult<RevertLabFileResponses, RevertLabFileErrors, ThrowOnError> => (options.client ?? client).post<RevertLabFileResponses, RevertLabFileErrors, ThrowOnError>({
+    security: [{
+            in: 'cookie',
+            name: 'SESSION',
+            type: 'apiKey'
+        }, { name: 'X-XSRF-TOKEN', type: 'apiKey' }],
+    url: '/api/labs/{id}/files/revert',
+    ...options
+});
+
+/**
+ * 재배포·초기화 기록
+ *
+ * 이 세션의 재배포와 서비스 초기화를 최근 순으로 반환한다. 빌드 로그(`log`)는 넣지 않는다(한 건 조회에서 받음)
+ */
+export const listRedeploys = <ThrowOnError extends boolean = false>(options: Options<ListRedeploysData, ThrowOnError>): RequestResult<ListRedeploysResponses, ListRedeploysErrors, ThrowOnError> => (options.client ?? client).get<ListRedeploysResponses, ListRedeploysErrors, ThrowOnError>({
+    security: [{
+            in: 'cookie',
+            name: 'SESSION',
+            type: 'apiKey'
+        }, { name: 'X-XSRF-TOKEN', type: 'apiKey' }],
+    url: '/api/labs/{id}/redeploys',
+    ...options
+});
+
+/**
+ * 재배포 요청
+ *
+ * `RUNNING`으로 접수하고 바로 응답한다(hackforge-docs ADR 024). 서버가 Pod 안에서 `docker compose build`, `up -d`를 실행하고 모든 서비스가 healthy가 될 때까지 기다린다(최대 3분). 클라이언트는 `GET /api/labs/{id}/redeploys/{redeployId}`를 polling한다. `READY`이고 `DEFENSE` 단계일 때만 받는다. 검증, 재배포, 초기화 중 하나가 실행 중이면 409. 이 요청은 활동으로 집계한다
+ */
+export const requestRedeploy = <ThrowOnError extends boolean = false>(options: Options<RequestRedeployData, ThrowOnError>): RequestResult<RequestRedeployResponses, RequestRedeployErrors, ThrowOnError> => (options.client ?? client).post<RequestRedeployResponses, RequestRedeployErrors, ThrowOnError>({
+    security: [{
+            in: 'cookie',
+            name: 'SESSION',
+            type: 'apiKey'
+        }, { name: 'X-XSRF-TOKEN', type: 'apiKey' }],
+    url: '/api/labs/{id}/redeploys',
+    ...options
+});
+
+/**
+ * 재배포·초기화 하나(빌드 로그 포함)
+ *
+ * polling할 때 쓴다. polling은 활동으로 집계하지 않는다
+ */
+export const getRedeploy = <ThrowOnError extends boolean = false>(options: Options<GetRedeployData, ThrowOnError>): RequestResult<GetRedeployResponses, GetRedeployErrors, ThrowOnError> => (options.client ?? client).get<GetRedeployResponses, GetRedeployErrors, ThrowOnError>({
+    security: [{
+            in: 'cookie',
+            name: 'SESSION',
+            type: 'apiKey'
+        }, { name: 'X-XSRF-TOKEN', type: 'apiKey' }],
+    url: '/api/labs/{id}/redeploys/{redeployId}',
+    ...options
+});
+
+/**
+ * 초기화
+ *
+ * (hackforge-docs ADR 024) `SERVICES`(서비스 초기화): `/app`을 원본으로 되돌리고 `docker compose down -v`, `build`, `up -d`, healthy 대기. DB도 초기 데이터로 돌아간다. 재배포처럼 비동기이고 응답의 `redeploy`(`kind=RESET`)를 polling한다. `ENVIRONMENT`(실습 환경 다시 만들기): Pod를 새로 만든다. 세션이 `CREATING`(준비 단계 `SPACE`)으로 돌아가고 `redeploy`는 `null`. 세션 polling으로 다시 `READY`가 되기를 기다린다. 그동안 터미널은 닫히고 공격 대상은 준비 중 안내. `keepStage=false`(처음부터)는 단계를 `ATTACK`, `attackSkipped`를 false로 되돌린다. 검증 기록과 공개한 힌트는 남는다. `READY`일 때 받고 단계는 상관없다. 검증, 재배포, 초기화 중 하나가 실행 중이면 409. 이 요청은 활동으로 집계한다
+ */
+export const resetLab = <ThrowOnError extends boolean = false>(options: Options<ResetLabData, ThrowOnError>): RequestResult<ResetLabResponses, ResetLabErrors, ThrowOnError> => (options.client ?? client).post<ResetLabResponses, ResetLabErrors, ThrowOnError>({
+    security: [{
+            in: 'cookie',
+            name: 'SESSION',
+            type: 'apiKey'
+        }, { name: 'X-XSRF-TOKEN', type: 'apiKey' }],
+    url: '/api/labs/{id}/reset',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * 다음 방어 힌트 공개
+ *
+ * 방어 힌트를 1(방향) → 2(위치) → 3(고치는 방법) 순서로 하나 공개하고 공개 시각을 기록한다(hackforge-docs ADR 024). `READY`이고 `DEFENSE` 단계일 때만 받는다. 이 요청은 활동으로 집계한다
+ */
+export const revealDefenseHint = <ThrowOnError extends boolean = false>(options: Options<RevealDefenseHintData, ThrowOnError>): RequestResult<RevealDefenseHintResponses, RevealDefenseHintErrors, ThrowOnError> => (options.client ?? client).post<RevealDefenseHintResponses, RevealDefenseHintErrors, ThrowOnError>({
+    security: [{
+            in: 'cookie',
+            name: 'SESSION',
+            type: 'apiKey'
+        }, { name: 'X-XSRF-TOKEN', type: 'apiKey' }],
+    url: '/api/labs/{id}/defense-hints',
+    ...options
+});
+
+/**
+ * 방어 검증 요청
+ *
+ * 방어 검증을 `RUNNING`으로 접수하고 바로 응답한다(hackforge-docs ADR 025). 서버가 응답 뒤 실습 Pod 안에서 문제의 `exploit.sh`(기존 공격)와 `functional-test.sh`(정상 기능)를 차례로 둘 다 실행한다. 공격이 모두 막히고 정상 기능이 동작하면 `PASS`다. 결과는 공격 검증과 같이 `GET /api/labs/{id}/verifications/{verificationId}`로 polling한다. 검증은 지금 떠 있는 서비스를 시험하므로, 고친 코드는 먼저 재배포해야 반영된다. `READY`이고 `DEFENSE` 단계일 때만 받는다. 첫 `PASS`가 끝나면 세션의 `completedAt`이 기록된다. 최대 횟수를 넘거나 해답을 본 뒤에도 받는다. 이 요청은 활동으로 집계한다
+ */
+export const requestDefenseVerification = <ThrowOnError extends boolean = false>(options: Options<RequestDefenseVerificationData, ThrowOnError>): RequestResult<RequestDefenseVerificationResponses, RequestDefenseVerificationErrors, ThrowOnError> => (options.client ?? client).post<RequestDefenseVerificationResponses, RequestDefenseVerificationErrors, ThrowOnError>({
+    security: [{
+            in: 'cookie',
+            name: 'SESSION',
+            type: 'apiKey'
+        }, { name: 'X-XSRF-TOKEN', type: 'apiKey' }],
+    url: '/api/labs/{id}/defense-verifications',
+    ...options
+});
+
+/**
+ * 상태 기록
+ *
+ * 세션 상태가 바뀐 기록을 오래된 순으로 준다(hackforge-docs ADR 026). 이전 상태(생성이면 `null`), 다음 상태, 주체(학습자, 관리자, 시스템), 시각. 관리자는 모든 세션의 기록을 볼 수 있다
+ */
+export const listLabEvents = <ThrowOnError extends boolean = false>(options: Options<ListLabEventsData, ThrowOnError>): RequestResult<ListLabEventsResponses, ListLabEventsErrors, ThrowOnError> => (options.client ?? client).get<ListLabEventsResponses, ListLabEventsErrors, ThrowOnError>({
+    security: [{
+            in: 'cookie',
+            name: 'SESSION',
+            type: 'apiKey'
+        }],
+    url: '/api/labs/{id}/events',
+    ...options
+});
+
+/**
+ * 연 해답 다시 보기
+ *
+ * 이 세션에서 해답을 연 적이 있으면 세션 상태와 상관없이 다시 준다(내 실습 기록, hackforge-docs ADR 026). 처음 여는 것은 `POST`다. 세션 주인만 볼 수 있다
+ */
+export const getSolution = <ThrowOnError extends boolean = false>(options: Options<GetSolutionData, ThrowOnError>): RequestResult<GetSolutionResponses, GetSolutionErrors, ThrowOnError> => (options.client ?? client).get<GetSolutionResponses, GetSolutionErrors, ThrowOnError>({
+    security: [{
+            in: 'cookie',
+            name: 'SESSION',
+            type: 'apiKey'
+        }],
+    url: '/api/labs/{id}/solution',
+    ...options
+});
+
+/**
+ * 해답 열기
+ *
+ * 문제의 해답을 준다(hackforge-docs ADR 025). 방어 검증 `FAIL`이 문제의 최대 시도 횟수만큼 쌓여야 열 수 있다 (세션 응답의 `solutionAvailable`). 처음 열 때 시각을 기록하고(`solutionViewedAt`), 그 뒤의 방어 검증은 `afterSolution`이 `true`다. 세션이 `READY`일 때만 받는다(단계는 상관없음). 이 요청은 활동으로 집계한다
+ */
+export const openSolution = <ThrowOnError extends boolean = false>(options: Options<OpenSolutionData, ThrowOnError>): RequestResult<OpenSolutionResponses, OpenSolutionErrors, ThrowOnError> => (options.client ?? client).post<OpenSolutionResponses, OpenSolutionErrors, ThrowOnError>({
+    security: [{
+            in: 'cookie',
+            name: 'SESSION',
+            type: 'apiKey'
+        }, { name: 'X-XSRF-TOKEN', type: 'apiKey' }],
+    url: '/api/labs/{id}/solution',
     ...options
 });
 

@@ -30,8 +30,12 @@ export function setupMockServer() {
 }
 
 /** 앱 전체를 path에서 띄운다. 이동을 확인할 수 있게 router를 반환한다 */
-export function renderAt(path: string, account: Scenario['account']) {
-  saveScenario({ account, lab: 'none' })
+export function renderAt(
+  path: string,
+  account: Scenario['account'],
+  lab: Scenario['lab'] = 'none',
+) {
+  saveScenario({ account, lab })
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   const router = createMemoryRouter(routes, { initialEntries: [path] })
   render(

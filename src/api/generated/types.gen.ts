@@ -74,7 +74,31 @@ export type TemporaryPasswordResponse = {
 };
 
 /**
- * 힌트, 해답, 검증 스크립트는 넣지 않는다
+ * `INTRO` 입문, `BEGINNER` 초급, `INTERMEDIATE` 중급, `ADVANCED` 고급. 이 순서로 쉽다
+ */
+export type ChallengeDifficulty = 'INTRO' | 'BEGINNER' | 'INTERMEDIATE' | 'ADVANCED';
+
+/**
+ * `NEWEST` 새로 추가된 순, `DIFFICULTY` 난이도 낮은 순, `TIME` 예상 시간 짧은 순. 값이 같으면 새로 추가된 순
+ */
+export type ChallengeSort = 'NEWEST' | 'DIFFICULTY' | 'TIME';
+
+/**
+ * 분류. 목록과 표시 순서는 서버가 정한다
+ */
+export type ChallengeCategoryResponse = {
+    /**
+     * 예: `sqli`
+     */
+    key: string;
+    /**
+     * 예: `SQL Injection`
+     */
+    name: string;
+};
+
+/**
+ * 문제 목록 항목. 설명 전문, 힌트, 해답, 검증 스크립트는 넣지 않는다
  */
 export type ChallengeResponse = {
     id: number;
@@ -84,9 +108,98 @@ export type ChallengeResponse = {
     slug: string;
     title: string;
     /**
-     * 문제 목록에 보이는 설명(Markdown). Challenge 저장소의 `meta/description.md`
+     * 목록에 보이는 한 줄 요약
+     */
+    summary: string;
+    category: ChallengeCategoryResponse;
+    difficulty: ChallengeDifficulty;
+    estimatedMinutes: number;
+    /**
+     * 처음 등록한 지 14일 안이면 true
+     */
+    isNew: boolean;
+    myStatus: ChallengeMyStatus;
+};
+
+/**
+ * 문제 하나. 힌트, 해답, 검증 스크립트는 넣지 않는다
+ */
+export type ChallengeDetailResponse = ChallengeResponse & {
+    /**
+     * 문제 설명(Markdown). Challenge 저장소의 `meta/description.md`
      */
     description: string;
+};
+
+export type ChallengePageResponse = {
+    items: Array<ChallengeResponse>;
+    page: number;
+    /**
+     * 한 페이지 크기(20)
+     */
+    size: number;
+    /**
+     * 조건에 맞는 문제 수
+     */
+    totalItems: number;
+    totalPages: number;
+    facets: ChallengeFacetsResponse;
+};
+
+/**
+ * 필터별 문제 수. 개수가 0인 항목도 넣는다. 한 조건의 개수는 그 조건을 뺀 나머지 조건(검색어 포함)을 적용해 센다. 예를 들어 난이도 `INTRO`를 골랐어도 분류별 개수는 입문 문제만, 난이도별 개수는 난이도 조건 없이 센다
+ */
+export type ChallengeFacetsResponse = {
+    /**
+     * `NOT_STARTED`, `UNFINISHED`, `COMPLETED` 순서
+     */
+    myStatuses: Array<MyStatusCountResponse>;
+    /**
+     * 분류 표시 순서
+     */
+    categories: Array<CategoryCountResponse>;
+    /**
+     * 쉬운 순서
+     */
+    difficulties: Array<DifficultyCountResponse>;
+};
+
+/**
+ * 내 상태(hackforge-docs ADR 027). `COMPLETED` 내 세션 중 하나라도 실습을 완료함(첫 방어 검증 PASS), `UNFINISHED` 세션은 있지만 완료한 것이 없음, `NOT_STARTED` 세션이 없음
+ */
+export type ChallengeMyStatus = 'NOT_STARTED' | 'UNFINISHED' | 'COMPLETED';
+
+export type MyStatusCountResponse = {
+    myStatus: ChallengeMyStatus;
+    count: number;
+};
+
+export type MyProgressResponse = {
+    totalChallenges: number;
+    completed: number;
+    unfinished: number;
+    /**
+     * 분류 표시 순서. 문제가 없는 분류도 넣는다
+     */
+    categories: Array<CategoryProgressResponse>;
+};
+
+export type CategoryProgressResponse = {
+    key: string;
+    name: string;
+    total: number;
+    completed: number;
+};
+
+export type CategoryCountResponse = {
+    key: string;
+    name: string;
+    count: number;
+};
+
+export type DifficultyCountResponse = {
+    difficulty: ChallengeDifficulty;
+    count: number;
 };
 
 export type StartLabRequest = {
@@ -98,16 +211,301 @@ export type StartLabRequest = {
  */
 export type LabStatus = 'CREATING' | 'INITIALIZING' | 'READY' | 'TERMINATING' | 'DELETED' | 'FAILED';
 
+export type LabSessionPageResponse = {
+    items: Array<LabSessionResponse>;
+    page: number;
+    /**
+     * 한 페이지 크기(20)
+     */
+    size: number;
+    totalItems: number;
+    totalPages: number;
+};
+
 /**
- * `USER` 학습자 종료, `IDLE` idle timeout, `POD_LOST` 실습 중 실습 환경 비정상 종료
+ * `ACTIVE` 종료 전 세션, `ALL` 종료한 세션까지
  */
-export type LabEndReason = 'USER' | 'IDLE' | 'POD_LOST';
+export type AdminLabFilter = 'ACTIVE' | 'ALL';
+
+export type AdminLabSessionResponse = {
+    userId: number;
+    /**
+     * 학습자 이름(가입 때 적은 실명)
+     */
+    userName: string;
+    userNickname: string;
+    userEmail: string;
+    session: LabSessionResponse;
+};
+
+export type AdminLabSessionPageResponse = {
+    items: Array<AdminLabSessionResponse>;
+    page: number;
+    /**
+     * 한 페이지 크기(20)
+     */
+    size: number;
+    totalItems: number;
+    totalPages: number;
+};
+
+/**
+ * `LEARNER` 학습자 요청, `ADMIN` 관리자 요청, `SYSTEM` 서버(reconciler 등)
+ */
+export type LabEventActor = 'LEARNER' | 'ADMIN' | 'SYSTEM';
+
+export type LabEventResponse = {
+    /**
+     * 이전 상태. 세션 생성이면 `null`
+     */
+    fromStatus: LabStatus | null;
+    toStatus: LabStatus;
+    actor: LabEventActor;
+    at: string;
+};
+
+/**
+ * `USER` 학습자 종료, `IDLE` idle timeout(실습 완료 뒤 종료 포함, 완료 여부는 세션의 `completedAt`), `POD_LOST` 실습 중 실습 환경 비정상 종료, `ADMIN` 관리자 강제 종료(hackforge-docs ADR 026)
+ */
+export type LabEndReason = 'USER' | 'IDLE' | 'POD_LOST' | 'ADMIN';
+
+/**
+ * 학습 단계(hackforge-docs ADR 023). `ATTACK`에서 시작하고 공격 검증 PASS나 건너뛰기로 `DEFENSE`가 되며 되돌아가지 않는다
+ */
+export type LabStage = 'ATTACK' | 'DEFENSE';
+
+export type VerificationType = 'ATTACK' | 'DEFENSE';
+
+/**
+ * `RUNNING` 실행 중, `PASS` 스크립트가 0으로 끝남, `FAIL` 0이 아닌 값으로 끝나거나 60초를 넘김, `ERROR` 플랫폼이 스크립트를 실행하지 못함(다시 시도)
+ */
+export type VerificationStatus = 'RUNNING' | 'PASS' | 'FAIL' | 'ERROR';
+
+/**
+ * 공격 검증과 방어 검증. 방어 검증 필드(`securityPassed`부터 `afterSolution`까지)는 공격 검증이면 `null`이다 (hackforge-docs ADR 025)
+ */
+export type VerificationResponse = {
+    id: number;
+    type: VerificationType;
+    status: VerificationStatus;
+    /**
+     * 공격 검증은 스크립트 출력의 비어 있지 않은 마지막 줄(최대 500자). 방어 검증은 결과 요약 (`PASS` "공격이 모두 막히고 정상 기능이 동작해요", `FAIL`이면 통과하지 못한 쪽). `RUNNING`이면 `null`
+     */
+    message: string | null;
+    /**
+     * 실행에 걸린 시간. `RUNNING`이면 `null`
+     */
+    durationMs: number | null;
+    /**
+     * 방어 검증: 기존 공격(`exploit.sh`)이 모두 막혔으면 `true`. `RUNNING`, `ERROR`이면 `null`
+     */
+    securityPassed: boolean | null;
+    /**
+     * 방어 검증: 정상 기능 테스트(`functional-test.sh`)가 통과했으면 `true`. `RUNNING`, `ERROR`이면 `null`
+     */
+    functionalPassed: boolean | null;
+    /**
+     * 방어 검증: `exploit.sh` 출력의 마지막 줄(아직 통하는 payload). 60초를 넘기면 "60초 안에 끝나지 않았어요"
+     */
+    securityMessage: string | null;
+    /**
+     * 방어 검증: `functional-test.sh` 출력의 마지막 줄(실패한 기능)
+     */
+    functionalMessage: string | null;
+    /**
+     * 방어 검증: 요청할 때까지 공개한 방어 힌트 수
+     */
+    defenseHintsRevealed: number | null;
+    /**
+     * 방어 검증: 요청할 때 해답을 이미 열었으면 `true`. 이 값이 `true`인 `PASS`가 "해답 확인 후 PASS"
+     */
+    afterSolution: boolean | null;
+    startedAt: string;
+    finishedAt: string | null;
+};
+
+export type SolutionResponse = {
+    /**
+     * 해답 본문(Markdown). 공격 방법과 고치는 방법
+     */
+    content: string;
+    /**
+     * 이 세션에서 처음 연 시각
+     */
+    viewedAt: string;
+};
+
+export type HintResponse = {
+    stage: LabStage;
+    position: number;
+    /**
+     * 힌트 본문(Markdown)
+     */
+    content: string;
+    revealedAt: string;
+};
+
+export type LabHintsResponse = {
+    /**
+     * 이 문제의 공격 힌트 수
+     */
+    attackTotal: number;
+    /**
+     * 이 문제의 방어 힌트 수
+     */
+    defenseTotal: number;
+    /**
+     * 공개한 힌트. 공개 순서
+     */
+    hints: Array<HintResponse>;
+};
+
+export type LabFileEntry = {
+    /**
+     * `/app` 기준 상대 경로
+     */
+    path: string;
+    /**
+     * 바이트
+     */
+    size: number;
+    /**
+     * 문제가 정한 수정 불가 파일(`READONLY`). 저장·되돌리기가 거절된다
+     */
+    readOnly: boolean;
+    /**
+     * 1MB 이하이고 바이너리가 아니면 true
+     */
+    openable: boolean;
+};
+
+export type LabFileResponse = {
+    path: string;
+    /**
+     * 파일 내용(UTF-8)
+     */
+    content: string;
+    /**
+     * 내용의 SHA-256(소문자 hex). 저장할 때 `baseSha256`으로 보낸다
+     */
+    sha256: string;
+    readOnly: boolean;
+};
+
+export type SaveLabFileRequest = {
+    /**
+     * 저장할 내용(UTF-8, 최대 1MB)
+     */
+    content: string;
+    /**
+     * 읽을 때 받은 해시. 지금 파일과 다르면 409 `FILE_CHANGED`. 덮어쓰기를 고르면 보내지 않는다
+     */
+    baseSha256?: string | null;
+};
+
+/**
+ * `REDEPLOY` 재배포, `RESET` 서비스 초기화
+ */
+export type RedeployKind = 'REDEPLOY' | 'RESET';
+
+/**
+ * `RUNNING` 실행 중, `SUCCESS` 빌드와 기동이 끝나고 모든 서비스가 healthy, `FAIL` 빌드·기동 실패나 3분 초과(빌드 로그 확인, 초기화 안내), `ERROR` 플랫폼이 실행하지 못함(다시 시도, 서비스 초기화가 실패하면 실습 환경 다시 만들기 안내)
+ */
+export type RedeployStatus = 'RUNNING' | 'SUCCESS' | 'FAIL' | 'ERROR';
+
+export type RedeployResponse = {
+    id: number;
+    kind: RedeployKind;
+    status: RedeployStatus;
+    /**
+     * 결과 한 줄. `RUNNING`이면 `null`
+     */
+    message: string | null;
+    /**
+     * 빌드 로그 끝 64KB. 한 건 조회에서만 주고 목록과 요청 응답에서는 `null`
+     */
+    log: string | null;
+    durationMs: number | null;
+    startedAt: string;
+    finishedAt: string | null;
+};
+
+/**
+ * `SERVICES` 서비스 초기화(코드와 서비스 데이터, 약 20초), `ENVIRONMENT` 실습 환경 다시 만들기(Pod 재생성)
+ */
+export type ResetScope = 'SERVICES' | 'ENVIRONMENT';
+
+export type ResetLabRequest = {
+    scope: ResetScope;
+    /**
+     * true면 현재 단계 유지, false면 처음부터(`ATTACK`). 공격 단계에서는 화면이 true로 보낸다
+     */
+    keepStage: boolean;
+};
+
+export type ResetLabResponse = {
+    session: LabSessionResponse;
+    /**
+     * `SERVICES`면 `RUNNING` 초기화 기록, `ENVIRONMENT`면 `null`
+     */
+    redeploy: RedeployResponse | null;
+};
+
+/**
+ * 실습 환경 준비 단계(hackforge-docs ADR 021). 순서대로 진행하고 되돌아가지 않는다(재시도는 처음부터). `SPACE` 실습 공간 만들기(`CREATING`), `CONTAINER` 컨테이너 시작, `LOADING` 실습 서비스 불러오기, `STARTING` 서비스 시작과 상태 확인. 서버가 몇 초 주기로 갱신하므로 실제 진행보다 조금 늦을 수 있다
+ */
+export type LabPrepStep = 'SPACE' | 'CONTAINER' | 'LOADING' | 'STARTING';
 
 export type LabSessionResponse = {
     id: number;
     challengeId: number;
     challengeTitle: string;
     status: LabStatus;
+    stage: LabStage;
+    /**
+     * 공격을 건너뛰고 방어 단계로 왔으면 `true`
+     */
+    attackSkipped: boolean;
+    /**
+     * 공개한 공격 힌트 수(0~3). 내용은 `GET /api/labs/{id}/hints`
+     */
+    attackHintsRevealed: number;
+    /**
+     * 공개한 방어 힌트 수(0~3)
+     */
+    defenseHintsRevealed: number;
+    /**
+     * 방어 검증 시도 횟수. `PASS`와 `FAIL`로 끝난 방어 검증 수이고 `ERROR`는 세지 않는다(hackforge-docs ADR 025)
+     */
+    defenseAttempts: number;
+    /**
+     * 문제의 최대 방어 검증 시도 횟수. 방어 검증 `FAIL`이 이만큼 쌓이면 해답을 열 수 있다
+     */
+    maxDefenseAttempts: number;
+    /**
+     * 해답을 열 수 있으면 `true`(`POST /api/labs/{id}/solution`)
+     */
+    solutionAvailable: boolean;
+    /**
+     * 해답을 처음 연 시각. 열지 않았으면 `null`
+     */
+    solutionViewedAt?: string | null;
+    /**
+     * 첫 방어 검증 `PASS`로 실습을 완료한 시각. 완료하지 않았으면 `null`
+     */
+    completedAt?: string | null;
+    /**
+     * `READY`에서만 값이 있음. 공격 대상 화면을 iframe으로 열 주소. 이 요청의 호스트(`Host`, reverse proxy 뒤라면 `X-Forwarded-Host`)에 공격 대상 포트를 붙여 만든다(예: `http://localhost:8081/`). 플랫폼과 같은 호스트여야 `SESSION` 쿠키가 전송되므로, 클라이언트는 이 값을 그대로 쓴다
+     */
+    targetUrl: string | null;
+    /**
+     * `CREATING`, `INITIALIZING`에서만 값이 있음. 그 밖에는 `null`
+     */
+    prepStep: LabPrepStep | null;
+    /**
+     * 첫 생성에 실패해 서버가 다시 만드는 중이면 `true`. 준비 중이 아니면 `false`
+     */
+    retrying: boolean;
     /**
      * `TERMINATING`, `DELETED` 세션의 종료 사유. 진행 중이거나 생성 실패(`FAILED`와 그 직전 `TERMINATING`)이면 `null`
      */
@@ -116,7 +514,7 @@ export type LabSessionResponse = {
     readyAt?: string | null;
     endedAt?: string | null;
     /**
-     * `READY`에서만 값이 있음. 이 시각까지 활동이 없으면 서버가 세션을 종료한다
+     * `READY`에서만 값이 있음. 이 시각까지 활동이 없으면 서버가 세션을 종료한다. 보통 마지막 활동에서 30분이고, 실습을 완료한 뒤 활동이 없으면 `completedAt`에서 5분이다(hackforge-docs ADR 025)
      */
     idleDeadline?: string | null;
     /**
@@ -137,7 +535,7 @@ export type Problem = {
     /**
      * 클라이언트가 분기할 때 쓰는 오류 코드
      */
-    code: 'VALIDATION_FAILED' | 'EMAIL_TAKEN' | 'NICKNAME_TAKEN' | 'INVALID_CREDENTIALS' | 'ACCOUNT_LOCKED' | 'CURRENT_PASSWORD_MISMATCH' | 'UNAUTHENTICATED' | 'FORBIDDEN' | 'CSRF_REJECTED' | 'CANNOT_CHANGE_OWN_ROLE' | 'USER_NOT_FOUND' | 'INVALID_STATUS_TRANSITION' | 'NOT_FOUND' | 'METHOD_NOT_ALLOWED' | 'UNSUPPORTED_MEDIA_TYPE' | 'INTERNAL_ERROR' | 'ACCOUNT_NOT_APPROVED' | 'CHALLENGE_NOT_FOUND' | 'LAB_NOT_FOUND' | 'LAB_ALREADY_ACTIVE' | 'LAB_NOT_READY' | 'LAB_CAPACITY_FULL';
+    code: 'VALIDATION_FAILED' | 'EMAIL_TAKEN' | 'NICKNAME_TAKEN' | 'INVALID_CREDENTIALS' | 'ACCOUNT_LOCKED' | 'CURRENT_PASSWORD_MISMATCH' | 'UNAUTHENTICATED' | 'FORBIDDEN' | 'CSRF_REJECTED' | 'CANNOT_CHANGE_OWN_ROLE' | 'USER_NOT_FOUND' | 'INVALID_STATUS_TRANSITION' | 'NOT_FOUND' | 'METHOD_NOT_ALLOWED' | 'UNSUPPORTED_MEDIA_TYPE' | 'INTERNAL_ERROR' | 'ACCOUNT_NOT_APPROVED' | 'CHALLENGE_NOT_FOUND' | 'LAB_NOT_FOUND' | 'LAB_ALREADY_ACTIVE' | 'LAB_NOT_READY' | 'LAB_CAPACITY_FULL' | 'LAB_JOB_RUNNING' | 'VERIFICATION_NOT_FOUND' | 'WRONG_LAB_STAGE' | 'NO_MORE_HINTS' | 'FILE_NOT_FOUND' | 'FILE_READ_ONLY' | 'FILE_CHANGED' | 'FILE_NOT_EDITABLE' | 'REDEPLOY_NOT_FOUND' | 'SOLUTION_LOCKED';
     /**
      * `VALIDATION_FAILED`일 때 항목별 이유
      */
@@ -148,6 +546,8 @@ export type Problem = {
 };
 
 export type UserId = number;
+
+export type ChallengeId = number;
 
 export type LabSessionId = number;
 
@@ -270,6 +670,31 @@ export type GetMeResponses = {
 };
 
 export type GetMeResponse = GetMeResponses[keyof GetMeResponses];
+
+export type GetMyProgressData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/me/progress';
+};
+
+export type GetMyProgressErrors = {
+    /**
+     * 로그인하지 않음(`UNAUTHENTICATED`)
+     */
+    401: Problem;
+};
+
+export type GetMyProgressError = GetMyProgressErrors[keyof GetMyProgressErrors];
+
+export type GetMyProgressResponses = {
+    /**
+     * 내 진행 요약
+     */
+    200: MyProgressResponse;
+};
+
+export type GetMyProgressResponse = GetMyProgressResponses[keyof GetMyProgressResponses];
 
 export type ChangeMyPasswordData = {
     body: ChangePasswordRequest;
@@ -510,14 +935,124 @@ export type IssueTemporaryPasswordResponses = {
 
 export type IssueTemporaryPasswordResponse = IssueTemporaryPasswordResponses[keyof IssueTemporaryPasswordResponses];
 
+export type ListAdminLabsData = {
+    body?: never;
+    path?: never;
+    query?: {
+        /**
+         * 생략하면 `ACTIVE`
+         */
+        status?: AdminLabFilter;
+        /**
+         * 1부터. 생략하면 1
+         */
+        page?: number;
+    };
+    url: '/api/admin/labs';
+};
+
+export type ListAdminLabsErrors = {
+    /**
+     * 입력 규칙 위반(`VALIDATION_FAILED`). 항목별 이유는 `errors`
+     */
+    400: Problem;
+    /**
+     * 로그인하지 않음(`UNAUTHENTICATED`)
+     */
+    401: Problem;
+    /**
+     * 관리자가 아님(`FORBIDDEN`) 또는 CSRF 거절(`CSRF_REJECTED`)
+     */
+    403: Problem;
+};
+
+export type ListAdminLabsError = ListAdminLabsErrors[keyof ListAdminLabsErrors];
+
+export type ListAdminLabsResponses = {
+    /**
+     * 세션 목록 한 페이지
+     */
+    200: AdminLabSessionPageResponse;
+};
+
+export type ListAdminLabsResponse = ListAdminLabsResponses[keyof ListAdminLabsResponses];
+
+export type TerminateLabData = {
+    body?: never;
+    path: {
+        id: number;
+    };
+    query?: never;
+    url: '/api/admin/labs/{id}/terminate';
+};
+
+export type TerminateLabErrors = {
+    /**
+     * 입력 규칙 위반(`VALIDATION_FAILED`). 항목별 이유는 `errors`
+     */
+    400: Problem;
+    /**
+     * 로그인하지 않음(`UNAUTHENTICATED`)
+     */
+    401: Problem;
+    /**
+     * 관리자가 아님(`FORBIDDEN`) 또는 CSRF 거절(`CSRF_REJECTED`)
+     */
+    403: Problem;
+    /**
+     * 없는 세션 또는 다른 사용자의 세션(`LAB_NOT_FOUND`). 다른 사용자 세션의 존재 여부를 노출하지 않기 위해 403 대신 404
+     */
+    404: Problem;
+};
+
+export type TerminateLabError = TerminateLabErrors[keyof TerminateLabErrors];
+
+export type TerminateLabResponses = {
+    /**
+     * 종료 요청 접수
+     */
+    202: LabSessionResponse;
+};
+
+export type TerminateLabResponse = TerminateLabResponses[keyof TerminateLabResponses];
+
 export type ListChallengesData = {
     body?: never;
     path?: never;
-    query?: never;
+    query?: {
+        /**
+         * 제목, 요약, 분류 이름에서 대소문자 구분 없이 찾는다. `%`, `_`도 글자로 찾는다
+         */
+        q?: string;
+        /**
+         * 분류 키. 여러 번 넣을 수 있다. 없는 키는 오류가 아니라 일치하는 문제가 없는 것으로 본다
+         */
+        category?: Array<string>;
+        /**
+         * 여러 번 넣을 수 있다
+         */
+        difficulty?: Array<ChallengeDifficulty>;
+        /**
+         * 내 상태(hackforge-docs ADR 027). 여러 번 넣을 수 있다
+         */
+        myStatus?: Array<ChallengeMyStatus>;
+        /**
+         * 생략하면 `NEWEST`
+         */
+        sort?: ChallengeSort;
+        /**
+         * 1부터. 생략하면 1
+         */
+        page?: number;
+    };
     url: '/api/challenges';
 };
 
 export type ListChallengesErrors = {
+    /**
+     * 입력 규칙 위반(`VALIDATION_FAILED`). 항목별 이유는 `errors`
+     */
+    400: Problem;
     /**
      * 로그인하지 않음(`UNAUTHENTICATED`)
      */
@@ -528,12 +1063,81 @@ export type ListChallengesError = ListChallengesErrors[keyof ListChallengesError
 
 export type ListChallengesResponses = {
     /**
-     * 문제 목록
+     * 문제 목록 한 페이지
      */
-    200: Array<ChallengeResponse>;
+    200: ChallengePageResponse;
 };
 
 export type ListChallengesResponse = ListChallengesResponses[keyof ListChallengesResponses];
+
+export type GetChallengeData = {
+    body?: never;
+    path: {
+        id: number;
+    };
+    query?: never;
+    url: '/api/challenges/{id}';
+};
+
+export type GetChallengeErrors = {
+    /**
+     * 입력 규칙 위반(`VALIDATION_FAILED`). 항목별 이유는 `errors`
+     */
+    400: Problem;
+    /**
+     * 로그인하지 않음(`UNAUTHENTICATED`)
+     */
+    401: Problem;
+    /**
+     * 없는 문제(`CHALLENGE_NOT_FOUND`)
+     */
+    404: Problem;
+};
+
+export type GetChallengeError = GetChallengeErrors[keyof GetChallengeErrors];
+
+export type GetChallengeResponses = {
+    /**
+     * 문제
+     */
+    200: ChallengeDetailResponse;
+};
+
+export type GetChallengeResponse = GetChallengeResponses[keyof GetChallengeResponses];
+
+export type ListLabsData = {
+    body?: never;
+    path?: never;
+    query?: {
+        /**
+         * 1부터. 생략하면 1
+         */
+        page?: number;
+    };
+    url: '/api/labs';
+};
+
+export type ListLabsErrors = {
+    /**
+     * 입력 규칙 위반(`VALIDATION_FAILED`). 항목별 이유는 `errors`
+     */
+    400: Problem;
+    /**
+     * 로그인하지 않음(`UNAUTHENTICATED`)
+     */
+    401: Problem;
+};
+
+export type ListLabsError = ListLabsErrors[keyof ListLabsErrors];
+
+export type ListLabsResponses = {
+    /**
+     * 세션 목록 한 페이지
+     */
+    200: LabSessionPageResponse;
+};
+
+export type ListLabsResponse = ListLabsResponses[keyof ListLabsResponses];
 
 export type StartLabData = {
     body: StartLabRequest;
@@ -682,6 +1286,806 @@ export type GetLabResponses = {
 };
 
 export type GetLabResponse = GetLabResponses[keyof GetLabResponses];
+
+export type OpenLabTerminalData = {
+    body?: never;
+    path: {
+        id: number;
+    };
+    query?: never;
+    url: '/api/labs/{id}/terminal';
+};
+
+export type OpenLabTerminalErrors = {
+    /**
+     * 입력 규칙 위반(`VALIDATION_FAILED`). 항목별 이유는 `errors`
+     */
+    400: Problem;
+    /**
+     * 로그인하지 않음(`UNAUTHENTICATED`)
+     */
+    401: Problem;
+    /**
+     * `Origin`이 플랫폼 origin이 아님(`FORBIDDEN`)
+     */
+    403: Problem;
+};
+
+export type OpenLabTerminalError = OpenLabTerminalErrors[keyof OpenLabTerminalErrors];
+
+export type RequestAttackVerificationData = {
+    body?: never;
+    path: {
+        id: number;
+    };
+    query?: never;
+    url: '/api/labs/{id}/attack-verifications';
+};
+
+export type RequestAttackVerificationErrors = {
+    /**
+     * 입력 규칙 위반(`VALIDATION_FAILED`). 항목별 이유는 `errors`
+     */
+    400: Problem;
+    /**
+     * 로그인하지 않음(`UNAUTHENTICATED`)
+     */
+    401: Problem;
+    /**
+     * CSRF 토큰이 없거나 틀림(`CSRF_REJECTED`)
+     */
+    403: Problem;
+    /**
+     * 없는 세션 또는 다른 사용자의 세션(`LAB_NOT_FOUND`). 다른 사용자 세션의 존재 여부를 노출하지 않기 위해 403 대신 404
+     */
+    404: Problem;
+    /**
+     * `READY`가 아닌 세션(`LAB_NOT_READY`), 이 세션에 검증, 재배포, 초기화 중 하나가 실행 중(`LAB_JOB_RUNNING`)
+     */
+    409: Problem;
+};
+
+export type RequestAttackVerificationError = RequestAttackVerificationErrors[keyof RequestAttackVerificationErrors];
+
+export type RequestAttackVerificationResponses = {
+    /**
+     * 접수됨(`RUNNING`)
+     */
+    202: VerificationResponse;
+};
+
+export type RequestAttackVerificationResponse = RequestAttackVerificationResponses[keyof RequestAttackVerificationResponses];
+
+export type ListVerificationsData = {
+    body?: never;
+    path: {
+        id: number;
+    };
+    query?: never;
+    url: '/api/labs/{id}/verifications';
+};
+
+export type ListVerificationsErrors = {
+    /**
+     * 입력 규칙 위반(`VALIDATION_FAILED`). 항목별 이유는 `errors`
+     */
+    400: Problem;
+    /**
+     * 로그인하지 않음(`UNAUTHENTICATED`)
+     */
+    401: Problem;
+    /**
+     * 없는 세션 또는 다른 사용자의 세션(`LAB_NOT_FOUND`). 다른 사용자 세션의 존재 여부를 노출하지 않기 위해 403 대신 404
+     */
+    404: Problem;
+};
+
+export type ListVerificationsError = ListVerificationsErrors[keyof ListVerificationsErrors];
+
+export type ListVerificationsResponses = {
+    /**
+     * 검증 목록
+     */
+    200: Array<VerificationResponse>;
+};
+
+export type ListVerificationsResponse = ListVerificationsResponses[keyof ListVerificationsResponses];
+
+export type GetVerificationData = {
+    body?: never;
+    path: {
+        id: number;
+        verificationId: number;
+    };
+    query?: never;
+    url: '/api/labs/{id}/verifications/{verificationId}';
+};
+
+export type GetVerificationErrors = {
+    /**
+     * 입력 규칙 위반(`VALIDATION_FAILED`). 항목별 이유는 `errors`
+     */
+    400: Problem;
+    /**
+     * 로그인하지 않음(`UNAUTHENTICATED`)
+     */
+    401: Problem;
+    /**
+     * 없는 세션이나 다른 사용자의 세션(`LAB_NOT_FOUND`), 그 세션에 없는 검증(`VERIFICATION_NOT_FOUND`)
+     */
+    404: Problem;
+};
+
+export type GetVerificationError = GetVerificationErrors[keyof GetVerificationErrors];
+
+export type GetVerificationResponses = {
+    /**
+     * 검증
+     */
+    200: VerificationResponse;
+};
+
+export type GetVerificationResponse = GetVerificationResponses[keyof GetVerificationResponses];
+
+export type RevealAttackHintData = {
+    body?: never;
+    path: {
+        id: number;
+    };
+    query?: never;
+    url: '/api/labs/{id}/attack-hints';
+};
+
+export type RevealAttackHintErrors = {
+    /**
+     * 입력 규칙 위반(`VALIDATION_FAILED`). 항목별 이유는 `errors`
+     */
+    400: Problem;
+    /**
+     * 로그인하지 않음(`UNAUTHENTICATED`)
+     */
+    401: Problem;
+    /**
+     * CSRF 토큰이 없거나 틀림(`CSRF_REJECTED`)
+     */
+    403: Problem;
+    /**
+     * 없는 세션 또는 다른 사용자의 세션(`LAB_NOT_FOUND`). 다른 사용자 세션의 존재 여부를 노출하지 않기 위해 403 대신 404
+     */
+    404: Problem;
+    /**
+     * `READY`가 아님(`LAB_NOT_READY`), `ATTACK` 단계가 아님(`WRONG_LAB_STAGE`), 다 공개함(`NO_MORE_HINTS`)
+     */
+    409: Problem;
+};
+
+export type RevealAttackHintError = RevealAttackHintErrors[keyof RevealAttackHintErrors];
+
+export type RevealAttackHintResponses = {
+    /**
+     * 이번에 공개한 힌트
+     */
+    200: HintResponse;
+};
+
+export type RevealAttackHintResponse = RevealAttackHintResponses[keyof RevealAttackHintResponses];
+
+export type ListLabHintsData = {
+    body?: never;
+    path: {
+        id: number;
+    };
+    query?: never;
+    url: '/api/labs/{id}/hints';
+};
+
+export type ListLabHintsErrors = {
+    /**
+     * 입력 규칙 위반(`VALIDATION_FAILED`). 항목별 이유는 `errors`
+     */
+    400: Problem;
+    /**
+     * 로그인하지 않음(`UNAUTHENTICATED`)
+     */
+    401: Problem;
+    /**
+     * 없는 세션 또는 다른 사용자의 세션(`LAB_NOT_FOUND`). 다른 사용자 세션의 존재 여부를 노출하지 않기 위해 403 대신 404
+     */
+    404: Problem;
+};
+
+export type ListLabHintsError = ListLabHintsErrors[keyof ListLabHintsErrors];
+
+export type ListLabHintsResponses = {
+    /**
+     * 공개한 힌트
+     */
+    200: LabHintsResponse;
+};
+
+export type ListLabHintsResponse = ListLabHintsResponses[keyof ListLabHintsResponses];
+
+export type SkipAttackData = {
+    body?: never;
+    path: {
+        id: number;
+    };
+    query?: never;
+    url: '/api/labs/{id}/attack-skip';
+};
+
+export type SkipAttackErrors = {
+    /**
+     * 입력 규칙 위반(`VALIDATION_FAILED`). 항목별 이유는 `errors`
+     */
+    400: Problem;
+    /**
+     * 로그인하지 않음(`UNAUTHENTICATED`)
+     */
+    401: Problem;
+    /**
+     * CSRF 토큰이 없거나 틀림(`CSRF_REJECTED`)
+     */
+    403: Problem;
+    /**
+     * 없는 세션 또는 다른 사용자의 세션(`LAB_NOT_FOUND`). 다른 사용자 세션의 존재 여부를 노출하지 않기 위해 403 대신 404
+     */
+    404: Problem;
+    /**
+     * `READY`가 아님(`LAB_NOT_READY`), `ATTACK` 단계가 아님(`WRONG_LAB_STAGE`)
+     */
+    409: Problem;
+};
+
+export type SkipAttackError = SkipAttackErrors[keyof SkipAttackErrors];
+
+export type SkipAttackResponses = {
+    /**
+     * 방어 단계로 넘어간 세션
+     */
+    200: LabSessionResponse;
+};
+
+export type SkipAttackResponse = SkipAttackResponses[keyof SkipAttackResponses];
+
+export type ListLabFilesData = {
+    body?: never;
+    path: {
+        id: number;
+    };
+    query?: never;
+    url: '/api/labs/{id}/files';
+};
+
+export type ListLabFilesErrors = {
+    /**
+     * 입력 규칙 위반(`VALIDATION_FAILED`). 항목별 이유는 `errors`
+     */
+    400: Problem;
+    /**
+     * 로그인하지 않음(`UNAUTHENTICATED`)
+     */
+    401: Problem;
+    /**
+     * 없는 세션 또는 다른 사용자의 세션(`LAB_NOT_FOUND`). 다른 사용자 세션의 존재 여부를 노출하지 않기 위해 403 대신 404
+     */
+    404: Problem;
+    /**
+     * `READY`가 아님(`LAB_NOT_READY`), `DEFENSE` 단계가 아님(`WRONG_LAB_STAGE`)
+     */
+    409: Problem;
+};
+
+export type ListLabFilesError = ListLabFilesErrors[keyof ListLabFilesErrors];
+
+export type ListLabFilesResponses = {
+    /**
+     * 파일 목록. 경로 순
+     */
+    200: Array<LabFileEntry>;
+};
+
+export type ListLabFilesResponse = ListLabFilesResponses[keyof ListLabFilesResponses];
+
+export type GetLabFileData = {
+    body?: never;
+    path: {
+        id: number;
+    };
+    query: {
+        /**
+         * `/app` 기준 상대 경로(예: `web/src/index.php`). `..`로 `/app` 밖을 가리키면 400
+         */
+        path: string;
+    };
+    url: '/api/labs/{id}/files/content';
+};
+
+export type GetLabFileErrors = {
+    /**
+     * 입력 규칙 위반(`VALIDATION_FAILED`). 항목별 이유는 `errors`
+     */
+    400: Problem;
+    /**
+     * 로그인하지 않음(`UNAUTHENTICATED`)
+     */
+    401: Problem;
+    /**
+     * 없는 세션(`LAB_NOT_FOUND`), 없는 파일(`FILE_NOT_FOUND`)
+     */
+    404: Problem;
+    /**
+     * `READY`가 아님(`LAB_NOT_READY`), `DEFENSE` 단계가 아님(`WRONG_LAB_STAGE`), 1MB 초과나 바이너리(`FILE_NOT_EDITABLE`)
+     */
+    409: Problem;
+};
+
+export type GetLabFileError = GetLabFileErrors[keyof GetLabFileErrors];
+
+export type GetLabFileResponses = {
+    /**
+     * 파일
+     */
+    200: LabFileResponse;
+};
+
+export type GetLabFileResponse = GetLabFileResponses[keyof GetLabFileResponses];
+
+export type SaveLabFileData = {
+    body: SaveLabFileRequest;
+    path: {
+        id: number;
+    };
+    query: {
+        /**
+         * `/app` 기준 상대 경로(예: `web/src/index.php`). `..`로 `/app` 밖을 가리키면 400
+         */
+        path: string;
+    };
+    url: '/api/labs/{id}/files/content';
+};
+
+export type SaveLabFileErrors = {
+    /**
+     * 입력 규칙 위반(`VALIDATION_FAILED`). 항목별 이유는 `errors`
+     */
+    400: Problem;
+    /**
+     * 로그인하지 않음(`UNAUTHENTICATED`)
+     */
+    401: Problem;
+    /**
+     * CSRF(`CSRF_REJECTED`), 수정 불가 파일(`FILE_READ_ONLY`)
+     */
+    403: Problem;
+    /**
+     * 없는 세션 또는 다른 사용자의 세션(`LAB_NOT_FOUND`). 다른 사용자 세션의 존재 여부를 노출하지 않기 위해 403 대신 404
+     */
+    404: Problem;
+    /**
+     * `READY`가 아님(`LAB_NOT_READY`), `DEFENSE` 단계가 아님(`WRONG_LAB_STAGE`), 파일이 바뀜(`FILE_CHANGED`)
+     */
+    409: Problem;
+};
+
+export type SaveLabFileError = SaveLabFileErrors[keyof SaveLabFileErrors];
+
+export type SaveLabFileResponses = {
+    /**
+     * 저장됨. 새 해시
+     */
+    200: LabFileResponse;
+};
+
+export type SaveLabFileResponse = SaveLabFileResponses[keyof SaveLabFileResponses];
+
+export type RevertLabFileData = {
+    body?: never;
+    path: {
+        id: number;
+    };
+    query: {
+        /**
+         * `/app` 기준 상대 경로(예: `web/src/index.php`). `..`로 `/app` 밖을 가리키면 400
+         */
+        path: string;
+    };
+    url: '/api/labs/{id}/files/revert';
+};
+
+export type RevertLabFileErrors = {
+    /**
+     * 입력 규칙 위반(`VALIDATION_FAILED`). 항목별 이유는 `errors`
+     */
+    400: Problem;
+    /**
+     * 로그인하지 않음(`UNAUTHENTICATED`)
+     */
+    401: Problem;
+    /**
+     * CSRF(`CSRF_REJECTED`), 수정 불가 파일(`FILE_READ_ONLY`)
+     */
+    403: Problem;
+    /**
+     * 없는 세션(`LAB_NOT_FOUND`), 원본에 없는 파일(`FILE_NOT_FOUND`, 학습자가 새로 만든 파일)
+     */
+    404: Problem;
+    /**
+     * `READY`가 아님(`LAB_NOT_READY`), `DEFENSE` 단계가 아님(`WRONG_LAB_STAGE`)
+     */
+    409: Problem;
+};
+
+export type RevertLabFileError = RevertLabFileErrors[keyof RevertLabFileErrors];
+
+export type RevertLabFileResponses = {
+    /**
+     * 되돌린 파일
+     */
+    200: LabFileResponse;
+};
+
+export type RevertLabFileResponse = RevertLabFileResponses[keyof RevertLabFileResponses];
+
+export type ListRedeploysData = {
+    body?: never;
+    path: {
+        id: number;
+    };
+    query?: never;
+    url: '/api/labs/{id}/redeploys';
+};
+
+export type ListRedeploysErrors = {
+    /**
+     * 입력 규칙 위반(`VALIDATION_FAILED`). 항목별 이유는 `errors`
+     */
+    400: Problem;
+    /**
+     * 로그인하지 않음(`UNAUTHENTICATED`)
+     */
+    401: Problem;
+    /**
+     * 없는 세션 또는 다른 사용자의 세션(`LAB_NOT_FOUND`). 다른 사용자 세션의 존재 여부를 노출하지 않기 위해 403 대신 404
+     */
+    404: Problem;
+};
+
+export type ListRedeploysError = ListRedeploysErrors[keyof ListRedeploysErrors];
+
+export type ListRedeploysResponses = {
+    /**
+     * 기록
+     */
+    200: Array<RedeployResponse>;
+};
+
+export type ListRedeploysResponse = ListRedeploysResponses[keyof ListRedeploysResponses];
+
+export type RequestRedeployData = {
+    body?: never;
+    path: {
+        id: number;
+    };
+    query?: never;
+    url: '/api/labs/{id}/redeploys';
+};
+
+export type RequestRedeployErrors = {
+    /**
+     * 입력 규칙 위반(`VALIDATION_FAILED`). 항목별 이유는 `errors`
+     */
+    400: Problem;
+    /**
+     * 로그인하지 않음(`UNAUTHENTICATED`)
+     */
+    401: Problem;
+    /**
+     * CSRF 토큰이 없거나 틀림(`CSRF_REJECTED`)
+     */
+    403: Problem;
+    /**
+     * 없는 세션 또는 다른 사용자의 세션(`LAB_NOT_FOUND`). 다른 사용자 세션의 존재 여부를 노출하지 않기 위해 403 대신 404
+     */
+    404: Problem;
+    /**
+     * `READY`가 아님(`LAB_NOT_READY`), `DEFENSE` 단계가 아님(`WRONG_LAB_STAGE`), 실행 중인 작업이 있음(`LAB_JOB_RUNNING`)
+     */
+    409: Problem;
+};
+
+export type RequestRedeployError = RequestRedeployErrors[keyof RequestRedeployErrors];
+
+export type RequestRedeployResponses = {
+    /**
+     * 접수됨(`RUNNING`)
+     */
+    202: RedeployResponse;
+};
+
+export type RequestRedeployResponse = RequestRedeployResponses[keyof RequestRedeployResponses];
+
+export type GetRedeployData = {
+    body?: never;
+    path: {
+        id: number;
+        redeployId: number;
+    };
+    query?: never;
+    url: '/api/labs/{id}/redeploys/{redeployId}';
+};
+
+export type GetRedeployErrors = {
+    /**
+     * 입력 규칙 위반(`VALIDATION_FAILED`). 항목별 이유는 `errors`
+     */
+    400: Problem;
+    /**
+     * 로그인하지 않음(`UNAUTHENTICATED`)
+     */
+    401: Problem;
+    /**
+     * 없는 세션(`LAB_NOT_FOUND`), 그 세션에 없는 기록(`REDEPLOY_NOT_FOUND`)
+     */
+    404: Problem;
+};
+
+export type GetRedeployError = GetRedeployErrors[keyof GetRedeployErrors];
+
+export type GetRedeployResponses = {
+    /**
+     * 재배포·초기화
+     */
+    200: RedeployResponse;
+};
+
+export type GetRedeployResponse = GetRedeployResponses[keyof GetRedeployResponses];
+
+export type ResetLabData = {
+    body: ResetLabRequest;
+    path: {
+        id: number;
+    };
+    query?: never;
+    url: '/api/labs/{id}/reset';
+};
+
+export type ResetLabErrors = {
+    /**
+     * 입력 규칙 위반(`VALIDATION_FAILED`). 항목별 이유는 `errors`
+     */
+    400: Problem;
+    /**
+     * 로그인하지 않음(`UNAUTHENTICATED`)
+     */
+    401: Problem;
+    /**
+     * CSRF 토큰이 없거나 틀림(`CSRF_REJECTED`)
+     */
+    403: Problem;
+    /**
+     * 없는 세션 또는 다른 사용자의 세션(`LAB_NOT_FOUND`). 다른 사용자 세션의 존재 여부를 노출하지 않기 위해 403 대신 404
+     */
+    404: Problem;
+    /**
+     * `READY`가 아님(`LAB_NOT_READY`), 실행 중인 작업이 있음(`LAB_JOB_RUNNING`)
+     */
+    409: Problem;
+};
+
+export type ResetLabError = ResetLabErrors[keyof ResetLabErrors];
+
+export type ResetLabResponses = {
+    /**
+     * 접수됨
+     */
+    202: ResetLabResponse;
+};
+
+export type ResetLabResponse2 = ResetLabResponses[keyof ResetLabResponses];
+
+export type RevealDefenseHintData = {
+    body?: never;
+    path: {
+        id: number;
+    };
+    query?: never;
+    url: '/api/labs/{id}/defense-hints';
+};
+
+export type RevealDefenseHintErrors = {
+    /**
+     * 입력 규칙 위반(`VALIDATION_FAILED`). 항목별 이유는 `errors`
+     */
+    400: Problem;
+    /**
+     * 로그인하지 않음(`UNAUTHENTICATED`)
+     */
+    401: Problem;
+    /**
+     * CSRF 토큰이 없거나 틀림(`CSRF_REJECTED`)
+     */
+    403: Problem;
+    /**
+     * 없는 세션 또는 다른 사용자의 세션(`LAB_NOT_FOUND`). 다른 사용자 세션의 존재 여부를 노출하지 않기 위해 403 대신 404
+     */
+    404: Problem;
+    /**
+     * `READY`가 아님(`LAB_NOT_READY`), `DEFENSE` 단계가 아님(`WRONG_LAB_STAGE`), 다 공개함(`NO_MORE_HINTS`)
+     */
+    409: Problem;
+};
+
+export type RevealDefenseHintError = RevealDefenseHintErrors[keyof RevealDefenseHintErrors];
+
+export type RevealDefenseHintResponses = {
+    /**
+     * 이번에 공개한 힌트
+     */
+    200: HintResponse;
+};
+
+export type RevealDefenseHintResponse = RevealDefenseHintResponses[keyof RevealDefenseHintResponses];
+
+export type RequestDefenseVerificationData = {
+    body?: never;
+    path: {
+        id: number;
+    };
+    query?: never;
+    url: '/api/labs/{id}/defense-verifications';
+};
+
+export type RequestDefenseVerificationErrors = {
+    /**
+     * 입력 규칙 위반(`VALIDATION_FAILED`). 항목별 이유는 `errors`
+     */
+    400: Problem;
+    /**
+     * 로그인하지 않음(`UNAUTHENTICATED`)
+     */
+    401: Problem;
+    /**
+     * CSRF 토큰이 없거나 틀림(`CSRF_REJECTED`)
+     */
+    403: Problem;
+    /**
+     * 없는 세션 또는 다른 사용자의 세션(`LAB_NOT_FOUND`). 다른 사용자 세션의 존재 여부를 노출하지 않기 위해 403 대신 404
+     */
+    404: Problem;
+    /**
+     * `READY`가 아님(`LAB_NOT_READY`), `DEFENSE` 단계가 아님(`WRONG_LAB_STAGE`), 검증, 재배포, 초기화 중 하나가 실행 중(`LAB_JOB_RUNNING`)
+     */
+    409: Problem;
+};
+
+export type RequestDefenseVerificationError = RequestDefenseVerificationErrors[keyof RequestDefenseVerificationErrors];
+
+export type RequestDefenseVerificationResponses = {
+    /**
+     * 접수됨(`RUNNING`)
+     */
+    202: VerificationResponse;
+};
+
+export type RequestDefenseVerificationResponse = RequestDefenseVerificationResponses[keyof RequestDefenseVerificationResponses];
+
+export type ListLabEventsData = {
+    body?: never;
+    path: {
+        id: number;
+    };
+    query?: never;
+    url: '/api/labs/{id}/events';
+};
+
+export type ListLabEventsErrors = {
+    /**
+     * 입력 규칙 위반(`VALIDATION_FAILED`). 항목별 이유는 `errors`
+     */
+    400: Problem;
+    /**
+     * 로그인하지 않음(`UNAUTHENTICATED`)
+     */
+    401: Problem;
+    /**
+     * 없는 세션 또는 다른 사용자의 세션(`LAB_NOT_FOUND`). 다른 사용자 세션의 존재 여부를 노출하지 않기 위해 403 대신 404
+     */
+    404: Problem;
+};
+
+export type ListLabEventsError = ListLabEventsErrors[keyof ListLabEventsErrors];
+
+export type ListLabEventsResponses = {
+    /**
+     * 상태 기록
+     */
+    200: Array<LabEventResponse>;
+};
+
+export type ListLabEventsResponse = ListLabEventsResponses[keyof ListLabEventsResponses];
+
+export type GetSolutionData = {
+    body?: never;
+    path: {
+        id: number;
+    };
+    query?: never;
+    url: '/api/labs/{id}/solution';
+};
+
+export type GetSolutionErrors = {
+    /**
+     * 입력 규칙 위반(`VALIDATION_FAILED`). 항목별 이유는 `errors`
+     */
+    400: Problem;
+    /**
+     * 로그인하지 않음(`UNAUTHENTICATED`)
+     */
+    401: Problem;
+    /**
+     * 없는 세션 또는 다른 사용자의 세션(`LAB_NOT_FOUND`). 다른 사용자 세션의 존재 여부를 노출하지 않기 위해 403 대신 404
+     */
+    404: Problem;
+    /**
+     * 이 세션에서 해답을 연 적이 없음(`SOLUTION_LOCKED`)
+     */
+    409: Problem;
+};
+
+export type GetSolutionError = GetSolutionErrors[keyof GetSolutionErrors];
+
+export type GetSolutionResponses = {
+    /**
+     * 해답
+     */
+    200: SolutionResponse;
+};
+
+export type GetSolutionResponse = GetSolutionResponses[keyof GetSolutionResponses];
+
+export type OpenSolutionData = {
+    body?: never;
+    path: {
+        id: number;
+    };
+    query?: never;
+    url: '/api/labs/{id}/solution';
+};
+
+export type OpenSolutionErrors = {
+    /**
+     * 입력 규칙 위반(`VALIDATION_FAILED`). 항목별 이유는 `errors`
+     */
+    400: Problem;
+    /**
+     * 로그인하지 않음(`UNAUTHENTICATED`)
+     */
+    401: Problem;
+    /**
+     * CSRF 토큰이 없거나 틀림(`CSRF_REJECTED`)
+     */
+    403: Problem;
+    /**
+     * 없는 세션 또는 다른 사용자의 세션(`LAB_NOT_FOUND`). 다른 사용자 세션의 존재 여부를 노출하지 않기 위해 403 대신 404
+     */
+    404: Problem;
+    /**
+     * `READY`가 아님(`LAB_NOT_READY`), 아직 열 수 없음(`SOLUTION_LOCKED`)
+     */
+    409: Problem;
+};
+
+export type OpenSolutionError = OpenSolutionErrors[keyof OpenSolutionErrors];
+
+export type OpenSolutionResponses = {
+    /**
+     * 해답
+     */
+    200: SolutionResponse;
+};
+
+export type OpenSolutionResponse = OpenSolutionResponses[keyof OpenSolutionResponses];
 
 export type RecordLabActivityData = {
     body?: never;
