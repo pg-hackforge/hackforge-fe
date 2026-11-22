@@ -17,7 +17,8 @@ export default defineConfig(({ mode }) => ({
   // 같은 주소에서 /api는 백엔드(ADR 015). 개발 때는 이 proxy가 개발 백엔드로 넘긴다
   server: {
     proxy: {
-      '/api': 'http://127.0.0.1:8080',
+      // 웹 터미널(WebSocket)도 같은 경로라 ws를 켠다
+      '/api': { target: 'http://127.0.0.1:8080', ws: true },
     },
   },
   test: {

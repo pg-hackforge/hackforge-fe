@@ -5,7 +5,8 @@ import { RequireAdmin, RequireLoggedOut, RequireLogin } from '@/components/route
 import { LoginPage, SignupPage } from '@/pages/auth-pages'
 import { AccountPage } from '@/pages/account-page'
 import { AdminPage } from '@/pages/admin-page'
-import { IndexPage, LabPage, RecordsPage } from '@/pages/placeholder-pages'
+import { IndexPage, RecordsPage } from '@/pages/placeholder-pages'
+import { LabPage } from '@/pages/lab-page'
 import { ProblemPage } from '@/pages/problem-page'
 import { ProblemsPage } from '@/pages/problems-page'
 import { NotFoundPage } from '@/pages/status-pages'
@@ -27,7 +28,6 @@ export const routes: RouteObject[] = [
         children: [
           { path: 'problems', element: <ProblemsPage /> },
           { path: 'problems/:id', element: <ProblemPage /> },
-          { path: 'labs/:id', element: <LabPage /> },
           { path: 'records', element: <RecordsPage /> },
           { path: 'account', element: <AccountPage /> },
           { element: <RequireAdmin />, children: [{ path: 'admin', element: <AdminPage /> }] },
@@ -36,4 +36,6 @@ export const routes: RouteObject[] = [
       { path: '*', element: <NotFoundPage /> },
     ],
   },
+  // 실습 화면은 자체 상단 줄을 쓴다(DESIGN.md "실습 화면")
+  { element: <RequireLogin />, children: [{ path: 'labs/:id', element: <LabPage /> }] },
 ]
