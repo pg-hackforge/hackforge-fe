@@ -258,7 +258,7 @@ function SortMenu({
     <DropdownMenu>
       <DropdownMenuTrigger
         aria-label={`정렬: ${SORT_LABEL[sort][reverse ? 1 : 0]}`}
-        className="flex h-10 items-center gap-2 rounded-lg border bg-card px-3.5 text-sm font-medium hover:bg-muted/60 focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:outline-none"
+        className="flex h-10 w-36 items-center justify-between gap-2 rounded-lg border bg-card px-3.5 text-sm font-medium hover:bg-muted/60 focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:outline-none"
       >
         {SORT_LABEL[sort][reverse ? 1 : 0]}
         <ChevronDownIcon className="size-4 text-muted-foreground" aria-hidden />
