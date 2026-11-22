@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: Hackforge API
-  version: 0.2.1
+  version: 0.11.0
   description: >-
     hackforge-be와 hackforge-fe 사이의 API spec.
     API를 바꿀 때는 구현보다 이 파일을 먼저 PR로 올려 합의한다.
@@ -51,9 +51,27 @@ tags:
       `DELETED`, `FAILED`가 되면 중단한다. polling 요청은 활동으로 집계하지 않는다.
 
 
+      관리자(`ADMIN`)는 세션 조회 API(`GET /api/labs/{id}`와 그 검증, 재배포, 힌트, 상태 기록)를 모든 세션에 쓸 수 있다.
+      바꾸는 요청과 해답 다시 보기는 세션 주인만 받는다(hackforge-docs ADR 026).
+
+
       idle 종료: `READY` 이후 `idleDeadline`까지 활동이 없으면 서버가 세션을 종료한다(`IDLE`).
       클라이언트는 `idleWarningAt`부터 종료 경고와 [계속하기]를 표시하고,
       [계속하기]는 `POST /api/labs/{id}/activity`를 호출한다.
+
+
+      공격 대상 화면(hackforge-docs ADR 022): 백엔드는 이 API와 다른 포트(공격 대상 포트, 개발 8081)를 연다.
+      `READY` 세션 응답의 `targetUrl`을 iframe으로 연다. 그 포트로 온 요청은 경로와 관계없이 모두
+      로그인한 학습자의 `READY` 세션 Pod 안 공격 대상 웹(`127.0.0.1:8080`)으로 전달되고, 이 API는 그 포트에서 응답하지 않는다.
+      로그인 확인은 `SESSION` 쿠키로 한다(쿠키는 포트를 구분하지 않아 그 포트로도 전송됨). CSRF 헤더는 필요 없다.
+      공격 대상 앱으로는 플랫폼 쿠키(`SESSION`, `XSRF-TOKEN`)와 `X-XSRF-TOKEN` 헤더를 넘기지 않고,
+      공격 대상 앱이 플랫폼 쿠키 이름으로 심는 `Set-Cookie`는 지운다. 응답에는 `Content-Security-Policy: frame-ancestors <플랫폼 origin>`이 붙는다.
+      전달할 수 없으면 HTML 안내 페이지로 응답한다: 로그인하지 않음 401, `READY` 세션 없음 409, 공격 대상 앱이 응답하지 않음 502, 30초 초과 504.
+      공격 대상으로 가는 요청은 활동으로 집계한다.
+
+
+      웹 터미널: `GET /api/labs/{id}/terminal`을 WebSocket으로 연다. 실습 Pod의 `sh`(작업 폴더 `/app`, root)에 연결되고,
+      다시 연결하면 새 셸이다. 터미널 입력은 활동으로 집계하고 출력은 집계하지 않는다.
 security:
   - sessionCookie: []
     csrfHeader: []
@@ -161,6 +179,25 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/UserResponse'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+  /api/me/progress:
+    get:
+      tags: [lab]
+      summary: 내 진행 요약
+      description: >-
+        홈의 내 진행(hackforge-docs ADR 027). 전체 문제 수, 완료한 문제 수, 끝내지 못한 문제 수, 분류별 전체·완료 수.
+        문제별 상태는 `ChallengeMyStatus`와 같은 규칙으로 센다
+      operationId: getMyProgress
+      security:
+        - sessionCookie: []
+      responses:
+        '200':
+          description: 내 진행 요약
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MyProgressResponse'
         '401':
           $ref: '#/components/responses/Unauthenticated'
   /api/me/password:
@@ -335,26 +372,207 @@ paths:
           $ref: '#/components/responses/Forbidden'
         '404':
           $ref: '#/components/responses/UserNotFound'
+  /api/admin/labs:
+    get:
+      tags: [admin]
+      summary: 세션 목록
+      description: >-
+        모든 학습자의 실습 세션을 최근 시작 순으로 준다(hackforge-docs ADR 026). 기본은 종료 전 세션이고,
+        `status=ALL`이면 종료한 세션(`DELETED`, `FAILED`)도 준다. 한 세션의 기록은 학습자와 같은 조회 API
+        (`GET /api/labs/{id}`, 검증, 재배포, 힌트, 상태 기록)로 본다
+      operationId: listAdminLabs
+      parameters:
+        - name: status
+          in: query
+          required: false
+          description: 생략하면 `ACTIVE`
+          schema:
+            $ref: '#/components/schemas/AdminLabFilter'
+        - name: page
+          in: query
+          required: false
+          description: 1부터. 생략하면 1
+          schema:
+            type: integer
+            format: int32
+            minimum: 1
+      responses:
+        '200':
+          description: 세션 목록 한 페이지
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminLabSessionPageResponse'
+        '400':
+          $ref: '#/components/responses/ValidationFailed'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+  /api/admin/labs/{id}/terminate:
+    post:
+      tags: [admin]
+      summary: 세션 강제 종료
+      description: >-
+        학습자의 세션을 `TERMINATING`(종료 사유 `ADMIN`)으로 바꾸고 바로 응답한다(hackforge-docs ADR 026).
+        실습 환경 삭제는 비동기이고 열린 터미널은 닫힌다. 이미 종료 중이거나 끝난 세션은 바꾸지 않고 지금 상태를 준다
+      operationId: terminateLab
+      parameters:
+        - $ref: '#/components/parameters/LabSessionId'
+      responses:
+        '202':
+          description: 종료 요청 접수
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LabSessionResponse'
+        '400':
+          $ref: '#/components/responses/ValidationFailed'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/LabNotFound'
   /api/challenges:
     get:
       tags: [lab]
       summary: 문제 목록
-      description: 승인 대기·거절 계정도 조회 가능. 승인 여부는 실습 시작 시점에만 확인한다. id 순서로 반환한다
+      description: >-
+        검색, 필터, 정렬, 페이지(20개). 같은 조건의 여러 값은 "또는", 다른 조건끼리는 "그리고"로 묶는다.
+        범위를 넘은 페이지는 빈 `items`를 반환하고 개수 값은 그대로다.
+        승인 대기·거절 계정도 조회 가능. 승인 여부는 실습 시작 시점에만 확인한다
       operationId: listChallenges
       security:
         - sessionCookie: []
+      parameters:
+        - name: q
+          in: query
+          required: false
+          description: 제목, 요약, 분류 이름에서 대소문자 구분 없이 찾는다. `%`, `_`도 글자로 찾는다
+          schema:
+            type: string
+            maxLength: 100
+        - name: category
+          in: query
+          required: false
+          description: 분류 키. 여러 번 넣을 수 있다. 없는 키는 오류가 아니라 일치하는 문제가 없는 것으로 본다
+          style: form
+          explode: true
+          schema:
+            type: array
+            items:
+              type: string
+        - name: difficulty
+          in: query
+          required: false
+          description: 여러 번 넣을 수 있다
+          style: form
+          explode: true
+          schema:
+            type: array
+            items:
+              $ref: '#/components/schemas/ChallengeDifficulty'
+        - name: myStatus
+          in: query
+          required: false
+          description: 내 상태(hackforge-docs ADR 027). 여러 번 넣을 수 있다
+          style: form
+          explode: true
+          schema:
+            type: array
+            items:
+              $ref: '#/components/schemas/ChallengeMyStatus'
+        - name: sort
+          in: query
+          required: false
+          description: 생략하면 `NEWEST`
+          schema:
+            $ref: '#/components/schemas/ChallengeSort'
+        - name: reverse
+          in: query
+          required: false
+          description: >-
+            `true`면 그 정렬의 반대 방향(오래된 순, 어려운 순, 긴 순). 동점은 반대 방향이어도 새로 추가된 순이다
+            (hackforge-docs ADR 028). 생략하면 `false`
+          schema:
+            type: boolean
+        - name: page
+          in: query
+          required: false
+          description: 1부터. 생략하면 1
+          schema:
+            type: integer
+            format: int32
+            minimum: 1
       responses:
         '200':
-          description: 문제 목록
+          description: 문제 목록 한 페이지
           content:
             application/json:
               schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/ChallengeResponse'
+                $ref: '#/components/schemas/ChallengePageResponse'
+        '400':
+          $ref: '#/components/responses/ValidationFailed'
         '401':
           $ref: '#/components/responses/Unauthenticated'
+  /api/challenges/{id}:
+    get:
+      tags: [lab]
+      summary: 문제 조회
+      description: 목록 항목에 설명 전문(Markdown)을 더해 반환한다. 승인 대기·거절 계정도 조회 가능
+      operationId: getChallenge
+      security:
+        - sessionCookie: []
+      parameters:
+        - $ref: '#/components/parameters/ChallengeId'
+      responses:
+        '200':
+          description: 문제
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ChallengeDetailResponse'
+        '400':
+          $ref: '#/components/responses/ValidationFailed'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '404':
+          description: 없는 문제(`CHALLENGE_NOT_FOUND`)
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
   /api/labs:
+    get:
+      tags: [lab]
+      summary: 내 실습 기록
+      description: >-
+        내 세션을 최근 시작 순으로 준다. 종료한 세션도 포함한다(hackforge-docs ADR 026). 한 세션의 기록은
+        `GET /api/labs/{id}`, 검증, 재배포, 힌트, 상태 기록 API로 본다
+      operationId: listLabs
+      security:
+        - sessionCookie: []
+      parameters:
+        - name: page
+          in: query
+          required: false
+          description: 1부터. 생략하면 1
+          schema:
+            type: integer
+            format: int32
+            minimum: 1
+      responses:
+        '200':
+          description: 세션 목록 한 페이지
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LabSessionPageResponse'
+        '400':
+          $ref: '#/components/responses/ValidationFailed'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
     post:
       tags: [lab]
       summary: 실습 시작
@@ -470,6 +688,663 @@ paths:
           $ref: '#/components/responses/CsrfRejected'
         '404':
           $ref: '#/components/responses/LabNotFound'
+  /api/labs/{id}/terminal:
+    get:
+      tags: [lab]
+      summary: 웹 터미널(WebSocket)
+      description: >-
+        WebSocket upgrade 요청이다(`Upgrade: websocket`). 실습 Pod에 exec(TTY)로 `sh`를 띄워 연결한다(hackforge-docs ADR 022).
+
+
+        연결 전 확인: 로그인하지 않았으면 401, `Origin`이 플랫폼 origin이 아니면 403으로 upgrade를 거절한다
+        (다른 사이트가 학습자 브라우저로 터미널을 여는 것을 막음). CSRF 헤더는 필요 없다.
+
+
+        메시지: 클라이언트 → 서버의 binary 메시지는 셸 입력(바이트 그대로), text 메시지는 제어 JSON
+        `{"type":"resize","cols":<1~500>,"rows":<1~200>}`이다. 서버 → 클라이언트는 binary 메시지로 셸 출력(바이트 그대로)만 보낸다.
+        형식이 틀린 text 메시지는 무시한다.
+
+
+        서버가 닫는 코드(reason에는 이름을 넣음):
+        `1000 EXITED` 셸이 끝남,
+        `4404 LAB_NOT_FOUND` 없는 세션 또는 다른 사용자의 세션,
+        `4409 LAB_NOT_READY` 연결할 때 `READY`가 아님,
+        `4410 LAB_ENDED` 연결 중 세션이 `READY`가 아니게 됨(종료, idle 종료, 실습 환경 비정상 종료),
+        `4429 TERMINAL_LIMIT` 이 세션에 이미 터미널 3개가 열려 있음,
+        `1011 INTERNAL_ERROR` 실습 환경 연결 실패.
+        세션 확인 결과는 브라우저 WebSocket API가 upgrade 응답의 상태와 본문을 읽지 못해서, upgrade를 받은 뒤 닫는 코드로 알린다.
+        다시 연결하면 새 셸이다
+      operationId: openLabTerminal
+      security:
+        - sessionCookie: []
+      parameters:
+        - $ref: '#/components/parameters/LabSessionId'
+      responses:
+        '101':
+          description: WebSocket 연결됨. 이후 세션 확인 결과에 따라 위의 코드로 닫힐 수 있음
+        '400':
+          $ref: '#/components/responses/ValidationFailed'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          description: '`Origin`이 플랫폼 origin이 아님(`FORBIDDEN`)'
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+  /api/labs/{id}/attack-verifications:
+    post:
+      tags: [lab]
+      summary: 공격 검증 요청
+      description: >-
+        공격 검증을 `RUNNING`으로 접수하고 바로 응답한다(hackforge-docs ADR 023). 서버가 응답 뒤 실습 Pod 안에서 문제의
+        `attack-check.sh`를 실행하고 결과를 저장한다. 클라이언트는 `GET /api/labs/{id}/verifications/{verificationId}`를
+        1초 간격으로 polling해 `RUNNING`이 끝나기를 기다린다.
+        `ATTACK`, `DEFENSE` 단계 모두 받고 횟수 제한은 없다. `ATTACK` 단계에서 `PASS`가 나오면 세션 단계가 `DEFENSE`로 바뀐다.
+        이 요청은 활동으로 집계한다
+      operationId: requestAttackVerification
+      parameters:
+        - $ref: '#/components/parameters/LabSessionId'
+      responses:
+        '202':
+          description: 접수됨(`RUNNING`)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VerificationResponse'
+        '400':
+          $ref: '#/components/responses/ValidationFailed'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/CsrfRejected'
+        '404':
+          $ref: '#/components/responses/LabNotFound'
+        '409':
+          description: '`READY`가 아닌 세션(`LAB_NOT_READY`), 이 세션에 검증, 재배포, 초기화 중 하나가 실행 중(`LAB_JOB_RUNNING`)'
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+  /api/labs/{id}/verifications:
+    get:
+      tags: [lab]
+      summary: 검증 기록
+      description: 이 세션의 공격·방어 검증을 최근 순으로 반환한다. 끝난 세션도 조회 가능
+      operationId: listVerifications
+      parameters:
+        - $ref: '#/components/parameters/LabSessionId'
+      responses:
+        '200':
+          description: 검증 목록
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/VerificationResponse'
+        '400':
+          $ref: '#/components/responses/ValidationFailed'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '404':
+          $ref: '#/components/responses/LabNotFound'
+  /api/labs/{id}/verifications/{verificationId}:
+    get:
+      tags: [lab]
+      summary: 검증 하나
+      description: 검증 결과를 polling할 때 쓴다. polling은 활동으로 집계하지 않는다
+      operationId: getVerification
+      parameters:
+        - $ref: '#/components/parameters/LabSessionId'
+        - name: verificationId
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: 검증
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VerificationResponse'
+        '400':
+          $ref: '#/components/responses/ValidationFailed'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '404':
+          description: 없는 세션이나 다른 사용자의 세션(`LAB_NOT_FOUND`), 그 세션에 없는 검증(`VERIFICATION_NOT_FOUND`)
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+  /api/labs/{id}/attack-hints:
+    post:
+      tags: [lab]
+      summary: 다음 공격 힌트 공개
+      description: >-
+        공격 힌트를 1(방향) → 2(위치) → 3(공격 방법) 순서로 하나 공개하고 공개 시각을 기록한다(hackforge-docs ADR 023).
+        `READY`이고 `ATTACK` 단계일 때만 받는다. 이 요청은 활동으로 집계한다
+      operationId: revealAttackHint
+      parameters:
+        - $ref: '#/components/parameters/LabSessionId'
+      responses:
+        '200':
+          description: 이번에 공개한 힌트
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HintResponse'
+        '400':
+          $ref: '#/components/responses/ValidationFailed'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/CsrfRejected'
+        '404':
+          $ref: '#/components/responses/LabNotFound'
+        '409':
+          description: '`READY`가 아님(`LAB_NOT_READY`), `ATTACK` 단계가 아님(`WRONG_LAB_STAGE`), 다 공개함(`NO_MORE_HINTS`)'
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+  /api/labs/{id}/hints:
+    get:
+      tags: [lab]
+      summary: 공개한 힌트
+      description: 이 세션에서 공개한 힌트(공격·방어)를 공개 순서로, 단계별 전체 개수와 함께 반환한다. 단계와 상관없이 조회 가능
+      operationId: listLabHints
+      parameters:
+        - $ref: '#/components/parameters/LabSessionId'
+      responses:
+        '200':
+          description: 공개한 힌트
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LabHintsResponse'
+        '400':
+          $ref: '#/components/responses/ValidationFailed'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '404':
+          $ref: '#/components/responses/LabNotFound'
+  /api/labs/{id}/attack-skip:
+    post:
+      tags: [lab]
+      summary: 공격 건너뛰기
+      description: >-
+        공격 단계에서 힌트를 몇 개 봤든 방어 단계로 넘어가고 `attackSkipped`를 기록한다(hackforge-docs ADR 023).
+        `READY`이고 `ATTACK` 단계일 때만 받는다. 이 요청은 활동으로 집계한다
+      operationId: skipAttack
+      parameters:
+        - $ref: '#/components/parameters/LabSessionId'
+      responses:
+        '200':
+          description: 방어 단계로 넘어간 세션
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LabSessionResponse'
+        '400':
+          $ref: '#/components/responses/ValidationFailed'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/CsrfRejected'
+        '404':
+          $ref: '#/components/responses/LabNotFound'
+        '409':
+          description: '`READY`가 아님(`LAB_NOT_READY`), `ATTACK` 단계가 아님(`WRONG_LAB_STAGE`)'
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+  /api/labs/{id}/files:
+    get:
+      tags: [lab]
+      summary: 코드 파일 목록
+      description: >-
+        실습 Pod의 `/app` 아래 파일 목록(hackforge-docs ADR 024). `READY`이고 `DEFENSE` 단계일 때만 받는다.
+        `readOnly`는 문제가 정한 수정 불가 파일이고, `openable`이 false인 파일(1MB 초과, 바이너리)은 IDE에서 열 수 없다
+      operationId: listLabFiles
+      parameters:
+        - $ref: '#/components/parameters/LabSessionId'
+      responses:
+        '200':
+          description: 파일 목록. 경로 순
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/LabFileEntry'
+        '400':
+          $ref: '#/components/responses/ValidationFailed'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '404':
+          $ref: '#/components/responses/LabNotFound'
+        '409':
+          description: '`READY`가 아님(`LAB_NOT_READY`), `DEFENSE` 단계가 아님(`WRONG_LAB_STAGE`)'
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+  /api/labs/{id}/files/content:
+    get:
+      tags: [lab]
+      summary: 코드 파일 읽기
+      description: 파일 내용(UTF-8)과 SHA-256. 저장할 때 이 해시를 `baseSha256`으로 보낸다
+      operationId: getLabFile
+      parameters:
+        - $ref: '#/components/parameters/LabSessionId'
+        - name: path
+          in: query
+          required: true
+          description: '`/app` 기준 상대 경로(예: `web/src/index.php`). `..`로 `/app` 밖을 가리키면 400'
+          schema:
+            type: string
+            maxLength: 500
+      responses:
+        '200':
+          description: 파일
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LabFileResponse'
+        '400':
+          $ref: '#/components/responses/ValidationFailed'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '404':
+          description: 없는 세션(`LAB_NOT_FOUND`), 없는 파일(`FILE_NOT_FOUND`)
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '409':
+          description: '`READY`가 아님(`LAB_NOT_READY`), `DEFENSE` 단계가 아님(`WRONG_LAB_STAGE`), 1MB 초과나 바이너리(`FILE_NOT_EDITABLE`)'
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+    put:
+      tags: [lab]
+      summary: 코드 파일 저장
+      description: >-
+        자동 저장에 쓴다. `baseSha256`이 지금 파일의 해시와 다르면(터미널 등에서 바뀜) 저장하지 않고 409 `FILE_CHANGED`.
+        화면이 다시 불러오거나, 사용자가 덮어쓰기를 고르면 `baseSha256` 없이 보낸다. 이 요청은 활동으로 집계한다
+      operationId: saveLabFile
+      parameters:
+        - $ref: '#/components/parameters/LabSessionId'
+        - name: path
+          in: query
+          required: true
+          description: '`/app` 기준 상대 경로(예: `web/src/index.php`). `..`로 `/app` 밖을 가리키면 400'
+          schema:
+            type: string
+            maxLength: 500
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SaveLabFileRequest'
+      responses:
+        '200':
+          description: 저장됨. 새 해시
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LabFileResponse'
+        '400':
+          $ref: '#/components/responses/ValidationFailed'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          description: CSRF(`CSRF_REJECTED`), 수정 불가 파일(`FILE_READ_ONLY`)
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '404':
+          $ref: '#/components/responses/LabNotFound'
+        '409':
+          description: '`READY`가 아님(`LAB_NOT_READY`), `DEFENSE` 단계가 아님(`WRONG_LAB_STAGE`), 파일이 바뀜(`FILE_CHANGED`)'
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+  /api/labs/{id}/files/revert:
+    post:
+      tags: [lab]
+      summary: 코드 파일을 원본으로 되돌리기
+      description: 문제의 원본(Challenge 이미지의 `/hackforge/original`)으로 되돌린다. 이 요청은 활동으로 집계한다
+      operationId: revertLabFile
+      parameters:
+        - $ref: '#/components/parameters/LabSessionId'
+        - name: path
+          in: query
+          required: true
+          description: '`/app` 기준 상대 경로(예: `web/src/index.php`). `..`로 `/app` 밖을 가리키면 400'
+          schema:
+            type: string
+            maxLength: 500
+      responses:
+        '200':
+          description: 되돌린 파일
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LabFileResponse'
+        '400':
+          $ref: '#/components/responses/ValidationFailed'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          description: CSRF(`CSRF_REJECTED`), 수정 불가 파일(`FILE_READ_ONLY`)
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '404':
+          description: 없는 세션(`LAB_NOT_FOUND`), 원본에 없는 파일(`FILE_NOT_FOUND`, 학습자가 새로 만든 파일)
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '409':
+          description: '`READY`가 아님(`LAB_NOT_READY`), `DEFENSE` 단계가 아님(`WRONG_LAB_STAGE`)'
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+  /api/labs/{id}/redeploys:
+    post:
+      tags: [lab]
+      summary: 재배포 요청
+      description: >-
+        `RUNNING`으로 접수하고 바로 응답한다(hackforge-docs ADR 024). 서버가 Pod 안에서 `docker compose build`, `up -d`를 실행하고
+        모든 서비스가 healthy가 될 때까지 기다린다(최대 3분). 클라이언트는 `GET /api/labs/{id}/redeploys/{redeployId}`를 polling한다.
+        `READY`이고 `DEFENSE` 단계일 때만 받는다. 검증, 재배포, 초기화 중 하나가 실행 중이면 409. 이 요청은 활동으로 집계한다
+      operationId: requestRedeploy
+      parameters:
+        - $ref: '#/components/parameters/LabSessionId'
+      responses:
+        '202':
+          description: 접수됨(`RUNNING`)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RedeployResponse'
+        '400':
+          $ref: '#/components/responses/ValidationFailed'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/CsrfRejected'
+        '404':
+          $ref: '#/components/responses/LabNotFound'
+        '409':
+          description: '`READY`가 아님(`LAB_NOT_READY`), `DEFENSE` 단계가 아님(`WRONG_LAB_STAGE`), 실행 중인 작업이 있음(`LAB_JOB_RUNNING`)'
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+    get:
+      tags: [lab]
+      summary: 재배포·초기화 기록
+      description: 이 세션의 재배포와 서비스 초기화를 최근 순으로 반환한다. 빌드 로그(`log`)는 넣지 않는다(한 건 조회에서 받음)
+      operationId: listRedeploys
+      parameters:
+        - $ref: '#/components/parameters/LabSessionId'
+      responses:
+        '200':
+          description: 기록
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/RedeployResponse'
+        '400':
+          $ref: '#/components/responses/ValidationFailed'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '404':
+          $ref: '#/components/responses/LabNotFound'
+  /api/labs/{id}/redeploys/{redeployId}:
+    get:
+      tags: [lab]
+      summary: 재배포·초기화 하나(빌드 로그 포함)
+      description: polling할 때 쓴다. polling은 활동으로 집계하지 않는다
+      operationId: getRedeploy
+      parameters:
+        - $ref: '#/components/parameters/LabSessionId'
+        - name: redeployId
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: 재배포·초기화
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RedeployResponse'
+        '400':
+          $ref: '#/components/responses/ValidationFailed'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '404':
+          description: 없는 세션(`LAB_NOT_FOUND`), 그 세션에 없는 기록(`REDEPLOY_NOT_FOUND`)
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+  /api/labs/{id}/reset:
+    post:
+      tags: [lab]
+      summary: 초기화
+      description: >-
+        (hackforge-docs ADR 024)
+        `SERVICES`(서비스 초기화): `/app`을 원본으로 되돌리고 `docker compose down -v`, `build`, `up -d`, healthy 대기. DB도 초기 데이터로 돌아간다.
+        재배포처럼 비동기이고 응답의 `redeploy`(`kind=RESET`)를 polling한다.
+        `ENVIRONMENT`(실습 환경 다시 만들기): Pod를 새로 만든다. 세션이 `CREATING`(준비 단계 `SPACE`)으로 돌아가고 `redeploy`는 `null`.
+        세션 polling으로 다시 `READY`가 되기를 기다린다. 그동안 터미널은 닫히고 공격 대상은 준비 중 안내.
+        `keepStage=false`(처음부터)는 단계를 `ATTACK`, `attackSkipped`를 false로 되돌린다. 검증 기록과 공개한 힌트는 남는다.
+        `READY`일 때 받고 단계는 상관없다. 검증, 재배포, 초기화 중 하나가 실행 중이면 409. 이 요청은 활동으로 집계한다
+      operationId: resetLab
+      parameters:
+        - $ref: '#/components/parameters/LabSessionId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ResetLabRequest'
+      responses:
+        '202':
+          description: 접수됨
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResetLabResponse'
+        '400':
+          $ref: '#/components/responses/ValidationFailed'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/CsrfRejected'
+        '404':
+          $ref: '#/components/responses/LabNotFound'
+        '409':
+          description: '`READY`가 아님(`LAB_NOT_READY`), 실행 중인 작업이 있음(`LAB_JOB_RUNNING`)'
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+  /api/labs/{id}/defense-hints:
+    post:
+      tags: [lab]
+      summary: 다음 방어 힌트 공개
+      description: >-
+        방어 힌트를 1(방향) → 2(위치) → 3(고치는 방법) 순서로 하나 공개하고 공개 시각을 기록한다(hackforge-docs ADR 024).
+        `READY`이고 `DEFENSE` 단계일 때만 받는다. 이 요청은 활동으로 집계한다
+      operationId: revealDefenseHint
+      parameters:
+        - $ref: '#/components/parameters/LabSessionId'
+      responses:
+        '200':
+          description: 이번에 공개한 힌트
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HintResponse'
+        '400':
+          $ref: '#/components/responses/ValidationFailed'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/CsrfRejected'
+        '404':
+          $ref: '#/components/responses/LabNotFound'
+        '409':
+          description: '`READY`가 아님(`LAB_NOT_READY`), `DEFENSE` 단계가 아님(`WRONG_LAB_STAGE`), 다 공개함(`NO_MORE_HINTS`)'
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+  /api/labs/{id}/defense-verifications:
+    post:
+      tags: [lab]
+      summary: 방어 검증 요청
+      description: >-
+        방어 검증을 `RUNNING`으로 접수하고 바로 응답한다(hackforge-docs ADR 025). 서버가 응답 뒤 실습 Pod 안에서 문제의
+        `exploit.sh`(기존 공격)와 `functional-test.sh`(정상 기능)를 차례로 둘 다 실행한다. 공격이 모두 막히고 정상 기능이
+        동작하면 `PASS`다. 결과는 공격 검증과 같이 `GET /api/labs/{id}/verifications/{verificationId}`로 polling한다.
+        검증은 지금 떠 있는 서비스를 시험하므로, 고친 코드는 먼저 재배포해야 반영된다.
+        `READY`이고 `DEFENSE` 단계일 때만 받는다. 첫 `PASS`가 끝나면 세션의 `completedAt`이 기록된다.
+        최대 횟수를 넘거나 해답을 본 뒤에도 받는다. 이 요청은 활동으로 집계한다
+      operationId: requestDefenseVerification
+      parameters:
+        - $ref: '#/components/parameters/LabSessionId'
+      responses:
+        '202':
+          description: 접수됨(`RUNNING`)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VerificationResponse'
+        '400':
+          $ref: '#/components/responses/ValidationFailed'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/CsrfRejected'
+        '404':
+          $ref: '#/components/responses/LabNotFound'
+        '409':
+          description: '`READY`가 아님(`LAB_NOT_READY`), `DEFENSE` 단계가 아님(`WRONG_LAB_STAGE`), 검증, 재배포, 초기화 중 하나가 실행 중(`LAB_JOB_RUNNING`)'
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+  /api/labs/{id}/events:
+    get:
+      tags: [lab]
+      summary: 상태 기록
+      description: >-
+        세션 상태가 바뀐 기록을 오래된 순으로 준다(hackforge-docs ADR 026). 이전 상태(생성이면 `null`), 다음 상태,
+        주체(학습자, 관리자, 시스템), 시각. 관리자는 모든 세션의 기록을 볼 수 있다
+      operationId: listLabEvents
+      security:
+        - sessionCookie: []
+      parameters:
+        - $ref: '#/components/parameters/LabSessionId'
+      responses:
+        '200':
+          description: 상태 기록
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/LabEventResponse'
+        '400':
+          $ref: '#/components/responses/ValidationFailed'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '404':
+          $ref: '#/components/responses/LabNotFound'
+  /api/labs/{id}/solution:
+    get:
+      tags: [lab]
+      summary: 연 해답 다시 보기
+      description: >-
+        이 세션에서 해답을 연 적이 있으면 세션 상태와 상관없이 다시 준다(내 실습 기록, hackforge-docs ADR 026).
+        처음 여는 것은 `POST`다. 세션 주인만 볼 수 있다
+      operationId: getSolution
+      security:
+        - sessionCookie: []
+      parameters:
+        - $ref: '#/components/parameters/LabSessionId'
+      responses:
+        '200':
+          description: 해답
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SolutionResponse'
+        '400':
+          $ref: '#/components/responses/ValidationFailed'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '404':
+          $ref: '#/components/responses/LabNotFound'
+        '409':
+          description: 이 세션에서 해답을 연 적이 없음(`SOLUTION_LOCKED`)
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+    post:
+      tags: [lab]
+      summary: 해답 열기
+      description: >-
+        문제의 해답을 준다(hackforge-docs ADR 025). 방어 검증 `FAIL`이 문제의 최대 시도 횟수만큼 쌓여야 열 수 있다
+        (세션 응답의 `solutionAvailable`). 처음 열 때 시각을 기록하고(`solutionViewedAt`), 그 뒤의 방어 검증은
+        `afterSolution`이 `true`다. 세션이 `READY`일 때만 받는다(단계는 상관없음). 이 요청은 활동으로 집계한다
+      operationId: openSolution
+      parameters:
+        - $ref: '#/components/parameters/LabSessionId'
+      responses:
+        '200':
+          description: 해답
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SolutionResponse'
+        '400':
+          $ref: '#/components/responses/ValidationFailed'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/CsrfRejected'
+        '404':
+          $ref: '#/components/responses/LabNotFound'
+        '409':
+          description: '`READY`가 아님(`LAB_NOT_READY`), 아직 열 수 없음(`SOLUTION_LOCKED`)'
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
   /api/labs/{id}/activity:
     post:
       tags: [lab]
@@ -512,6 +1387,13 @@ components:
       description: '`XSRF-TOKEN` 쿠키 값을 그대로 넣는다'
   parameters:
     UserId:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: integer
+        format: int64
+    ChallengeId:
       name: id
       in: path
       required: true
@@ -688,10 +1570,29 @@ components:
       properties:
         temporaryPassword:
           type: string
+    ChallengeDifficulty:
+      type: string
+      description: '`INTRO` 입문, `BEGINNER` 초급, `INTERMEDIATE` 중급, `ADVANCED` 고급. 이 순서로 쉽다'
+      enum: [INTRO, BEGINNER, INTERMEDIATE, ADVANCED]
+    ChallengeSort:
+      type: string
+      description: '`NEWEST` 새로 추가된 순, `DIFFICULTY` 난이도 낮은 순, `TIME` 예상 시간 짧은 순. 값이 같으면 새로 추가된 순'
+      enum: [NEWEST, DIFFICULTY, TIME]
+    ChallengeCategoryResponse:
+      type: object
+      description: 분류. 목록과 표시 순서는 서버가 정한다
+      required: [key, name]
+      properties:
+        key:
+          type: string
+          description: '예: `sqli`'
+        name:
+          type: string
+          description: '예: `SQL Injection`'
     ChallengeResponse:
       type: object
-      description: 힌트, 해답, 검증 스크립트는 넣지 않는다
-      required: [id, slug, title, description]
+      description: 문제 목록 항목. 설명 전문, 힌트, 해답, 검증 스크립트는 넣지 않는다
+      required: [id, slug, title, summary, category, difficulty, estimatedMinutes, isNew, myStatus]
       properties:
         id:
           type: integer
@@ -701,9 +1602,147 @@ components:
           description: '사람이 읽을 수 있는 문제 식별자(예: `sqli-login`)'
         title:
           type: string
-        description:
+        summary:
           type: string
-          description: 문제 목록에 보이는 설명(Markdown). Challenge 저장소의 `meta/description.md`
+          maxLength: 80
+          description: 목록에 보이는 한 줄 요약
+        category:
+          $ref: '#/components/schemas/ChallengeCategoryResponse'
+        difficulty:
+          $ref: '#/components/schemas/ChallengeDifficulty'
+        estimatedMinutes:
+          type: integer
+          format: int32
+          minimum: 1
+        isNew:
+          type: boolean
+          description: 처음 등록한 지 14일 안이면 true
+        myStatus:
+          $ref: '#/components/schemas/ChallengeMyStatus'
+    ChallengeDetailResponse:
+      description: 문제 하나. 힌트, 해답, 검증 스크립트는 넣지 않는다
+      allOf:
+        - $ref: '#/components/schemas/ChallengeResponse'
+        - type: object
+          required: [description]
+          properties:
+            description:
+              type: string
+              description: 문제 설명(Markdown). Challenge 저장소의 `meta/description.md`
+    ChallengePageResponse:
+      type: object
+      required: [items, page, size, totalItems, totalPages, facets]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/ChallengeResponse'
+        page:
+          type: integer
+          format: int32
+        size:
+          type: integer
+          format: int32
+          description: 한 페이지 크기(20)
+        totalItems:
+          type: integer
+          format: int64
+          description: 조건에 맞는 문제 수
+        totalPages:
+          type: integer
+          format: int32
+        facets:
+          $ref: '#/components/schemas/ChallengeFacetsResponse'
+    ChallengeFacetsResponse:
+      type: object
+      description: >-
+        필터별 문제 수. 개수가 0인 항목도 넣는다.
+        한 조건의 개수는 그 조건을 뺀 나머지 조건(검색어 포함)을 적용해 센다.
+        예를 들어 난이도 `INTRO`를 골랐어도 분류별 개수는 입문 문제만, 난이도별 개수는 난이도 조건 없이 센다
+      required: [categories, difficulties, myStatuses]
+      properties:
+        myStatuses:
+          type: array
+          description: '`NOT_STARTED`, `UNFINISHED`, `COMPLETED` 순서'
+          items:
+            $ref: '#/components/schemas/MyStatusCountResponse'
+        categories:
+          type: array
+          description: 분류 표시 순서
+          items:
+            $ref: '#/components/schemas/CategoryCountResponse'
+        difficulties:
+          type: array
+          description: 쉬운 순서
+          items:
+            $ref: '#/components/schemas/DifficultyCountResponse'
+    ChallengeMyStatus:
+      type: string
+      description: >-
+        내 상태(hackforge-docs ADR 027). `COMPLETED` 내 세션 중 하나라도 실습을 완료함(첫 방어 검증 PASS),
+        `UNFINISHED` 세션은 있지만 완료한 것이 없음, `NOT_STARTED` 세션이 없음
+      enum: [NOT_STARTED, UNFINISHED, COMPLETED]
+    MyStatusCountResponse:
+      type: object
+      required: [myStatus, count]
+      properties:
+        myStatus:
+          $ref: '#/components/schemas/ChallengeMyStatus'
+        count:
+          type: integer
+          format: int64
+    MyProgressResponse:
+      type: object
+      required: [totalChallenges, completed, unfinished, categories]
+      properties:
+        totalChallenges:
+          type: integer
+          format: int64
+        completed:
+          type: integer
+          format: int64
+        unfinished:
+          type: integer
+          format: int64
+        categories:
+          type: array
+          description: 분류 표시 순서. 문제가 없는 분류도 넣는다
+          items:
+            $ref: '#/components/schemas/CategoryProgressResponse'
+    CategoryProgressResponse:
+      type: object
+      required: [key, name, total, completed]
+      properties:
+        key:
+          type: string
+        name:
+          type: string
+        total:
+          type: integer
+          format: int64
+        completed:
+          type: integer
+          format: int64
+    CategoryCountResponse:
+      type: object
+      required: [key, name, count]
+      properties:
+        key:
+          type: string
+        name:
+          type: string
+        count:
+          type: integer
+          format: int64
+    DifficultyCountResponse:
+      type: object
+      required: [difficulty, count]
+      properties:
+        difficulty:
+          $ref: '#/components/schemas/ChallengeDifficulty'
+        count:
+          type: integer
+          format: int64
     StartLabRequest:
       type: object
       required: [challengeId]
@@ -722,13 +1761,317 @@ components:
         `FAILED` 재시도 후에도 생성 실패.
         생성에 실패하면 서버가 1회 재시도하며, 이때 `INITIALIZING`에서 `CREATING`으로 전이될 수 있다
       enum: [CREATING, INITIALIZING, READY, TERMINATING, DELETED, FAILED]
+    LabSessionPageResponse:
+      type: object
+      required: [items, page, size, totalItems, totalPages]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/LabSessionResponse'
+        page:
+          type: integer
+          format: int32
+        size:
+          type: integer
+          format: int32
+          description: 한 페이지 크기(20)
+        totalItems:
+          type: integer
+          format: int64
+        totalPages:
+          type: integer
+          format: int32
+    AdminLabFilter:
+      type: string
+      description: '`ACTIVE` 종료 전 세션, `ALL` 종료한 세션까지'
+      enum: [ACTIVE, ALL]
+    AdminLabSessionResponse:
+      type: object
+      required: [userId, userName, userNickname, userEmail, session]
+      properties:
+        userId:
+          type: integer
+          format: int64
+        userName:
+          description: 학습자 이름(가입 때 적은 실명)
+          type: string
+        userNickname:
+          type: string
+        userEmail:
+          type: string
+          format: email
+        session:
+          $ref: '#/components/schemas/LabSessionResponse'
+    AdminLabSessionPageResponse:
+      type: object
+      required: [items, page, size, totalItems, totalPages]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/AdminLabSessionResponse'
+        page:
+          type: integer
+          format: int32
+        size:
+          type: integer
+          format: int32
+          description: 한 페이지 크기(20)
+        totalItems:
+          type: integer
+          format: int64
+        totalPages:
+          type: integer
+          format: int32
+    LabEventActor:
+      type: string
+      description: '`LEARNER` 학습자 요청, `ADMIN` 관리자 요청, `SYSTEM` 서버(reconciler 등)'
+      enum: [LEARNER, ADMIN, SYSTEM]
+    LabEventResponse:
+      type: object
+      required: [fromStatus, toStatus, actor, at]
+      properties:
+        fromStatus:
+          description: 이전 상태. 세션 생성이면 `null`
+          oneOf:
+            - $ref: '#/components/schemas/LabStatus'
+            - type: 'null'
+        toStatus:
+          $ref: '#/components/schemas/LabStatus'
+        actor:
+          $ref: '#/components/schemas/LabEventActor'
+        at:
+          type: string
+          format: date-time
     LabEndReason:
       type: string
-      description: '`USER` 학습자 종료, `IDLE` idle timeout, `POD_LOST` 실습 중 실습 환경 비정상 종료'
-      enum: [USER, IDLE, POD_LOST]
+      description: >-
+        `USER` 학습자 종료, `IDLE` idle timeout(실습 완료 뒤 종료 포함, 완료 여부는 세션의 `completedAt`),
+        `POD_LOST` 실습 중 실습 환경 비정상 종료, `ADMIN` 관리자 강제 종료(hackforge-docs ADR 026)
+      enum: [USER, IDLE, POD_LOST, ADMIN]
+    LabStage:
+      type: string
+      description: '학습 단계(hackforge-docs ADR 023). `ATTACK`에서 시작하고 공격 검증 PASS나 건너뛰기로 `DEFENSE`가 되며 되돌아가지 않는다'
+      enum: [ATTACK, DEFENSE]
+    VerificationType:
+      type: string
+      enum: [ATTACK, DEFENSE]
+    VerificationStatus:
+      type: string
+      description: >-
+        `RUNNING` 실행 중,
+        `PASS` 스크립트가 0으로 끝남,
+        `FAIL` 0이 아닌 값으로 끝나거나 60초를 넘김,
+        `ERROR` 플랫폼이 스크립트를 실행하지 못함(다시 시도)
+      enum: [RUNNING, PASS, FAIL, ERROR]
+    VerificationResponse:
+      type: object
+      required: [id, type, status, message, durationMs, startedAt, finishedAt, securityPassed, functionalPassed,
+        securityMessage, functionalMessage, defenseHintsRevealed, afterSolution]
+      description: >-
+        공격 검증과 방어 검증. 방어 검증 필드(`securityPassed`부터 `afterSolution`까지)는 공격 검증이면 `null`이다
+        (hackforge-docs ADR 025)
+      properties:
+        id:
+          type: integer
+          format: int64
+        type:
+          $ref: '#/components/schemas/VerificationType'
+        status:
+          $ref: '#/components/schemas/VerificationStatus'
+        message:
+          description: >-
+            공격 검증은 스크립트 출력의 비어 있지 않은 마지막 줄(최대 500자). 방어 검증은 결과 요약
+            (`PASS` "공격이 모두 막히고 정상 기능이 동작해요", `FAIL`이면 통과하지 못한 쪽). `RUNNING`이면 `null`
+          type: [string, 'null']
+        durationMs:
+          description: '실행에 걸린 시간. `RUNNING`이면 `null`'
+          type: [integer, 'null']
+          format: int64
+        securityPassed:
+          description: '방어 검증: 기존 공격(`exploit.sh`)이 모두 막혔으면 `true`. `RUNNING`, `ERROR`이면 `null`'
+          type: [boolean, 'null']
+        functionalPassed:
+          description: '방어 검증: 정상 기능 테스트(`functional-test.sh`)가 통과했으면 `true`. `RUNNING`, `ERROR`이면 `null`'
+          type: [boolean, 'null']
+        securityMessage:
+          description: '방어 검증: `exploit.sh` 출력의 마지막 줄(아직 통하는 payload). 60초를 넘기면 "60초 안에 끝나지 않았어요"'
+          type: [string, 'null']
+        functionalMessage:
+          description: '방어 검증: `functional-test.sh` 출력의 마지막 줄(실패한 기능)'
+          type: [string, 'null']
+        defenseHintsRevealed:
+          description: '방어 검증: 요청할 때까지 공개한 방어 힌트 수'
+          type: [integer, 'null']
+        afterSolution:
+          description: '방어 검증: 요청할 때 해답을 이미 열었으면 `true`. 이 값이 `true`인 `PASS`가 "해답 확인 후 PASS"'
+          type: [boolean, 'null']
+        startedAt:
+          type: string
+          format: date-time
+        finishedAt:
+          type: [string, 'null']
+          format: date-time
+    SolutionResponse:
+      type: object
+      required: [content, viewedAt]
+      properties:
+        content:
+          description: 해답 본문(Markdown). 공격 방법과 고치는 방법
+          type: string
+        viewedAt:
+          description: 이 세션에서 처음 연 시각
+          type: string
+          format: date-time
+    HintResponse:
+      type: object
+      required: [stage, position, content, revealedAt]
+      properties:
+        stage:
+          $ref: '#/components/schemas/LabStage'
+        position:
+          type: integer
+          minimum: 1
+          maximum: 3
+        content:
+          description: 힌트 본문(Markdown)
+          type: string
+        revealedAt:
+          type: string
+          format: date-time
+    LabHintsResponse:
+      type: object
+      required: [attackTotal, defenseTotal, hints]
+      properties:
+        attackTotal:
+          description: 이 문제의 공격 힌트 수
+          type: integer
+        defenseTotal:
+          description: 이 문제의 방어 힌트 수
+          type: integer
+        hints:
+          description: 공개한 힌트. 공개 순서
+          type: array
+          items:
+            $ref: '#/components/schemas/HintResponse'
+    LabFileEntry:
+      type: object
+      required: [path, size, readOnly, openable]
+      properties:
+        path:
+          description: '`/app` 기준 상대 경로'
+          type: string
+        size:
+          description: 바이트
+          type: integer
+          format: int64
+        readOnly:
+          description: 문제가 정한 수정 불가 파일(`READONLY`). 저장·되돌리기가 거절된다
+          type: boolean
+        openable:
+          description: 1MB 이하이고 바이너리가 아니면 true
+          type: boolean
+    LabFileResponse:
+      type: object
+      required: [path, content, sha256, readOnly]
+      properties:
+        path:
+          type: string
+        content:
+          description: 파일 내용(UTF-8)
+          type: string
+        sha256:
+          description: 내용의 SHA-256(소문자 hex). 저장할 때 `baseSha256`으로 보낸다
+          type: string
+        readOnly:
+          type: boolean
+    SaveLabFileRequest:
+      type: object
+      required: [content]
+      properties:
+        content:
+          description: 저장할 내용(UTF-8, 최대 1MB)
+          type: string
+        baseSha256:
+          description: 읽을 때 받은 해시. 지금 파일과 다르면 409 `FILE_CHANGED`. 덮어쓰기를 고르면 보내지 않는다
+          type: [string, 'null']
+    RedeployKind:
+      type: string
+      description: '`REDEPLOY` 재배포, `RESET` 서비스 초기화'
+      enum: [REDEPLOY, RESET]
+    RedeployStatus:
+      type: string
+      description: >-
+        `RUNNING` 실행 중,
+        `SUCCESS` 빌드와 기동이 끝나고 모든 서비스가 healthy,
+        `FAIL` 빌드·기동 실패나 3분 초과(빌드 로그 확인, 초기화 안내),
+        `ERROR` 플랫폼이 실행하지 못함(다시 시도, 서비스 초기화가 실패하면 실습 환경 다시 만들기 안내)
+      enum: [RUNNING, SUCCESS, FAIL, ERROR]
+    RedeployResponse:
+      type: object
+      required: [id, kind, status, message, log, durationMs, startedAt, finishedAt]
+      properties:
+        id:
+          type: integer
+          format: int64
+        kind:
+          $ref: '#/components/schemas/RedeployKind'
+        status:
+          $ref: '#/components/schemas/RedeployStatus'
+        message:
+          description: 결과 한 줄. `RUNNING`이면 `null`
+          type: [string, 'null']
+        log:
+          description: 빌드 로그 끝 64KB. 한 건 조회에서만 주고 목록과 요청 응답에서는 `null`
+          type: [string, 'null']
+        durationMs:
+          type: [integer, 'null']
+          format: int64
+        startedAt:
+          type: string
+          format: date-time
+        finishedAt:
+          type: [string, 'null']
+          format: date-time
+    ResetScope:
+      type: string
+      description: '`SERVICES` 서비스 초기화(코드와 서비스 데이터, 약 20초), `ENVIRONMENT` 실습 환경 다시 만들기(Pod 재생성)'
+      enum: [SERVICES, ENVIRONMENT]
+    ResetLabRequest:
+      type: object
+      required: [scope, keepStage]
+      properties:
+        scope:
+          $ref: '#/components/schemas/ResetScope'
+        keepStage:
+          description: true면 현재 단계 유지, false면 처음부터(`ATTACK`). 공격 단계에서는 화면이 true로 보낸다
+          type: boolean
+    ResetLabResponse:
+      type: object
+      required: [session, redeploy]
+      properties:
+        session:
+          $ref: '#/components/schemas/LabSessionResponse'
+        redeploy:
+          description: '`SERVICES`면 `RUNNING` 초기화 기록, `ENVIRONMENT`면 `null`'
+          oneOf:
+            - $ref: '#/components/schemas/RedeployResponse'
+            - type: 'null'
+    LabPrepStep:
+      type: string
+      description: >-
+        실습 환경 준비 단계(hackforge-docs ADR 021). 순서대로 진행하고 되돌아가지 않는다(재시도는 처음부터).
+        `SPACE` 실습 공간 만들기(`CREATING`),
+        `CONTAINER` 컨테이너 시작,
+        `LOADING` 실습 서비스 불러오기,
+        `STARTING` 서비스 시작과 상태 확인.
+        서버가 몇 초 주기로 갱신하므로 실제 진행보다 조금 늦을 수 있다
+      enum: [SPACE, CONTAINER, LOADING, STARTING]
     LabSessionResponse:
       type: object
-      required: [id, challengeId, challengeTitle, status, createdAt]
+      required: [id, challengeId, challengeTitle, status, prepStep, retrying, targetUrl, stage, attackSkipped,
+        attackHintsRevealed, defenseHintsRevealed, defenseAttempts, maxDefenseAttempts, solutionAvailable, createdAt]
       properties:
         id:
           type: integer
@@ -740,6 +2083,49 @@ components:
           type: string
         status:
           $ref: '#/components/schemas/LabStatus'
+        stage:
+          $ref: '#/components/schemas/LabStage'
+        attackSkipped:
+          description: 공격을 건너뛰고 방어 단계로 왔으면 `true`
+          type: boolean
+        attackHintsRevealed:
+          description: 공개한 공격 힌트 수(0~3). 내용은 `GET /api/labs/{id}/hints`
+          type: integer
+        defenseHintsRevealed:
+          description: 공개한 방어 힌트 수(0~3)
+          type: integer
+        defenseAttempts:
+          description: '방어 검증 시도 횟수. `PASS`와 `FAIL`로 끝난 방어 검증 수이고 `ERROR`는 세지 않는다(hackforge-docs ADR 025)'
+          type: integer
+        maxDefenseAttempts:
+          description: '문제의 최대 방어 검증 시도 횟수. 방어 검증 `FAIL`이 이만큼 쌓이면 해답을 열 수 있다'
+          type: integer
+        solutionAvailable:
+          description: '해답을 열 수 있으면 `true`(`POST /api/labs/{id}/solution`)'
+          type: boolean
+        solutionViewedAt:
+          description: 해답을 처음 연 시각. 열지 않았으면 `null`
+          type: [string, 'null']
+          format: date-time
+        completedAt:
+          description: '첫 방어 검증 `PASS`로 실습을 완료한 시각. 완료하지 않았으면 `null`'
+          type: [string, 'null']
+          format: date-time
+        targetUrl:
+          description: >-
+            `READY`에서만 값이 있음. 공격 대상 화면을 iframe으로 열 주소. 이 요청의 호스트(`Host`, reverse proxy 뒤라면
+            `X-Forwarded-Host`)에 공격 대상 포트를 붙여 만든다(예: `http://localhost:8081/`). 플랫폼과 같은 호스트여야
+            `SESSION` 쿠키가 전송되므로, 클라이언트는 이 값을 그대로 쓴다
+          type: [string, 'null']
+          format: uri
+        prepStep:
+          description: '`CREATING`, `INITIALIZING`에서만 값이 있음. 그 밖에는 `null`'
+          oneOf:
+            - $ref: '#/components/schemas/LabPrepStep'
+            - type: 'null'
+        retrying:
+          description: 첫 생성에 실패해 서버가 다시 만드는 중이면 `true`. 준비 중이 아니면 `false`
+          type: boolean
         endReason:
           description: '`TERMINATING`, `DELETED` 세션의 종료 사유. 진행 중이거나 생성 실패(`FAILED`와 그 직전 `TERMINATING`)이면 `null`'
           oneOf:
@@ -755,7 +2141,9 @@ components:
           type: [string, 'null']
           format: date-time
         idleDeadline:
-          description: '`READY`에서만 값이 있음. 이 시각까지 활동이 없으면 서버가 세션을 종료한다'
+          description: >-
+            `READY`에서만 값이 있음. 이 시각까지 활동이 없으면 서버가 세션을 종료한다. 보통 마지막 활동에서 30분이고,
+            실습을 완료한 뒤 활동이 없으면 `completedAt`에서 5분이다(hackforge-docs ADR 025)
           type: [string, 'null']
           format: date-time
         idleWarningAt:
@@ -805,6 +2193,16 @@ components:
             - LAB_ALREADY_ACTIVE
             - LAB_NOT_READY
             - LAB_CAPACITY_FULL
+            - LAB_JOB_RUNNING
+            - VERIFICATION_NOT_FOUND
+            - WRONG_LAB_STAGE
+            - NO_MORE_HINTS
+            - FILE_NOT_FOUND
+            - FILE_READ_ONLY
+            - FILE_CHANGED
+            - FILE_NOT_EDITABLE
+            - REDEPLOY_NOT_FOUND
+            - SOLUTION_LOCKED
         errors:
           description: '`VALIDATION_FAILED`일 때 항목별 이유'
           type: array

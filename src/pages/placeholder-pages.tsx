@@ -53,9 +53,8 @@ function LandingPage() {
   )
 }
 
-export const ProblemsPage = () => (
-  <Placeholder title="문제" note="문제 목록은 문제 목록 이슈에서 만들어요." />
-)
+/** `/labs/:id` 실습 화면 자리(hackforge-docs specs/lab-ui 작업 5에서 만듦) */
+export const LabPage = () => <Placeholder title="실습" note="실습 화면은 다음 작업에서 만들어요." />
 export const RecordsPage = () => (
   <Placeholder title="내 기록" note="내 기록은 실습 기록 이슈에서 만들어요." />
 )

@@ -2,7 +2,6 @@ import { http, HttpResponse } from 'msw'
 
 import type {
   AdminUserResponse,
-  ChallengeResponse,
   ChangeRoleRequest,
   ChangePasswordRequest,
   LabSessionResponse,
@@ -12,6 +11,7 @@ import type {
   UserResponse,
 } from '@/api/generated/types.gen'
 
+import { challengeDetail, LAB_CHALLENGE, listChallenges, myProgress } from './challenges'
 import { loadScenario, saveScenario, type Scenario } from './scenario'
 
 /** openapi.yaml 응답 형식 그대로의 가짜 응답. 타입이 생성 타입이라 spec이 바뀌면 타입 검사에서 걸린다 */
@@ -41,38 +41,30 @@ function user(
   }
 }
 
-const CHALLENGES: ChallengeResponse[] = [
-  {
-    id: 1,
-    slug: 'sqli-login',
-    title: '로그인 우회',
-    description: '로그인 폼의 SQL Injection을 찾아 공격하고, 코드를 고쳐 막아요.',
-  },
-  {
-    id: 2,
-    slug: 'xss-board',
-    title: '게시판 스크립트 삽입',
-    description: '게시글에 스크립트를 넣어 실행시키고, 출력 처리를 고쳐 막아요.',
-  },
-  {
-    id: 3,
-    slug: 'idor-orders',
-    title: '남의 주문 보기',
-    description: '주문 번호를 바꿔 다른 사람의 주문을 보고, 권한 확인을 넣어 막아요.',
-  },
-]
-
 const LAB_ID = 42
 
 function lab(status: LabSessionResponse['status']): LabSessionResponse {
   const now = Date.now()
   const at = (minutes: number) => new Date(now + minutes * 60_000).toISOString()
   const ready = status === 'READY'
+  const preparing = status === 'CREATING' || status === 'INITIALIZING'
   return {
     id: LAB_ID,
-    challengeId: 1,
-    challengeTitle: CHALLENGES[0].title,
+    challengeId: LAB_CHALLENGE.id,
+    challengeTitle: LAB_CHALLENGE.title,
     status,
+    prepStep: preparing ? (status === 'CREATING' ? 'SPACE' : 'LOADING') : null,
+    retrying: false,
+    targetUrl: ready ? 'http://localhost:8081/' : null,
+    stage: 'ATTACK',
+    attackSkipped: false,
+    attackHintsRevealed: 0,
+    defenseHintsRevealed: 0,
+    defenseAttempts: 0,
+    maxDefenseAttempts: 5,
+    solutionAvailable: false,
+    solutionViewedAt: null,
+    completedAt: null,
     endReason: status === 'TERMINATING' ? 'USER' : null,
     createdAt: at(-2),
     readyAt: ready ? at(-1) : null,
@@ -319,8 +311,20 @@ export const handlers = [
     withTarget(params, () => HttpResponse.json({ temporaryPassword: 'Tq7#mW2pLx9!' })),
   ),
 
-  http.get('*/api/challenges', () =>
-    currentUser() ? HttpResponse.json(CHALLENGES) : unauthenticated(),
+  http.get('*/api/challenges', ({ request }) =>
+    currentUser()
+      ? HttpResponse.json(listChallenges(new URL(request.url).searchParams))
+      : unauthenticated(),
+  ),
+  http.get('*/api/challenges/:id', ({ params }) => {
+    if (!currentUser()) return unauthenticated()
+    const detail = challengeDetail(Number(params.id))
+    return detail
+      ? HttpResponse.json(detail)
+      : problem(404, 'CHALLENGE_NOT_FOUND', '문제를 찾을 수 없어요')
+  }),
+  http.get('*/api/me/progress', () =>
+    currentUser() ? HttpResponse.json(myProgress()) : unauthenticated(),
   ),
 
   http.get('*/api/labs/current', () => {
