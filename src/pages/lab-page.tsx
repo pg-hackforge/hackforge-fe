@@ -373,7 +373,8 @@ function TargetPanel({ url }: { url: LabSessionResponse['targetUrl'] }) {
           <RotateCwIcon className="size-4" aria-hidden />
         </button>
         <span className="flex-1 truncate rounded-md border bg-background px-3 py-1 font-mono text-[12.5px]">
-          {url}
+          {/* mock 모드의 공격 대상은 data URL이라 짧게 보인다 */}
+          {url.startsWith('data:') ? 'http://localhost:8081/ (mock)' : url}
         </span>
         <a
           href={url}

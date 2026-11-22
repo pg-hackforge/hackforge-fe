@@ -8,13 +8,13 @@ import { afterAll, afterEach, beforeAll, beforeEach } from 'vitest'
 import '@/api/query' // 앱과 같은 공통 처리(CSRF, 오류 변환)를 기본 client에 붙인다
 import { client } from '@/api/generated/client.gen'
 import { ThemeProvider } from '@/components/theme-provider'
-import { handlers } from '@/mocks/handlers'
+import { allHandlers } from '@/mocks/handlers'
 import { saveScenario, type Scenario } from '@/mocks/scenario'
 import { routes } from '@/routes'
 
 /** 화면 테스트도 mock 모드와 같은 가짜 응답을 쓴다. 테스트 파일 맨 위에서 한 번 부른다 */
 export function setupMockServer() {
-  const server = setupServer(...handlers)
+  const server = setupServer(...allHandlers)
   beforeAll(() => server.listen({ onUnhandledFrame: 'error' }))
   afterEach(() => {
     cleanup()

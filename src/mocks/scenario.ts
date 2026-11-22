@@ -12,8 +12,12 @@ export const ACCOUNTS = {
 export const LABS = {
   none: '없음',
   CREATING: 'CREATING(생성 중)',
+  INITIALIZING: 'INITIALIZING(서비스 불러오는 중)',
   READY: 'READY(실습 가능)',
+  'idle-warning': 'READY, 곧 자동 종료',
   FAILED: 'FAILED(생성 실패)',
+  'ended-user': '학습자가 종료함',
+  'ended-admin': '관리자가 종료함',
   'capacity-full': '정원 초과',
 } as const
 
