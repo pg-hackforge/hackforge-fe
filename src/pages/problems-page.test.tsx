@@ -48,6 +48,25 @@ describe('문제 목록', () => {
     await waitFor(async () => expect(await rows()).toHaveLength(1))
   })
 
+  it('고른 필터를 목록 위 칩으로 보여 주고, 칩마다 빼거나 모두 지움(정렬은 그대로)', async () => {
+    const router = renderAt(
+      '/problems?q=SSRF&category=ssrf&difficulty=ADVANCED&sort=TIME',
+      'learner',
+    )
+    expect(await screen.findByRole('button', { name: '검색: SSRF 필터 빼기' })).toBeInTheDocument()
+    expect(await screen.findByRole('button', { name: 'SSRF 필터 빼기' })).toBeInTheDocument()
+    await userEvent.click(screen.getByRole('button', { name: '고급 필터 빼기' }))
+    await waitFor(() =>
+      expect(router.state.location.search).toBe('?q=SSRF&category=ssrf&sort=TIME'),
+    )
+    expect(screen.getByRole('checkbox', { name: /고급/ })).not.toBeChecked()
+
+    await userEvent.click(screen.getByRole('button', { name: '모두 지우기' }))
+    await waitFor(() => expect(router.state.location.search).toBe('?sort=TIME'))
+    expect(screen.queryByRole('button', { name: '모두 지우기' })).not.toBeInTheDocument()
+    expect(screen.getByRole('searchbox', { name: '문제 검색' })).toHaveValue('')
+  })
+
   it('맞는 문제가 없으면 안내와 조건 지우기', async () => {
     const router = renderAt('/problems?q=없는문제', 'learner')
     expect(await screen.findByText('조건에 맞는 문제가 없어요')).toBeInTheDocument()

@@ -1,5 +1,5 @@
 import { keepPreviousData, useQuery } from '@tanstack/react-query'
-import { ChevronDownIcon, ChevronLeftIcon, ChevronRightIcon, SearchIcon } from 'lucide-react'
+import { ChevronDownIcon, ChevronLeftIcon, ChevronRightIcon, SearchIcon, XIcon } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { Link, useSearchParams } from 'react-router'
 
@@ -31,6 +31,14 @@ import {
   type ProblemQuery,
 } from '@/lib/problems'
 import { cn } from '@/lib/utils'
+
+/** 필터를 모두 뺀 조건. 정렬은 그대로 둔다 */
+const NO_FILTERS = {
+  q: '',
+  categories: [],
+  difficulties: [],
+  myStatuses: [],
+} satisfies Partial<ProblemQuery>
 
 /** 분류 목록에서 처음에 보이는 수 */
 const CATEGORY_PREVIEW = 8
@@ -67,12 +75,17 @@ export function ProblemsPage() {
               onChange={(sort, reverse) => update({ sort, reverse })}
             />
           </div>
+          <AppliedFilters
+            query={query}
+            categoryNames={new Map(data?.facets.categories.map((c) => [c.key, c.name]))}
+            onChange={update}
+          />
           {list.isError ? (
             <FormAlert tone="error">
               문제 목록을 불러오지 못했어요. 잠시 뒤 다시 시도해 주세요.
             </FormAlert>
           ) : data && data.items.length === 0 ? (
-            <Empty onClear={() => setParams(new URLSearchParams())} />
+            <Empty onClear={() => update(NO_FILTERS)} />
           ) : (
             <ProblemTable
               items={data?.items}
@@ -411,6 +424,66 @@ export function MyStatus({
       />
       {MY_STATUS_LABEL[value]}
     </span>
+  )
+}
+
+/**
+ * 고른 필터 칩. 지금 무엇으로 걸렀는지 목록 바로 위에 모아 보여 주고, 칩마다 빼거나 모두 지운다.
+ * 조건이 없으면 보이지 않는다. 정렬은 필터가 아니라 넣지 않는다
+ */
+function AppliedFilters({
+  query,
+  categoryNames,
+  onChange,
+}: {
+  query: ProblemQuery
+  categoryNames: Map<string, string>
+  onChange: (change: Partial<ProblemQuery>) => void
+}) {
+  const without = <T,>(list: T[], value: T) => list.filter((v) => v !== value)
+  const chips: { key: string; label: string; remove: () => void }[] = [
+    ...(query.q.trim()
+      ? [{ key: 'q', label: `검색: ${query.q.trim()}`, remove: () => onChange({ q: '' }) }]
+      : []),
+    ...query.categories.map((c) => ({
+      key: `c-${c}`,
+      label: categoryNames.get(c) ?? c,
+      remove: () => onChange({ categories: without(query.categories, c) }),
+    })),
+    ...query.difficulties.map((d) => ({
+      key: `d-${d}`,
+      label: DIFFICULTY_LABEL[d],
+      remove: () => onChange({ difficulties: without(query.difficulties, d) }),
+    })),
+    ...query.myStatuses.map((m) => ({
+      key: `m-${m}`,
+      label: MY_STATUS_LABEL[m],
+      remove: () => onChange({ myStatuses: without(query.myStatuses, m) }),
+    })),
+  ]
+  if (chips.length === 0) return null
+  return (
+    <div className="mt-3 flex flex-wrap items-center gap-1.5" aria-label="고른 필터">
+      {chips.map((chip) => (
+        <button
+          key={chip.key}
+          type="button"
+          onClick={chip.remove}
+          aria-label={`${chip.label} 필터 빼기`}
+          className="flex h-7 items-center gap-1 rounded-full border bg-card pr-2 pl-3 text-[13px] hover:border-foreground/40 focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:outline-none"
+        >
+          {chip.label}
+          <XIcon className="size-3.5 text-muted-foreground" aria-hidden />
+        </button>
+      ))}
+      <button
+        type="button"
+        onClick={() => onChange(NO_FILTERS)}
+        className="ml-1 px-1 text-[13px] text-muted-foreground underline-offset-2 hover:text-foreground hover:underline"
+      >
+        모두 지우기
+      </button>
+    </div>
   )
 }
 
