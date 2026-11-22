@@ -6,7 +6,7 @@ describe('문제 목록 조건', () => {
   it('주소에서 읽고 모르는 값은 버린다', () => {
     const query = readProblemQuery(
       new URLSearchParams(
-        'q=sql&category=sqli&category=xss&difficulty=INTRO&difficulty=NOPE&myStatus=COMPLETED&sort=TIME&page=3',
+        'q=sql&category=sqli&category=xss&difficulty=INTRO&difficulty=NOPE&myStatus=COMPLETED&sort=TIME&reverse=true&page=3',
       ),
     )
     expect(query).toEqual({
@@ -15,6 +15,7 @@ describe('문제 목록 조건', () => {
       difficulties: ['INTRO'],
       myStatuses: ['COMPLETED'],
       sort: 'TIME',
+      reverse: true,
       page: 3,
     })
     expect(readProblemQuery(new URLSearchParams('sort=NOPE&page=0'))).toMatchObject({
@@ -28,8 +29,14 @@ describe('문제 목록 조건', () => {
     const empty = readProblemQuery(new URLSearchParams())
     expect(writeProblemQuery(empty).toString()).toBe('')
     expect(
-      writeProblemQuery({ ...empty, q: '  xss ', categories: ['xss'], page: 2 }).toString(),
-    ).toBe('q=xss&category=xss&page=2')
+      writeProblemQuery({
+        ...empty,
+        q: '  xss ',
+        categories: ['xss'],
+        reverse: true,
+        page: 2,
+      }).toString(),
+    ).toBe('q=xss&category=xss&reverse=true&page=2')
   })
 })
 

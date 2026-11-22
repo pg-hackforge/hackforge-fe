@@ -1041,6 +1041,10 @@ export type ListChallengesData = {
          */
         sort?: ChallengeSort;
         /**
+         * `true`면 그 정렬의 반대 방향(오래된 순, 어려운 순, 긴 순). 동점은 반대 방향이어도 새로 추가된 순이다 (hackforge-docs ADR 028). 생략하면 `false`
+         */
+        reverse?: boolean;
+        /**
          * 1부터. 생략하면 1
          */
         page?: number;

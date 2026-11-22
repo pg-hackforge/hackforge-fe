@@ -355,14 +355,17 @@ export function listChallenges(params: URLSearchParams): ChallengePageResponse {
     (skip === 'myStatus' || myStatuses.length === 0 || myStatuses.includes(c.myStatus))
 
   const newest = (a: ChallengeResponse, b: ChallengeResponse) => b.id - a.id
-  const order = {
+  const byKey = {
     NEWEST: newest,
     DIFFICULTY: (a: ChallengeResponse, b: ChallengeResponse) =>
-      DIFFICULTIES.indexOf(a.difficulty) - DIFFICULTIES.indexOf(b.difficulty) || newest(a, b),
-    TIME: (a: ChallengeResponse, b: ChallengeResponse) =>
-      a.estimatedMinutes - b.estimatedMinutes || newest(a, b),
+      DIFFICULTIES.indexOf(a.difficulty) - DIFFICULTIES.indexOf(b.difficulty),
+    TIME: (a: ChallengeResponse, b: ChallengeResponse) => a.estimatedMinutes - b.estimatedMinutes,
   }[sort]
-  const matched = ITEMS.filter((c) => match(c)).sort(order)
+  // 반대 방향이어도 동점은 새로 추가된 순(ADR 028)
+  const reverse = params.get('reverse') === 'true'
+  const matched = ITEMS.filter((c) => match(c)).sort(
+    (a, b) => (reverse ? -byKey(a, b) : byKey(a, b)) || newest(a, b),
+  )
   const count = (
     skip: 'category' | 'difficulty' | 'myStatus',
     pick: (c: ChallengeResponse) => string,

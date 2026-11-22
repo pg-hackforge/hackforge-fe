@@ -56,15 +56,34 @@ describe('문제 목록', () => {
     expect(screen.getByRole('searchbox', { name: '문제 검색' })).toHaveValue('')
   })
 
-  it('다음 페이지와 정렬', async () => {
+  it('다음 페이지', async () => {
     const router = renderAt('/problems', 'learner')
     await userEvent.click(await screen.findByRole('button', { name: '다음 페이지' }))
     await waitFor(async () => expect(await rows()).toHaveLength(3))
     expect(router.state.location.search).toBe('?page=2')
-    await userEvent.click(screen.getByRole('button', { name: /새로 추가된 순/ }))
-    await userEvent.click(await screen.findByRole('menuitemradio', { name: '짧은 순' }))
+  })
+
+  it('열 제목을 누르면 그 기준, 다시 누르면 반대 방향(ADR 028)', async () => {
+    const router = renderAt('/problems', 'learner')
+    await userEvent.click(await screen.findByRole('button', { name: /^예상: 누르면 짧은 순/ }))
     await waitFor(() => expect(router.state.location.search).toBe('?sort=TIME'))
-    expect((await rows())[0]).toHaveTextContent('열린 디버그 페이지')
+    await waitFor(async () => expect((await rows())[0]).toHaveTextContent('열린 디버그 페이지'))
+
+    await userEvent.click(
+      screen.getByRole('button', { name: /^예상: 짧은 순으로 정렬됨, 누르면 긴 순/ }),
+    )
+    await waitFor(() => expect(router.state.location.search).toBe('?sort=TIME&reverse=true'))
+    await waitFor(async () => expect((await rows())[0]).toHaveTextContent('세션 쿠키 역직렬화'))
+
+    await userEvent.click(screen.getByRole('button', { name: /^번호: 누르면 새로 추가된 순/ }))
+    await waitFor(() => expect(router.state.location.search).toBe(''))
+    await userEvent.click(
+      screen.getByRole('button', { name: /^번호: 새로 추가된 순으로 정렬됨, 누르면 오래된 순/ }),
+    )
+    await waitFor(() => expect(router.state.location.search).toBe('?reverse=true'))
+    await waitFor(async () =>
+      expect((await rows())[0]).toHaveTextContent('SQL Injection 로그인 우회'),
+    )
   })
 })
 

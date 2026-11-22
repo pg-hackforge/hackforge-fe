@@ -1,5 +1,12 @@
 import { keepPreviousData, useQuery } from '@tanstack/react-query'
-import { ChevronDownIcon, ChevronLeftIcon, ChevronRightIcon, SearchIcon } from 'lucide-react'
+import {
+  ArrowDownIcon,
+  ArrowUpIcon,
+  ChevronLeftIcon,
+  ChevronRightIcon,
+  ChevronsUpDownIcon,
+  SearchIcon,
+} from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { Link, useSearchParams } from 'react-router'
 
@@ -12,13 +19,6 @@ import type {
   ChallengeSort,
 } from '@/api/generated/types.gen'
 import { FormAlert } from '@/components/form'
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuRadioGroup,
-  DropdownMenuRadioItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu'
 import {
   DIFFICULTY_DOTS,
   DIFFICULTY_LABEL,
@@ -61,7 +61,6 @@ export function ProblemsPage() {
         <div className="min-w-0">
           <div className="flex gap-2.5">
             <SearchBox value={query.q} onChange={(q) => update({ q }, true)} />
-            <SortMenu value={query.sort} onChange={(sort) => update({ sort })} />
           </div>
           {list.isError ? (
             <FormAlert tone="error">
@@ -74,6 +73,11 @@ export function ProblemsPage() {
               items={data?.items}
               activeChallengeId={currentLab?.challengeId}
               dim={list.isPlaceholderData}
+              sort={query.sort}
+              reverse={query.reverse}
+              onSort={(sort) =>
+                update({ sort, reverse: sort === query.sort ? !query.reverse : false })
+              }
             />
           )}
           {data && data.totalPages > 0 && (
@@ -236,29 +240,44 @@ function SearchBox({ value, onChange }: { value: string; onChange: (q: string) =
   )
 }
 
-function SortMenu({
-  value,
-  onChange,
+/**
+ * 정렬할 수 있는 열 제목(hackforge-docs ADR 028). 누르면 그 기준의 기본 방향, 다시 누르면 반대 방향.
+ * 정렬 중이 아닌 열에도 흐린 화살표를 보여 누를 수 있음을 알린다. 번호는 큰 번호(새로 추가된 문제)가 먼저인 것이 기본이다
+ */
+function SortHeader({
+  label,
+  sortKey,
+  sort,
+  reverse,
+  onSort,
 }: {
-  value: ChallengeSort
-  onChange: (sort: ChallengeSort) => void
+  label: string
+  sortKey: ChallengeSort
+  sort: ChallengeSort
+  reverse: boolean
+  onSort: (sort: ChallengeSort) => void
 }) {
+  const active = sort === sortKey
+  // 화면의 화살표는 값의 크기 방향. 번호는 기본이 큰 번호부터라 아래 화살표
+  const down = (sortKey === 'NEWEST') !== reverse
+  const Icon = !active ? ChevronsUpDownIcon : down ? ArrowDownIcon : ArrowUpIcon
+  const now = SORT_LABEL[sortKey][active && reverse ? 1 : 0]
+  const next = SORT_LABEL[sortKey][active && !reverse ? 1 : 0]
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger className="flex h-10 items-center gap-2 rounded-lg border bg-card px-3.5 text-sm font-medium hover:bg-muted/60 focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:outline-none">
-        {SORT_LABEL[value]}
-        <ChevronDownIcon className="size-4 text-muted-foreground" aria-hidden />
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="min-w-40">
-        <DropdownMenuRadioGroup value={value} onValueChange={(v) => onChange(v as ChallengeSort)}>
-          {(Object.keys(SORT_LABEL) as ChallengeSort[]).map((sort) => (
-            <DropdownMenuRadioItem key={sort} value={sort}>
-              {SORT_LABEL[sort]}
-            </DropdownMenuRadioItem>
-          ))}
-        </DropdownMenuRadioGroup>
-      </DropdownMenuContent>
-    </DropdownMenu>
+    <button
+      type="button"
+      onClick={() => onSort(sortKey)}
+      aria-label={
+        active ? `${label}: ${now}으로 정렬됨, 누르면 ${next}` : `${label}: 누르면 ${next}`
+      }
+      className={cn(
+        '-mx-1 flex w-fit items-center gap-1 rounded px-1 py-0.5 hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:outline-none',
+        active && 'text-foreground',
+      )}
+    >
+      {label}
+      <Icon className={cn('size-3.5', !active && 'opacity-45')} aria-hidden />
+    </button>
   )
 }
 
@@ -268,11 +287,20 @@ function ProblemTable({
   items,
   activeChallengeId,
   dim,
+  sort,
+  reverse,
+  onSort,
 }: {
   items?: ChallengeResponse[]
   activeChallengeId?: number
   dim: boolean
+  sort: ChallengeSort
+  reverse: boolean
+  onSort: (sort: ChallengeSort) => void
 }) {
+  const header = (label: string, key: ChallengeSort) => (
+    <SortHeader label={label} sortKey={key} sort={sort} reverse={reverse} onSort={onSort} />
+  )
   return (
     <div
       className={cn(
@@ -287,11 +315,11 @@ function ProblemTable({
           COLUMNS,
         )}
       >
-        <span>번호</span>
+        {header('번호', 'NEWEST')}
         <span>문제</span>
         <span>분류</span>
-        <span>난이도</span>
-        <span>예상</span>
+        {header('난이도', 'DIFFICULTY')}
+        {header('예상', 'TIME')}
         <span>내 상태</span>
         <span />
       </div>
