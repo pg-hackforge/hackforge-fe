@@ -1,12 +1,5 @@
 import { keepPreviousData, useQuery } from '@tanstack/react-query'
-import {
-  ArrowDownIcon,
-  ArrowUpIcon,
-  ChevronLeftIcon,
-  ChevronRightIcon,
-  ChevronsUpDownIcon,
-  SearchIcon,
-} from 'lucide-react'
+import { ChevronDownIcon, ChevronLeftIcon, ChevronRightIcon, SearchIcon } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { Link, useSearchParams } from 'react-router'
 
@@ -19,6 +12,13 @@ import type {
   ChallengeSort,
 } from '@/api/generated/types.gen'
 import { FormAlert } from '@/components/form'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 import {
   DIFFICULTY_DOTS,
   DIFFICULTY_LABEL,
@@ -61,6 +61,11 @@ export function ProblemsPage() {
         <div className="min-w-0">
           <div className="flex gap-2.5">
             <SearchBox value={query.q} onChange={(q) => update({ q }, true)} />
+            <SortMenu
+              sort={query.sort}
+              reverse={query.reverse}
+              onChange={(sort, reverse) => update({ sort, reverse })}
+            />
           </div>
           {list.isError ? (
             <FormAlert tone="error">
@@ -73,11 +78,6 @@ export function ProblemsPage() {
               items={data?.items}
               activeChallengeId={currentLab?.challengeId}
               dim={list.isPlaceholderData}
-              sort={query.sort}
-              reverse={query.reverse}
-              onSort={(sort) =>
-                update({ sort, reverse: sort === query.sort ? !query.reverse : false })
-              }
             />
           )}
           {data && data.totalPages > 0 && (
@@ -240,44 +240,45 @@ function SearchBox({ value, onChange }: { value: string; onChange: (q: string) =
   )
 }
 
-/**
- * 정렬할 수 있는 열 제목(hackforge-docs ADR 028). 누르면 그 기준의 기본 방향, 다시 누르면 반대 방향.
- * 정렬 중이 아닌 열에도 흐린 화살표를 보여 누를 수 있음을 알린다. 번호는 큰 번호(새로 추가된 문제)가 먼저인 것이 기본이다
- */
-function SortHeader({
-  label,
-  sortKey,
+/** 정렬 드롭다운(hackforge-docs ADR 028). 기준마다 기본 방향과 반대 방향 */
+const SORT_OPTIONS = (Object.keys(SORT_LABEL) as ChallengeSort[]).flatMap((sort) =>
+  [false, true].map((reverse) => ({ sort, reverse, value: `${sort}:${reverse}` })),
+)
+
+function SortMenu({
   sort,
   reverse,
-  onSort,
+  onChange,
 }: {
-  label: string
-  sortKey: ChallengeSort
   sort: ChallengeSort
   reverse: boolean
-  onSort: (sort: ChallengeSort) => void
+  onChange: (sort: ChallengeSort, reverse: boolean) => void
 }) {
-  const active = sort === sortKey
-  // 화면의 화살표는 값의 크기 방향. 번호는 기본이 큰 번호부터라 아래 화살표
-  const down = (sortKey === 'NEWEST') !== reverse
-  const Icon = !active ? ChevronsUpDownIcon : down ? ArrowDownIcon : ArrowUpIcon
-  const now = SORT_LABEL[sortKey][active && reverse ? 1 : 0]
-  const next = SORT_LABEL[sortKey][active && !reverse ? 1 : 0]
   return (
-    <button
-      type="button"
-      onClick={() => onSort(sortKey)}
-      aria-label={
-        active ? `${label}: ${now}으로 정렬됨, 누르면 ${next}` : `${label}: 누르면 ${next}`
-      }
-      className={cn(
-        '-mx-1 flex w-fit items-center gap-1 rounded px-1 py-0.5 hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:outline-none',
-        active && 'text-foreground',
-      )}
-    >
-      {label}
-      <Icon className={cn('size-3.5', !active && 'opacity-45')} aria-hidden />
-    </button>
+    <DropdownMenu>
+      <DropdownMenuTrigger
+        aria-label={`정렬: ${SORT_LABEL[sort][reverse ? 1 : 0]}`}
+        className="flex h-10 items-center gap-2 rounded-lg border bg-card px-3.5 text-sm font-medium hover:bg-muted/60 focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:outline-none"
+      >
+        {SORT_LABEL[sort][reverse ? 1 : 0]}
+        <ChevronDownIcon className="size-4 text-muted-foreground" aria-hidden />
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="min-w-40">
+        <DropdownMenuRadioGroup
+          value={`${sort}:${reverse}`}
+          onValueChange={(value) => {
+            const option = SORT_OPTIONS.find((o) => o.value === value)!
+            onChange(option.sort, option.reverse)
+          }}
+        >
+          {SORT_OPTIONS.map((o) => (
+            <DropdownMenuRadioItem key={o.value} value={o.value} closeOnClick>
+              {SORT_LABEL[o.sort][o.reverse ? 1 : 0]}
+            </DropdownMenuRadioItem>
+          ))}
+        </DropdownMenuRadioGroup>
+      </DropdownMenuContent>
+    </DropdownMenu>
   )
 }
 
@@ -287,20 +288,11 @@ function ProblemTable({
   items,
   activeChallengeId,
   dim,
-  sort,
-  reverse,
-  onSort,
 }: {
   items?: ChallengeResponse[]
   activeChallengeId?: number
   dim: boolean
-  sort: ChallengeSort
-  reverse: boolean
-  onSort: (sort: ChallengeSort) => void
 }) {
-  const header = (label: string, key: ChallengeSort) => (
-    <SortHeader label={label} sortKey={key} sort={sort} reverse={reverse} onSort={onSort} />
-  )
   return (
     <div
       className={cn(
@@ -315,11 +307,11 @@ function ProblemTable({
           COLUMNS,
         )}
       >
-        {header('번호', 'NEWEST')}
+        <span>번호</span>
         <span>문제</span>
         <span>분류</span>
-        {header('난이도', 'DIFFICULTY')}
-        {header('예상', 'TIME')}
+        <span>난이도</span>
+        <span>예상</span>
         <span>내 상태</span>
         <span />
       </div>
