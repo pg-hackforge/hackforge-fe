@@ -19,6 +19,7 @@ export const LABS = {
   defense: 'READY, 방어 단계',
   'idle-warning': 'READY, 곧 자동 종료',
   FAILED: 'FAILED(생성 실패)',
+  terminating: '정리 중(종료 직후)',
   'ended-user': '학습자가 종료함',
   'ended-admin': '관리자가 종료함',
   'capacity-full': '정원 초과',

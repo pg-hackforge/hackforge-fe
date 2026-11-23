@@ -33,6 +33,7 @@ export const ACTIVE_LABS: LabState[] = [
   'READY',
   'defense',
   'idle-warning',
+  'terminating',
 ]
 
 /** 시나리오의 세션 응답. 시작한 뒤(없음)는 준비 완료로 본다 */
@@ -44,7 +45,9 @@ export function labOf(state: LabState, progress = progressOf(state)): LabSession
       ? state
       : state === 'ended-user' || state === 'ended-admin'
         ? 'DELETED'
-        : 'READY'
+        : state === 'terminating'
+          ? 'TERMINATING'
+          : 'READY'
   const ready = status === 'READY'
   const deadline = state === 'idle-warning' ? 3 : 30
   return {
@@ -64,7 +67,12 @@ export function labOf(state: LabState, progress = progressOf(state)): LabSession
     solutionAvailable: false,
     solutionViewedAt: null,
     completedAt: null,
-    endReason: state === 'ended-admin' ? 'ADMIN' : state === 'ended-user' ? 'USER' : null,
+    endReason:
+      state === 'ended-admin'
+        ? 'ADMIN'
+        : state === 'ended-user' || state === 'terminating'
+          ? 'USER'
+          : null,
     createdAt: at(-1),
     readyAt: ready ? at(-1) : null,
     endedAt: status === 'DELETED' ? at(0) : null,

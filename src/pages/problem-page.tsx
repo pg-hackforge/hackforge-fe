@@ -8,7 +8,7 @@ import {
   getChallengeOptions,
   getCurrentLabQueryKey,
 } from '@/api/generated/@tanstack/react-query.gen'
-import { useCurrentLab } from '@/api/labs'
+import { isLive, useCurrentLab } from '@/api/labs'
 import { startLab } from '@/api/generated/sdk.gen'
 import { useMe } from '@/api/me'
 import { FormAlert } from '@/components/form'
@@ -77,7 +77,10 @@ export function ProblemPage() {
                 <ClockIcon className="size-4 text-muted-foreground" aria-hidden />
                 예상 {c.estimatedMinutes}분
               </span>
-              <MyStatus value={c.myStatus} active={currentLab?.challengeId === c.id} />
+              <MyStatus
+                value={c.myStatus}
+                active={isLive(currentLab) && currentLab.challengeId === c.id}
+              />
             </div>
             <Markdown className="mt-6 max-w-160">{c.description}</Markdown>
           </article>
@@ -145,7 +148,10 @@ export function ProblemDrawer({ id, onClose }: { id: number; onClose: () => void
                     <ClockIcon className="size-4 text-muted-foreground" aria-hidden />
                     예상 {c.estimatedMinutes}분
                   </span>
-                  <MyStatus value={c.myStatus} active={currentLab?.challengeId === c.id} />
+                  <MyStatus
+                    value={c.myStatus}
+                    active={isLive(currentLab) && currentLab.challengeId === c.id}
+                  />
                 </div>
                 <Markdown className="mt-5 text-sm">{c.description}</Markdown>
               </>
@@ -175,6 +181,18 @@ function StartPanel({ challengeId }: { challengeId: number }) {
     onError: () => queryClient.invalidateQueries({ queryKey: getCurrentLabQueryKey() }),
   })
   const error = start.error ? startErrorText(start.error) : undefined
+  if (currentLab?.status === 'TERMINATING')
+    return (
+      <>
+        <p className="font-semibold">이전 실습을 정리하고 있어요</p>
+        <p className="mt-1 text-sm text-muted-foreground">
+          {currentLab.challengeTitle} 실습 환경을 지우는 중이에요. 1분 안에 끝나면 시작할 수 있어요.
+        </p>
+        <Button className="mt-4 w-full" disabled>
+          실습 시작
+        </Button>
+      </>
+    )
   if (currentLab?.challengeId === challengeId)
     return (
       <>

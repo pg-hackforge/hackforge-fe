@@ -25,7 +25,13 @@ export const currentLabQuery = () =>
       const { data } = await getCurrentLab({ throwOnError: true })
       return data && 'id' in data ? data : null
     },
+    // 종료 뒤 정리 중(TERMINATING)이면 새 실습을 아직 못 시작한다. 정리가 끝나는 것을 보려고 다시 읽는다
+    refetchInterval: (query) => (query.state.data?.status === 'TERMINATING' ? 2_500 : false),
   })
+
+/** 정리 중이 아니라 실제로 하고 있는 실습. 문제의 "진행 중" 표시와 "실습으로 돌아가기"에 쓴다 */
+export const isLive = (lab?: LabSessionResponse | null): lab is LabSessionResponse =>
+  !!lab && lab.status !== 'TERMINATING'
 
 export const useCurrentLab = () => useQuery(currentLabQuery())
 
