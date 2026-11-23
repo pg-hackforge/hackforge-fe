@@ -4,14 +4,14 @@ import type {
   AdminUserResponse,
   ChangeRoleRequest,
   ChangePasswordRequest,
-  LabSessionResponse,
   LoginRequest,
   Problem,
   SignupRequest,
   UserResponse,
 } from '@/api/generated/types.gen'
 
-import { challengeDetail, LAB_CHALLENGE, listChallenges, myProgress } from './challenges'
+import { challengeDetail, listChallenges, myProgress } from './challenges'
+import { ACTIVE_LABS, labOf, terminalHandler } from './labs'
 import { loadScenario, saveScenario, type Scenario } from './scenario'
 
 /** openapi.yaml 응답 형식 그대로의 가짜 응답. 타입이 생성 타입이라 spec이 바뀌면 타입 검사에서 걸린다 */
@@ -38,39 +38,6 @@ function user(
     role,
     status,
     createdAt: '2026-11-01T09:00:00+09:00',
-  }
-}
-
-const LAB_ID = 42
-
-function lab(status: LabSessionResponse['status']): LabSessionResponse {
-  const now = Date.now()
-  const at = (minutes: number) => new Date(now + minutes * 60_000).toISOString()
-  const ready = status === 'READY'
-  const preparing = status === 'CREATING' || status === 'INITIALIZING'
-  return {
-    id: LAB_ID,
-    challengeId: LAB_CHALLENGE.id,
-    challengeTitle: LAB_CHALLENGE.title,
-    status,
-    prepStep: preparing ? (status === 'CREATING' ? 'SPACE' : 'LOADING') : null,
-    retrying: false,
-    targetUrl: ready ? 'http://localhost:8081/' : null,
-    stage: 'ATTACK',
-    attackSkipped: false,
-    attackHintsRevealed: 0,
-    defenseHintsRevealed: 0,
-    defenseAttempts: 0,
-    maxDefenseAttempts: 5,
-    solutionAvailable: false,
-    solutionViewedAt: null,
-    completedAt: null,
-    endReason: status === 'TERMINATING' ? 'USER' : null,
-    createdAt: at(-2),
-    readyAt: ready ? at(-1) : null,
-    endedAt: null,
-    idleDeadline: ready ? at(30) : null,
-    idleWarningAt: ready ? at(25) : null,
   }
 }
 
@@ -330,9 +297,9 @@ export const handlers = [
   http.get('*/api/labs/current', () => {
     if (!currentUser()) return unauthenticated()
     const { lab: state } = loadScenario()
-    // 종료된 세션(FAILED 포함)은 진행 중 세션으로 반환하지 않는다
-    return state === 'CREATING' || state === 'READY'
-      ? HttpResponse.json(lab(state))
+    // 끝난 세션(실패 포함)은 진행 중 세션으로 반환하지 않는다
+    return ACTIVE_LABS.includes(state)
+      ? HttpResponse.json(labOf(state))
       : new HttpResponse(null, { status: 204 })
   }),
 
@@ -348,25 +315,32 @@ export const handlers = [
         'LAB_CAPACITY_FULL',
         '지금은 실습 자리가 모두 찼어요. 잠시 뒤 다시 시도해 주세요',
       )
-    if (state === 'CREATING' || state === 'READY')
+    if (ACTIVE_LABS.includes(state))
       return problem(409, 'LAB_ALREADY_ACTIVE', '이미 진행 중인 실습이 있어요')
-    return HttpResponse.json(lab('CREATING'), { status: 202 })
+    // 시작하면 시나리오는 없음(= 준비 완료로 조회됨). 생성 실패 시나리오는 그대로 둬서 조회하면 실패
+    if (state !== 'FAILED') saveScenario({ ...loadScenario(), lab: 'none' })
+    return HttpResponse.json(labOf('CREATING'), { status: 202 })
   }),
 
-  // 시작한 뒤 조회: FAILED 시나리오는 실패로, 그 밖에는 시나리오 상태(없음이면 준비 완료)로 응답한다
+  // 조회는 시나리오 상태로 응답한다. 없음(시작한 뒤)은 준비 완료
   http.get('*/api/labs/:id', () => {
     if (!currentUser()) return unauthenticated()
-    const { lab: state } = loadScenario()
-    return HttpResponse.json(lab(state === 'FAILED' || state === 'CREATING' ? state : 'READY'))
+    return HttpResponse.json(labOf(loadScenario().lab))
   }),
 
   http.delete('*/api/labs/:id', () => {
     if (!currentUser()) return unauthenticated()
-    saveScenario({ ...loadScenario(), lab: 'none' })
-    return HttpResponse.json(lab('TERMINATING'), { status: 202 })
+    saveScenario({ ...loadScenario(), lab: 'ended-user' })
+    return HttpResponse.json({ ...labOf('ended-user'), status: 'TERMINATING' }, { status: 202 })
   }),
 
-  http.post('*/api/labs/:id/activity', () =>
-    currentUser() ? HttpResponse.json(lab('READY')) : unauthenticated(),
-  ),
+  // [계속하기]: 종료 시각이 30분 뒤로 밀린다
+  http.post('*/api/labs/:id/activity', () => {
+    if (!currentUser()) return unauthenticated()
+    saveScenario({ ...loadScenario(), lab: 'READY' })
+    return HttpResponse.json(labOf('READY'))
+  }),
 ]
+
+/** HTTP와 웹 터미널(WebSocket) mock 모두. 브라우저 worker와 화면 테스트가 쓴다 */
+export const allHandlers = [...handlers, terminalHandler]

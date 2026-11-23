@@ -20,7 +20,23 @@ describe('문제 목록', () => {
     expect(screen.getByText('전체 23개 중 1–20')).toBeInTheDocument()
     const xss = screen.getByText('게시판 저장형 XSS').closest('a')!
     expect(within(xss).getByText('완료')).toBeInTheDocument()
-    expect(xss).toHaveAttribute('href', '/problems/112')
+    expect(xss).toHaveAttribute('href', '/problems?p=112')
+  })
+
+  it('문제를 누르면 오른쪽 패널로 상세, 크게 보기는 상세 페이지, 닫으면 목록만', async () => {
+    const router = renderAt('/problems?category=sqli', 'learner')
+    await userEvent.click(await screen.findByText('SQL Injection 로그인 우회'))
+    const drawer = await screen.findByRole('dialog', { name: 'SQL Injection 로그인 우회' })
+    expect(router.state.location.search).toBe('?category=sqli&p=12')
+    expect(await within(drawer).findByRole('heading', { name: '할 일' })).toBeInTheDocument()
+    expect(within(drawer).getByRole('button', { name: '실습 시작' })).toBeEnabled()
+    expect(within(drawer).getByRole('link', { name: '크게 보기' })).toHaveAttribute(
+      'href',
+      '/problems/12',
+    )
+    await userEvent.click(within(drawer).getByRole('button', { name: '닫기' }))
+    await waitFor(() => expect(router.state.location.search).toBe('?category=sqli'))
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
   })
 
   it('진행 중 실습의 문제는 내 상태 대신 진행 중', async () => {
