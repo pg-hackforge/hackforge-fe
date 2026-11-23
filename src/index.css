@@ -826,3 +826,19 @@
     @apply font-sans;
   }
 }
+
+/* 코드 편집기: 원본과 달라진 줄(ADR 029, DESIGN.md "코드 편집기"의 불씨 막대). 지운 자리는 작은 삼각형 */
+.monaco-editor .hf-line-added,
+.monaco-editor .hf-line-modified {
+  width: 3px !important;
+  margin-left: 4px;
+  background: var(--color-primary);
+}
+.monaco-editor .hf-line-deleted::after {
+  content: '';
+  position: absolute;
+  top: -4px;
+  left: 3px;
+  border: 4px solid transparent;
+  border-left-color: var(--color-primary);
+}

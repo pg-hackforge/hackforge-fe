@@ -412,8 +412,16 @@ export const handlers = [
   // 코드(ADR 024): 방어 단계에서만. 내용은 mock 진행에 경로별로 저장한다
   http.get('*/api/labs/:id/files', () => {
     if (!currentUser()) return unauthenticated()
+    const progress = settleProgress()
+    if (progress.stage !== 'DEFENSE') return wrongStage()
+    return HttpResponse.json(fileEntries(progress.files))
+  }),
+  http.get('*/api/labs/:id/files/original', ({ request }) => {
+    if (!currentUser()) return unauthenticated()
+    const path = new URL(request.url).searchParams.get('path') ?? ''
     if (settleProgress().stage !== 'DEFENSE') return wrongStage()
-    return HttpResponse.json(fileEntries())
+    if (!(path in ORIGINAL_FILES)) return problem(404, 'FILE_NOT_FOUND', '원본에 없는 파일이에요')
+    return HttpResponse.json(fileOf(path, ORIGINAL_FILES[path]))
   }),
   http.get('*/api/labs/:id/files/content', ({ request }) => {
     if (!currentUser()) return unauthenticated()

@@ -130,6 +130,28 @@ describe('실습 화면', () => {
     expect(await screen.findByText(/자동 저장됨/, {}, { timeout: 3_000 })).toBeInTheDocument()
   })
 
+  it('원본과 달라지면 탐색기에 M과 +/− 수, 처음 상태로 되돌리면 사라짐', async () => {
+    renderAt('/labs/42', 'learner', 'defense')
+    await userEvent.click(await screen.findByRole('button', { name: /^코드/ }))
+    const editor = await screen.findByRole('textbox', { name: '코드 편집기' })
+    await waitFor(() => expect(editor).toHaveDisplayValue(/<\?php/), { timeout: 3_000 })
+    const changes = screen.getByLabelText('원본과 달라진 줄')
+    await waitFor(() => expect(changes).toHaveTextContent('+0 −0'))
+    expect(screen.getByRole('button', { name: /index\.php/ })).not.toHaveTextContent('M')
+
+    // 마지막 빈 줄에 입력하면 그 줄이 바뀐 줄이 된다
+    await userEvent.type(editor, '// 고침')
+    await waitFor(() => expect(changes).toHaveTextContent('+1 −1'))
+    expect(screen.getByRole('button', { name: /index\.php/ })).toHaveTextContent('M')
+
+    await userEvent.click(screen.getByRole('button', { name: /처음 상태로/ }))
+    await userEvent.click(
+      within(await screen.findByRole('alertdialog')).getByRole('button', { name: '되돌리기' }),
+    )
+    await waitFor(() => expect(changes).toHaveTextContent('+0 −0'))
+    expect(screen.getByRole('button', { name: /index\.php/ })).not.toHaveTextContent('M')
+  })
+
   it('다른 곳에서 파일이 바뀌었으면 저장을 멈추고 덮어쓸지 물음', async () => {
     renderAt('/labs/42', 'learner', 'defense', { save: 'CONFLICT' })
     await userEvent.click(await screen.findByRole('button', { name: /^코드/ }))

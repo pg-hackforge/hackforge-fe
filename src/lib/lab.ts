@@ -235,3 +235,81 @@ export function languageOf(path: string): string {
   const dot = name.lastIndexOf('.')
   return (dot > 0 && LANGUAGES[name.slice(dot + 1).toLowerCase()]) || 'plaintext'
 }
+
+export type LineChange = { line: number; kind: 'added' | 'modified' | 'deleted' }
+
+/** 가운데 비교 표가 이보다 크면 줄 맞추기 없이 통째로 바뀐 것으로 본다 */
+const MAX_DIFF_CELLS = 4_000_000
+
+/**
+ * 원본과 지금 코드의 줄 비교(ADR 029). 편집기 막대용으로 지금 코드의 줄 번호(1부터)마다 더함·바뀜을,
+ * 지운 줄은 그 자리 다음 줄에 표시를 준다. 원본에 없는 파일(null)은 모든 줄이 더한 줄이다.
+ * 공통 앞뒤 줄을 잘라 내고 가운데만 LCS로 맞춘다
+ */
+export function lineChanges(
+  original: string | null,
+  current: string,
+): { added: number; removed: number; lines: LineChange[] } {
+  const a = original === null ? [] : original.split('\n')
+  const b = current.split('\n')
+  let start = 0
+  while (start < a.length && start < b.length && a[start] === b[start]) start++
+  let endA = a.length
+  let endB = b.length
+  while (endA > start && endB > start && a[endA - 1] === b[endB - 1]) {
+    endA--
+    endB--
+  }
+  const n = endA - start
+  const m = endB - start
+  // ponytail: O(n·m) LCS, 가운데가 아주 크면 통째로 바뀐 것으로 본다. 필요하면 Myers diff로 바꾼다
+  const lcs = new Int32Array(n * m <= MAX_DIFF_CELLS ? (n + 1) * (m + 1) : 0)
+  if (lcs.length)
+    for (let i = n - 1; i >= 0; i--)
+      for (let j = m - 1; j >= 0; j--)
+        lcs[i * (m + 1) + j] =
+          a[start + i] === b[start + j]
+            ? lcs[(i + 1) * (m + 1) + j + 1] + 1
+            : Math.max(lcs[(i + 1) * (m + 1) + j], lcs[i * (m + 1) + j + 1])
+
+  const lines: LineChange[] = []
+  let added = 0
+  let removed = 0
+  let deletes = 0
+  let inserts: number[] = []
+  // 같은 줄을 만날 때마다 그 앞의 지움·더함 묶음을 표시로 바꾼다
+  const flush = (nextLine: number) => {
+    inserts.forEach((line, k) => lines.push({ line, kind: k < deletes ? 'modified' : 'added' }))
+    if (deletes > 0 && inserts.length === 0)
+      lines.push({ line: Math.max(1, Math.min(nextLine, b.length)), kind: 'deleted' })
+    added += inserts.length
+    removed += deletes
+    deletes = 0
+    inserts = []
+  }
+  let i = 0
+  let j = 0
+  while (i < n || j < m) {
+    const same = i < n && j < m && a[start + i] === b[start + j]
+    if (same && lcs.length) {
+      flush(start + j + 1)
+      i++
+      j++
+    } else if (
+      j >= m ||
+      (i < n && lcs.length && lcs[(i + 1) * (m + 1) + j] >= lcs[i * (m + 1) + j + 1])
+    ) {
+      deletes++
+      i++
+    } else if (i >= n || lcs.length) {
+      inserts.push(start + j + 1)
+      j++
+    } else {
+      // 비교 표 없이: 남은 원본은 지우고 남은 지금 코드는 더한다
+      deletes += n - i
+      i = n
+    }
+  }
+  flush(start + m + 1)
+  return { added, removed, lines }
+}

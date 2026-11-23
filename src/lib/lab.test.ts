@@ -8,6 +8,7 @@ import {
   hintTitle,
   labPollInterval,
   labRecords,
+  lineChanges,
   languageOf,
   readFontSize,
   terminalCloseNotice,
@@ -110,7 +111,13 @@ describe('실습 화면 로직', () => {
   })
 
   it('파일 목록은 폴더 먼저, 이름순 트리', () => {
-    const entry = (path: string) => ({ path, size: 1, readOnly: false, openable: true })
+    const entry = (path: string) => ({
+      path,
+      size: 1,
+      readOnly: false,
+      openable: true,
+      modified: false,
+    })
     const tree = fileTree([
       entry('web/src/index.php'),
       entry('compose.yaml'),
@@ -167,5 +174,33 @@ describe('실습 화면 로직', () => {
       ['재배포', 'FAIL'],
     ])
     expect(records[1].detail).toBe('빌드에 실패했어요 · 4.1초')
+  })
+
+  it('원본과 줄 비교: 더한 줄, 바뀐 줄, 지운 자리와 수', () => {
+    const original = ['a', 'b', 'c', 'd', 'e'].join('\n')
+    // b를 고치고, c 뒤에 두 줄을 더하고, e를 지움
+    const current = ['a', 'B', 'c', 'x', 'y', 'd'].join('\n')
+    expect(lineChanges(original, current)).toEqual({
+      added: 3,
+      removed: 2,
+      lines: [
+        { line: 2, kind: 'modified' },
+        { line: 4, kind: 'added' },
+        { line: 5, kind: 'added' },
+        { line: 6, kind: 'deleted' },
+      ],
+    })
+    expect(lineChanges(original, original)).toEqual({ added: 0, removed: 0, lines: [] })
+  })
+
+  it('원본이 없는 파일은 모든 줄이 더한 줄', () => {
+    expect(lineChanges(null, 'x\ny')).toEqual({
+      added: 2,
+      removed: 0,
+      lines: [
+        { line: 1, kind: 'added' },
+        { line: 2, kind: 'added' },
+      ],
+    })
   })
 })
