@@ -80,3 +80,15 @@ export function terminalCloseNotice(code: number): { text: string; retry: boolea
       return { text: '터미널 연결이 끊겼어요.', retry: true }
   }
 }
+
+/** 터미널과 코드 편집기의 글자 크기(px). 둘은 따로 정하고 브라우저에 저장한다 */
+export const FONT_SIZE = { min: 11, max: 20, initial: 13 }
+
+export const clampFontSize = (size: number) =>
+  Math.min(FONT_SIZE.max, Math.max(FONT_SIZE.min, Math.round(size)))
+
+/** 저장된 값을 읽는다. 없거나 숫자가 아니면 기본값 */
+export function readFontSize(stored: string | null): number {
+  const size = Number(stored)
+  return stored && Number.isFinite(size) ? clampFontSize(size) : FONT_SIZE.initial
+}

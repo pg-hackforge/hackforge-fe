@@ -1,9 +1,11 @@
 import { describe, expect, it } from 'vitest'
 
 import {
+  clampFontSize,
   endNotice,
   formatRemaining,
   labPollInterval,
+  readFontSize,
   terminalCloseNotice,
   terminalUrl,
 } from './lab'
@@ -47,5 +49,14 @@ describe('실습 화면 로직', () => {
     )
     expect(terminalCloseNotice(4410).retry).toBe(false)
     expect(terminalCloseNotice(1006)).toEqual({ text: '터미널 연결이 끊겼어요.', retry: true })
+  })
+
+  it('글자 크기는 11~20, 저장값이 없거나 이상하면 13', () => {
+    expect(clampFontSize(9)).toBe(11)
+    expect(clampFontSize(24)).toBe(20)
+    expect(readFontSize(null)).toBe(13)
+    expect(readFontSize('abc')).toBe(13)
+    expect(readFontSize('16')).toBe(16)
+    expect(readFontSize('99')).toBe(20)
   })
 })

@@ -1,10 +1,10 @@
 import { FitAddon } from '@xterm/addon-fit'
 import { Terminal } from '@xterm/xterm'
 import '@xterm/xterm/css/xterm.css'
-import { PlusIcon, RotateCwIcon, XIcon } from 'lucide-react'
+import { AArrowDownIcon, AArrowUpIcon, PlusIcon, RotateCwIcon, XIcon } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 
-import { terminalCloseNotice, terminalUrl } from '@/lib/lab'
+import { clampFontSize, FONT_SIZE, readFontSize, terminalCloseNotice, terminalUrl } from '@/lib/lab'
 import { cn } from '@/lib/utils'
 
 /** 한 실습에 열 수 있는 터미널 수(서버 제한, 4429) */
@@ -20,6 +20,17 @@ const COMMANDS: [string, string][] = [
 
 type Tab = { id: number; label: string }
 
+/** 터미널 글자 크기를 저장하는 곳(코드 편집기와 따로) */
+const FONT_SIZE_KEY = 'hackforge.terminal-font-size'
+
+function storedFontSize() {
+  try {
+    return readFontSize(localStorage.getItem(FONT_SIZE_KEY))
+  } catch {
+    return FONT_SIZE.initial
+  }
+}
+
 /**
  * 웹 터미널(ADR 022, DESIGN.md "터미널(실습)"). 탭마다 WebSocket 하나로 Pod 안 셸에 붙는다.
  * 실습 화면에서 다른 화면을 봐도 셸이 끊기지 않게, 부모는 이 패널을 숨기기만 한다
@@ -28,6 +39,16 @@ export function TerminalPanel({ labId, visible }: { labId: number; visible: bool
   const [tabs, setTabs] = useState<Tab[]>([{ id: 1, label: '터미널 1' }])
   const [active, setActive] = useState(1)
   const senders = useRef(new Map<number, (text: string) => void>())
+  const [fontSize, setFontSize] = useState(storedFontSize)
+  const changeFontSize = (step: number) => {
+    const next = clampFontSize(fontSize + step)
+    setFontSize(next)
+    try {
+      localStorage.setItem(FONT_SIZE_KEY, String(next))
+    } catch {
+      // 저장이 막힌 브라우저에서는 이번 실습 동안만 쓴다
+    }
+  }
 
   const add = () => {
     const id = Math.max(...tabs.map((t) => t.id)) + 1
@@ -88,6 +109,32 @@ export function TerminalPanel({ labId, visible }: { labId: number; visible: bool
           >
             <PlusIcon className="size-4" aria-hidden />
           </button>
+          <div className="mb-1 ml-auto flex items-center gap-0.5 text-terminal-foreground/70">
+            <button
+              type="button"
+              aria-label="글자 작게"
+              disabled={fontSize <= FONT_SIZE.min}
+              onClick={() => changeFontSize(-1)}
+              className="rounded p-1 hover:bg-white/10 disabled:opacity-30"
+            >
+              <AArrowDownIcon className="size-4" aria-hidden />
+            </button>
+            <span
+              className="w-6 text-center font-mono text-[12px] tabular-nums"
+              aria-label={`글자 크기 ${fontSize}`}
+            >
+              {fontSize}
+            </span>
+            <button
+              type="button"
+              aria-label="글자 크게"
+              disabled={fontSize >= FONT_SIZE.max}
+              onClick={() => changeFontSize(1)}
+              className="rounded p-1 hover:bg-white/10 disabled:opacity-30"
+            >
+              <AArrowUpIcon className="size-4" aria-hidden />
+            </button>
+          </div>
         </div>
         <div className="relative min-h-0 flex-1">
           {tabs.map((tab) => (
@@ -95,6 +142,7 @@ export function TerminalPanel({ labId, visible }: { labId: number; visible: bool
               key={tab.id}
               labId={labId}
               visible={visible && tab.id === active}
+              fontSize={fontSize}
               onSender={(send) => senders.current.set(tab.id, send)}
             />
           ))}
@@ -145,10 +193,12 @@ type Connection =
 function TerminalView({
   labId,
   visible,
+  fontSize,
   onSender,
 }: {
   labId: number
   visible: boolean
+  fontSize: number
   onSender: (send: (text: string) => void) => void
 }) {
   const host = useRef<HTMLDivElement>(null)
@@ -157,14 +207,16 @@ function TerminalView({
   const [attempt, setAttempt] = useState(0)
   const [connection, setConnection] = useState<Connection>({ state: 'connecting' })
   const onSenderRef = useRef(onSender)
+  const fontSizeRef = useRef(fontSize)
   useEffect(() => {
     onSenderRef.current = onSender
+    fontSizeRef.current = fontSize
   })
 
   useEffect(() => {
     const term = new Terminal({
       fontFamily: "'JetBrains Mono', ui-monospace, monospace",
-      fontSize: 13,
+      fontSize: fontSizeRef.current,
       lineHeight: 1.25,
       cursorBlink: true,
       theme: terminalTheme(),
@@ -215,6 +267,14 @@ function TerminalView({
       term.dispose()
     }
   }, [labId, attempt])
+
+  // 글자 크기가 바뀌면 줄과 칸 수를 다시 맞춘다. 바뀐 크기는 onResize로 셸에 알린다
+  useEffect(() => {
+    const term = termRef.current
+    if (!term || term.options.fontSize === fontSize) return
+    term.options.fontSize = fontSize
+    if (host.current?.offsetParent) fitRef.current?.fit()
+  }, [fontSize])
 
   // 숨겨져 있던 동안의 크기 변화는 보일 때 맞춘다
   useEffect(() => {

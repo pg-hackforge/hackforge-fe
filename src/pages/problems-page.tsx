@@ -31,6 +31,7 @@ import {
   type ProblemQuery,
 } from '@/lib/problems'
 import { cn } from '@/lib/utils'
+import { ProblemDrawer } from '@/pages/problem-page'
 
 /** 필터를 모두 뺀 조건. 정렬은 그대로 둔다 */
 const NO_FILTERS = {
@@ -52,6 +53,14 @@ export function ProblemsPage() {
     placeholderData: keepPreviousData,
   })
   const currentLab = useCurrentLab().data
+  // 상세 패널로 연 문제. 조건과 함께 주소에 둬서 뒤로 가기로 닫힌다
+  const openId = Number(params.get('p')) || undefined
+  const withOpen = (id?: number) => {
+    const next = new URLSearchParams(params)
+    if (id) next.set('p', String(id))
+    else next.delete('p')
+    return next
+  }
 
   // 조건을 바꾸면 1쪽부터. 검색어 입력처럼 잦은 변경은 기록을 쌓지 않는다
   const update = (change: Partial<ProblemQuery>, replace = false) =>
@@ -90,6 +99,8 @@ export function ProblemsPage() {
             <ProblemTable
               items={data?.items}
               activeChallengeId={currentLab?.challengeId}
+              selectedId={openId}
+              linkTo={(id) => `?${withOpen(id)}`}
               dim={list.isPlaceholderData}
             />
           )}
@@ -104,6 +115,9 @@ export function ProblemsPage() {
           )}
         </div>
       </div>
+      {openId && (
+        <ProblemDrawer id={openId} onClose={() => setParams(withOpen(), { replace: true })} />
+      )}
     </div>
   )
 }
@@ -300,10 +314,14 @@ const COLUMNS = 'grid-cols-[72px_1fr_150px_92px_56px_116px_20px]'
 function ProblemTable({
   items,
   activeChallengeId,
+  selectedId,
+  linkTo,
   dim,
 }: {
   items?: ChallengeResponse[]
   activeChallengeId?: number
+  selectedId?: number
+  linkTo: (id: number) => string
   dim: boolean
 }) {
   return (
@@ -332,9 +350,10 @@ function ProblemTable({
         {items?.map((c) => (
           <li key={c.id} className="border-b last:border-b-0">
             <Link
-              to={`/problems/${c.id}`}
+              to={linkTo(c.id)}
+              aria-current={c.id === selectedId || undefined}
               className={cn(
-                'grid items-center gap-3 px-4.5 py-2.75 outline-none hover:bg-muted/50 focus-visible:bg-muted/60',
+                'grid items-center gap-3 px-4.5 py-2.75 outline-none hover:bg-muted/50 focus-visible:bg-muted/60 aria-[current]:bg-muted/70',
                 COLUMNS,
               )}
             >

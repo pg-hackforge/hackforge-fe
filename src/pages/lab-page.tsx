@@ -399,7 +399,7 @@ function PrepView({ lab }: { lab: LabSessionResponse }) {
   const terminating = lab.status === 'TERMINATING'
   return (
     <Panel className="grid place-items-center">
-      <div className="w-96">
+      <div className="flex flex-col items-center text-center">
         <h1 className="text-lg font-semibold">
           {terminating ? '실습 환경을 정리하고 있어요' : '실습 환경을 준비하고 있어요'}
         </h1>
@@ -410,7 +410,7 @@ function PrepView({ lab }: { lab: LabSessionResponse }) {
           <FormAlert tone="info">처음 만들기에 실패해서 다시 만들고 있어요.</FormAlert>
         )}
         {!terminating && (
-          <ol className="mt-5 space-y-2.5">
+          <ol className="mt-5 space-y-2.5 text-left">
             {PREP_STEPS.map(([step, label], i) => (
               <li key={step} className="flex items-center gap-3 text-sm">
                 <span
