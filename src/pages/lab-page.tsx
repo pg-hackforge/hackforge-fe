@@ -467,7 +467,7 @@ function PrepView({ lab }: { lab: LabSessionResponse }) {
           {terminating ? '실습 환경을 정리하고 있어요' : '실습 환경을 준비하고 있어요'}
         </h1>
         <p className="mt-1 text-sm text-muted-foreground tabular-nums">
-          {terminating ? '잠시만 기다려 주세요.' : `보통 1분 정도 걸려요 · ${elapsed}초 지남`}
+          {terminating ? '잠시만 기다려 주세요.' : `보통 1분 정도 걸려요 · ${elapsed}초`}
         </p>
         {lab.retrying && (
           <FormAlert tone="info">처음 만들기에 실패해서 다시 만들고 있어요.</FormAlert>
