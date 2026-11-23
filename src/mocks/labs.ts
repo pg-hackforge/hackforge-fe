@@ -1,9 +1,14 @@
 import { ws } from 'msw'
 
-import type { LabSessionResponse } from '@/api/generated/types.gen'
+import type {
+  HintResponse,
+  LabSessionResponse,
+  LabStage,
+  VerificationResponse,
+} from '@/api/generated/types.gen'
 
 import { LAB_CHALLENGE } from './challenges'
-import type { Scenario } from './scenario'
+import { loadScenario, saveScenario, type Scenario } from './scenario'
 
 export const LAB_ID = 42
 
@@ -22,10 +27,17 @@ export const MOCK_TARGET_URL = `data:text/html;charset=utf-8,${encodeURIComponen
 type LabState = Scenario['lab']
 
 /** 진행 중으로 보는 시나리오(현재 세션 API가 반환함) */
-export const ACTIVE_LABS: LabState[] = ['CREATING', 'INITIALIZING', 'READY', 'idle-warning']
+export const ACTIVE_LABS: LabState[] = [
+  'CREATING',
+  'INITIALIZING',
+  'READY',
+  'defense',
+  'idle-warning',
+  'terminating',
+]
 
 /** 시나리오의 세션 응답. 시작한 뒤(없음)는 준비 완료로 본다 */
-export function labOf(state: LabState): LabSessionResponse {
+export function labOf(state: LabState, progress = progressOf(state)): LabSessionResponse {
   const now = Date.now()
   const at = (minutes: number) => new Date(now + minutes * 60_000).toISOString()
   const status: LabSessionResponse['status'] =
@@ -33,7 +45,9 @@ export function labOf(state: LabState): LabSessionResponse {
       ? state
       : state === 'ended-user' || state === 'ended-admin'
         ? 'DELETED'
-        : 'READY'
+        : state === 'terminating'
+          ? 'TERMINATING'
+          : 'READY'
   const ready = status === 'READY'
   const deadline = state === 'idle-warning' ? 3 : 30
   return {
@@ -44,22 +58,111 @@ export function labOf(state: LabState): LabSessionResponse {
     prepStep: status === 'CREATING' ? 'SPACE' : status === 'INITIALIZING' ? 'LOADING' : null,
     retrying: false,
     targetUrl: ready ? MOCK_TARGET_URL : null,
-    stage: 'ATTACK',
-    attackSkipped: false,
-    attackHintsRevealed: 0,
-    defenseHintsRevealed: 0,
+    stage: progress.stage,
+    attackSkipped: progress.attackSkipped,
+    attackHintsRevealed: progress.hints.filter((h) => h.stage === 'ATTACK').length,
+    defenseHintsRevealed: progress.hints.filter((h) => h.stage === 'DEFENSE').length,
     defenseAttempts: 0,
     maxDefenseAttempts: 5,
     solutionAvailable: false,
     solutionViewedAt: null,
     completedAt: null,
-    endReason: state === 'ended-admin' ? 'ADMIN' : state === 'ended-user' ? 'USER' : null,
+    endReason:
+      state === 'ended-admin'
+        ? 'ADMIN'
+        : state === 'ended-user' || state === 'terminating'
+          ? 'USER'
+          : null,
     createdAt: at(-1),
     readyAt: ready ? at(-1) : null,
     endedAt: status === 'DELETED' ? at(0) : null,
     idleDeadline: ready ? at(deadline) : null,
     idleWarningAt: ready ? at(deadline - 5) : null,
   }
+}
+
+/** 실습 중 진행: 단계, 연 힌트, 검증. 검증은 `doneAt`이 지나면 결과가 나온다 */
+export type MockProgress = {
+  stage: LabStage
+  attackSkipped: boolean
+  hints: HintResponse[]
+  verifications: (VerificationResponse & { doneAt: number })[]
+}
+
+const progressOf = (state: LabState, saved?: MockProgress): MockProgress =>
+  saved ?? {
+    stage: state === 'defense' ? 'DEFENSE' : 'ATTACK',
+    attackSkipped: false,
+    hints: [],
+    verifications: [],
+  }
+
+/** 화면 테스트에서는 바로, 브라우저에서는 2초 뒤 결과 */
+const VERIFY_MS = import.meta.env.MODE === 'test' ? 0 : 2_000
+
+export const ATTACK_HINTS = [
+  '로그인 폼에 넣은 **아이디**가 서버에서 어떻게 쓰이는지 생각해 봐요.',
+  '`web/src/index.php`에서 로그인 쿼리를 만드는 줄을 찾아봐요.',
+  '아이디 칸에서 문자열을 일찍 닫고, 뒤에 붙는 비밀번호 조건이 무시되게 해 봐요.',
+]
+
+/** 지금 진행을 읽고, 시간이 된 검증은 결과를 정해 저장한다 */
+export function settleProgress(): MockProgress {
+  const scenario = loadScenario()
+  const progress = progressOf(scenario.lab, scenario.progress)
+  const result = scenario.verify ?? 'PASS'
+  for (const v of progress.verifications) {
+    if (v.status !== 'RUNNING' || v.doneAt > Date.now()) continue
+    Object.assign(v, {
+      status: result,
+      message: {
+        PASS: 'admin으로 로그인함',
+        FAIL: '관리자로 로그인하지 못했어요',
+        ERROR: '검증 스크립트를 실행하지 못했어요',
+      }[result],
+      durationMs: result === 'ERROR' ? null : 3_400,
+      finishedAt: new Date().toISOString(),
+    })
+    if (result === 'PASS' && progress.stage === 'ATTACK') progress.stage = 'DEFENSE'
+  }
+  saveScenario({ ...scenario, progress })
+  return progress
+}
+
+export function saveProgress(progress: MockProgress) {
+  saveScenario({ ...loadScenario(), progress })
+}
+
+export function startAttackVerification(progress: MockProgress): VerificationResponse {
+  const now = Date.now()
+  const verification = {
+    id: progress.verifications.length + 1,
+    type: 'ATTACK' as const,
+    status: 'RUNNING' as const,
+    message: null,
+    durationMs: null,
+    securityPassed: null,
+    functionalPassed: null,
+    securityMessage: null,
+    functionalMessage: null,
+    defenseHintsRevealed: null,
+    afterSolution: null,
+    startedAt: new Date(now).toISOString(),
+    finishedAt: null,
+    doneAt: now + VERIFY_MS,
+  }
+  progress.verifications.push(verification)
+  saveProgress(progress)
+  return publicVerification(verification)
+}
+
+/** 응답에는 mock 전용 `doneAt`을 넣지 않는다 */
+export function publicVerification(
+  stored: MockProgress['verifications'][number],
+): VerificationResponse {
+  const { doneAt, ...verification } = stored
+  void doneAt
+  return verification
 }
 
 const PROMPT = '/app # '

@@ -70,6 +70,51 @@ describe('실습 화면', () => {
     expect(screen.getByRole('button', { name: '다시 시작' })).toBeEnabled()
   })
 
+  it('공격 검증 PASS면 결과 안내, 방어 단계로 넘어가고 코드가 열림', async () => {
+    renderAt('/labs/42', 'learner', 'READY', 'PASS')
+    await userEvent.click(await screen.findByRole('button', { name: /공격 검증 요청/ }))
+    expect(await screen.findByRole('button', { name: /검증 중/ })).toBeDisabled()
+    const notice = await screen.findByText(/공격에 성공했어요/, {}, { timeout: 4_000 })
+    expect(notice.closest('[role="status"]')).toHaveTextContent('admin으로 로그인함')
+    await waitFor(() =>
+      expect(screen.getByText('방어', { selector: '[aria-current="step"]' })).toBeInTheDocument(),
+    )
+    expect(rail('코드')).toBeEnabled()
+    expect(screen.queryByRole('button', { name: /공격 검증 요청/ })).not.toBeInTheDocument()
+    expect(screen.getByText('마지막 검증').parentElement).toHaveTextContent('PASS')
+  })
+
+  it('공격 검증 FAIL과 ERROR는 단계를 바꾸지 않고, 기록에 남음', async () => {
+    renderAt('/labs/42', 'learner', 'READY', 'FAIL')
+    await userEvent.click(await screen.findByRole('button', { name: /공격 검증 요청/ }))
+    expect(
+      await screen.findByText('아직 공격이 확인되지 않았어요.', {}, { timeout: 4_000 }),
+    ).toBeInTheDocument()
+    expect(screen.getByText('공격', { selector: '[aria-current="step"]' })).toBeInTheDocument()
+
+    await userEvent.click(screen.getByRole('button', { name: '기록 보기' }))
+    expect(await screen.findByRole('heading', { name: '공격 검증' })).toBeInTheDocument()
+    expect(screen.getByText('관리자로 로그인하지 못했어요 · 3.4초')).toBeInTheDocument()
+    expect(rail('기록')).toHaveTextContent('1')
+  })
+
+  it('힌트는 순서대로 하나씩 열고, 건너뛰면 방어 단계', async () => {
+    renderAt('/labs/42', 'learner', 'READY')
+    await userEvent.click(await rail('힌트'))
+    await userEvent.click(await screen.findByRole('button', { name: '힌트 1 보기' }))
+    expect(await screen.findByText(/서버에서 어떻게 쓰이는지/)).toBeInTheDocument()
+    expect(await screen.findByRole('button', { name: '힌트 2 보기' })).toBeEnabled()
+    expect(screen.queryByRole('button', { name: '힌트 3 보기' })).not.toBeInTheDocument()
+    await waitFor(() => expect(rail('힌트')).toHaveTextContent('1/3'))
+
+    await userEvent.click(screen.getByRole('button', { name: '공격 건너뛰기' }))
+    const dialog = await screen.findByRole('alertdialog', { name: '공격을 건너뛸까요?' })
+    await userEvent.click(within(dialog).getByRole('button', { name: '건너뛰기' }))
+    expect(await screen.findByText('공격을 건너뛰고 방어 단계로 왔어요.')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: '힌트 2 보기' })).not.toBeInTheDocument()
+    expect(rail('코드')).toBeEnabled()
+  })
+
   it('로그인하지 않았으면 로그인 화면으로', async () => {
     const router = renderAt('/labs/42', 'logged-out')
     await waitFor(() => expect(router.state.location.pathname).toBe('/login'))

@@ -1,4 +1,12 @@
-import type { LabPrepStep, LabSessionResponse, LabStatus } from '@/api/generated/types.gen'
+import type {
+  HintResponse,
+  LabPrepStep,
+  LabSessionResponse,
+  LabStage,
+  LabStatus,
+  VerificationResponse,
+  VerificationStatus,
+} from '@/api/generated/types.gen'
 
 /** 준비 단계(hackforge-docs ADR 021). 진행 순서 */
 export const PREP_STEPS: [LabPrepStep, string][] = [
@@ -92,3 +100,58 @@ export function readFontSize(stored: string | null): number {
   const size = Number(stored)
   return stored && Number.isFinite(size) ? clampFontSize(size) : FONT_SIZE.initial
 }
+
+/** 공격 힌트가 순서마다 알려 주는 것(openapi.yaml `revealAttackHint`) */
+const ATTACK_HINT_KIND = ['방향', '위치', '공격 방법']
+
+export function hintTitle(stage: LabStage, position: number): string {
+  return stage === 'ATTACK'
+    ? `공격 힌트 ${position} · ${ATTACK_HINT_KIND[position - 1]}`
+    : `방어 힌트 ${position}`
+}
+
+export type LabRecord = {
+  key: string
+  at: string
+  title: string
+  detail?: string
+  status?: VerificationStatus
+}
+
+/** 실습 화면 "기록": 검증과 힌트 열람을 최근 순으로. 방어 검증은 몇 번째인지 붙인다 */
+export function labRecords(
+  verifications: VerificationResponse[],
+  hints: HintResponse[],
+): LabRecord[] {
+  const defenseOrder = verifications
+    .filter((v) => v.type === 'DEFENSE')
+    .sort((a, b) => a.startedAt.localeCompare(b.startedAt))
+    .map((v) => v.id)
+  const records: LabRecord[] = [
+    ...verifications.map((v) => ({
+      key: `v${v.id}`,
+      at: v.startedAt,
+      title:
+        v.type === 'ATTACK'
+          ? '공격 검증'
+          : `방어 검증 ${String(defenseOrder.indexOf(v.id) + 1).padStart(2, '0')}`,
+      detail:
+        v.status === 'RUNNING'
+          ? '검증 중'
+          : [v.message, v.durationMs != null && `${(v.durationMs / 1000).toFixed(1)}초`]
+              .filter(Boolean)
+              .join(' · '),
+      status: v.status,
+    })),
+    ...hints.map((h) => ({
+      key: `h${h.stage}${h.position}`,
+      at: h.revealedAt,
+      title: `${hintTitle(h.stage, h.position)} 열람`,
+    })),
+  ]
+  return records.sort((a, b) => b.at.localeCompare(a.at))
+}
+
+/** 기록의 시각(로컬 시:분) */
+export const clockTime = (iso: string) =>
+  new Date(iso).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', hour12: false })

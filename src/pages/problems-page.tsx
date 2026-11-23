@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from 'react'
 import { Link, useSearchParams } from 'react-router'
 
 import { listChallengesOptions } from '@/api/generated/@tanstack/react-query.gen'
-import { useCurrentLab } from '@/api/labs'
+import { isLive, useCurrentLab } from '@/api/labs'
 import type {
   ChallengeFacetsResponse,
   ChallengeMyStatus,
@@ -98,7 +98,7 @@ export function ProblemsPage() {
           ) : (
             <ProblemTable
               items={data?.items}
-              activeChallengeId={currentLab?.challengeId}
+              activeChallengeId={isLive(currentLab) ? currentLab.challengeId : undefined}
               selectedId={openId}
               linkTo={(id) => `?${withOpen(id)}`}
               dim={list.isPlaceholderData}

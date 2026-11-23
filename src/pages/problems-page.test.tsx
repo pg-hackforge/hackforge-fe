@@ -45,6 +45,13 @@ describe('문제 목록', () => {
     expect(within(sqli).getByText('진행 중')).toBeInTheDocument()
   })
 
+  it('종료 뒤 정리 중인 세션의 문제는 진행 중으로 보이지 않음', async () => {
+    renderAt('/problems?category=sqli', 'learner', 'terminating')
+    const sqli = (await screen.findByText('SQL Injection 로그인 우회')).closest('a')!
+    await waitFor(() => expect(within(sqli).getByText('끝내지 못함')).toBeInTheDocument())
+    expect(within(sqli).queryByText('진행 중')).not.toBeInTheDocument()
+  })
+
   it('필터와 검색은 주소에 남고 1쪽부터, 개수는 자기 조건만 빼고 셈', async () => {
     const router = renderAt('/problems?page=2', 'learner')
     await userEvent.click(await screen.findByRole('checkbox', { name: /XSS/ }))
@@ -148,6 +155,13 @@ describe('문제 상세와 실습 시작', () => {
     renderAt('/problems/128', 'learner', 'CREATING')
     expect(await screen.findByText('다른 실습이 진행 중이에요')).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: '실습 시작' })).not.toBeInTheDocument()
+  })
+
+  it('이전 실습을 정리하는 중이면 돌아가기 대신 정리 안내, 시작은 막힘', async () => {
+    renderAt('/problems/12', 'learner', 'terminating')
+    expect(await screen.findByText('이전 실습을 정리하고 있어요')).toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: '실습으로 돌아가기' })).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '실습 시작' })).toBeDisabled()
   })
 
   it('정원이 차면 안내', async () => {

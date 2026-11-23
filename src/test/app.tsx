@@ -34,8 +34,9 @@ export function renderAt(
   path: string,
   account: Scenario['account'],
   lab: Scenario['lab'] = 'none',
+  verify?: Scenario['verify'],
 ) {
-  saveScenario({ account, lab })
+  saveScenario({ account, lab, verify })
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   const router = createMemoryRouter(routes, { initialEntries: [path] })
   render(
