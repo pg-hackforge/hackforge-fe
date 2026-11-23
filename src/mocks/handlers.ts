@@ -11,7 +11,16 @@ import type {
 } from '@/api/generated/types.gen'
 
 import { challengeDetail, listChallenges, myProgress } from './challenges'
-import { ACTIVE_LABS, labOf, terminalHandler } from './labs'
+import {
+  ACTIVE_LABS,
+  ATTACK_HINTS,
+  labOf,
+  publicVerification,
+  saveProgress,
+  settleProgress,
+  startAttackVerification,
+  terminalHandler,
+} from './labs'
 import { loadScenario, saveScenario, type Scenario } from './scenario'
 
 /** openapi.yaml 응답 형식 그대로의 가짜 응답. 타입이 생성 타입이라 spec이 바뀌면 타입 검사에서 걸린다 */
@@ -299,7 +308,7 @@ export const handlers = [
     const { lab: state } = loadScenario()
     // 끝난 세션(실패 포함)은 진행 중 세션으로 반환하지 않는다
     return ACTIVE_LABS.includes(state)
-      ? HttpResponse.json(labOf(state))
+      ? HttpResponse.json(labOf(state, settleProgress()))
       : new HttpResponse(null, { status: 204 })
   }),
 
@@ -318,14 +327,14 @@ export const handlers = [
     if (ACTIVE_LABS.includes(state))
       return problem(409, 'LAB_ALREADY_ACTIVE', '이미 진행 중인 실습이 있어요')
     // 시작하면 시나리오는 없음(= 준비 완료로 조회됨). 생성 실패 시나리오는 그대로 둬서 조회하면 실패
-    if (state !== 'FAILED') saveScenario({ ...loadScenario(), lab: 'none' })
+    if (state !== 'FAILED') saveScenario({ ...loadScenario(), lab: 'none', progress: undefined })
     return HttpResponse.json(labOf('CREATING'), { status: 202 })
   }),
 
   // 조회는 시나리오 상태로 응답한다. 없음(시작한 뒤)은 준비 완료
   http.get('*/api/labs/:id', () => {
     if (!currentUser()) return unauthenticated()
-    return HttpResponse.json(labOf(loadScenario().lab))
+    return HttpResponse.json(labOf(loadScenario().lab, settleProgress()))
   }),
 
   http.delete('*/api/labs/:id', () => {
@@ -337,8 +346,62 @@ export const handlers = [
   // [계속하기]: 종료 시각이 30분 뒤로 밀린다
   http.post('*/api/labs/:id/activity', () => {
     if (!currentUser()) return unauthenticated()
-    saveScenario({ ...loadScenario(), lab: 'READY' })
-    return HttpResponse.json(labOf('READY'))
+    const { lab } = loadScenario()
+    const state = lab === 'defense' ? lab : 'READY'
+    saveScenario({ ...loadScenario(), lab: state })
+    return HttpResponse.json(labOf(state, settleProgress()))
+  }),
+
+  // 공격 검증: RUNNING으로 접수하고, 조회할 때 시간이 됐으면 mock 패널에서 고른 결과로 끝난다
+  http.post('*/api/labs/:id/attack-verifications', () => {
+    if (!currentUser()) return unauthenticated()
+    const progress = settleProgress()
+    if (progress.verifications.some((v) => v.status === 'RUNNING'))
+      return problem(409, 'LAB_JOB_RUNNING', '다른 작업이 실행 중이에요')
+    return HttpResponse.json(startAttackVerification(progress), { status: 202 })
+  }),
+  http.get('*/api/labs/:id/verifications', () => {
+    if (!currentUser()) return unauthenticated()
+    return HttpResponse.json(settleProgress().verifications.map(publicVerification).reverse())
+  }),
+  http.get('*/api/labs/:id/verifications/:verificationId', ({ params }) => {
+    if (!currentUser()) return unauthenticated()
+    const found = settleProgress().verifications.find((v) => v.id === Number(params.verificationId))
+    return found
+      ? HttpResponse.json(publicVerification(found))
+      : problem(404, 'VERIFICATION_NOT_FOUND', '검증을 찾을 수 없어요')
+  }),
+
+  http.get('*/api/labs/:id/hints', () => {
+    if (!currentUser()) return unauthenticated()
+    return HttpResponse.json({ attackTotal: 3, defenseTotal: 3, hints: settleProgress().hints })
+  }),
+  http.post('*/api/labs/:id/attack-hints', () => {
+    if (!currentUser()) return unauthenticated()
+    const progress = settleProgress()
+    if (progress.stage !== 'ATTACK')
+      return problem(409, 'WRONG_LAB_STAGE', '공격 단계에서만 할 수 있어요')
+    const position = progress.hints.filter((h) => h.stage === 'ATTACK').length + 1
+    if (position > ATTACK_HINTS.length) return problem(409, 'NO_MORE_HINTS', '힌트를 모두 열었어요')
+    const hint = {
+      stage: 'ATTACK' as const,
+      position,
+      content: ATTACK_HINTS[position - 1],
+      revealedAt: new Date().toISOString(),
+    }
+    progress.hints.push(hint)
+    saveProgress(progress)
+    return HttpResponse.json(hint)
+  }),
+  http.post('*/api/labs/:id/attack-skip', () => {
+    if (!currentUser()) return unauthenticated()
+    const progress = settleProgress()
+    if (progress.stage !== 'ATTACK')
+      return problem(409, 'WRONG_LAB_STAGE', '공격 단계에서만 할 수 있어요')
+    progress.stage = 'DEFENSE'
+    progress.attackSkipped = true
+    saveProgress(progress)
+    return HttpResponse.json(labOf(loadScenario().lab, progress))
   }),
 ]
 

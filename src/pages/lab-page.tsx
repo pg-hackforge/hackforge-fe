@@ -22,13 +22,25 @@ import {
   getCurrentLabQueryKey,
 } from '@/api/generated/@tanstack/react-query.gen'
 import { endLab, recordLabActivity, startLab } from '@/api/generated/sdk.gen'
-import type { LabSessionResponse } from '@/api/generated/types.gen'
-import { useLab } from '@/api/labs'
+import type {
+  LabHintsResponse,
+  LabSessionResponse,
+  VerificationResponse,
+} from '@/api/generated/types.gen'
+import { useAttackVerification, useHints, useLab, useVerifications } from '@/api/labs'
 import { useMe } from '@/api/me'
 import { ActionButton, CancelButton, Dialog, DialogText } from '@/components/dialog'
 import { FormAlert } from '@/components/form'
 import { Logo } from '@/components/logo'
 import { Markdown } from '@/components/markdown'
+import {
+  HintsPanel,
+  Panel,
+  RecordsPanel,
+  Verdict,
+  VerifyButton,
+  VerifyNotice,
+} from '@/components/lab/attack'
 import { Button, buttonVariants } from '@/components/ui/button'
 import { endNotice, formatRemaining, isEnded, PREP_STEPS } from '@/lib/lab'
 import { cn } from '@/lib/utils'
@@ -61,6 +73,11 @@ export function LabPage() {
     },
     onSettled: () => setConfirmEnd(false),
   })
+  const ready = lab.data?.status === 'READY'
+  const verify = useAttackVerification(id)
+  const verifications = useVerifications(id, ready, verify.pending).data
+  const hints = useHints(id, ready).data
+  const verifying = verify.pending || !!verifications?.some((v) => v.status === 'RUNNING')
 
   const choose = (next: View) => {
     setView(next)
@@ -73,13 +90,25 @@ export function LabPage() {
   )
     return <NotFoundPage />
   const data = lab.data
-  const ready = data?.status === 'READY'
 
   return (
     <div className="flex h-svh min-w-[1280px] flex-col bg-background">
-      <TopBar lab={data} onEnd={() => setConfirmEnd(true)} />
+      <TopBar
+        lab={data}
+        onEnd={() => setConfirmEnd(true)}
+        action={
+          ready &&
+          data?.stage === 'ATTACK' && <VerifyButton busy={verifying} onClick={verify.start} />
+        }
+      />
       <div className="flex min-h-0 flex-1">
-        <Rail view={view} lab={data} onChoose={choose} />
+        <Rail
+          view={view}
+          lab={data}
+          hints={hints}
+          records={verifications?.length}
+          onChoose={choose}
+        />
         <main className="flex min-w-0 flex-1 flex-col p-3 pl-0">
           {lab.isError && !data ? (
             <FormAlert tone="error">
@@ -88,6 +117,12 @@ export function LabPage() {
           ) : !data ? null : ready ? (
             <>
               <IdleWarning lab={data} />
+              <VerifyNotice
+                result={verify.result}
+                error={verify.error}
+                onOpenRecords={() => choose('records')}
+                onDismiss={verify.dismiss}
+              />
               <div className="relative min-h-0 flex-1">
                 {view === 'problem' && <ProblemPanel challengeId={data.challengeId} />}
                 {view === 'target' && <TargetPanel url={data.targetUrl} />}
@@ -97,12 +132,8 @@ export function LabPage() {
                     text="방어 단계에서 웹 IDE로 코드를 고쳐요. 다음 작업에서 만들어요."
                   />
                 )}
-                {view === 'hints' && (
-                  <ComingSoon title="힌트" text="힌트 화면은 다음 작업에서 만들어요." />
-                )}
-                {view === 'records' && (
-                  <ComingSoon title="기록" text="검증 기록 화면은 다음 작업에서 만들어요." />
-                )}
+                {view === 'hints' && <HintsPanel lab={data} />}
+                {view === 'records' && <RecordsPanel labId={id} verifications={verifications} />}
                 {terminalOpened && (
                   <Suspense fallback={null}>
                     <TerminalPanel labId={id} visible={view === 'terminal'} />
@@ -117,7 +148,7 @@ export function LabPage() {
           )}
         </main>
       </div>
-      <StatusBar lab={data} nickname={me?.nickname} />
+      <StatusBar lab={data} latest={verifications?.[0]} nickname={me?.nickname} />
       <Dialog
         open={confirmEnd}
         onClose={() => setConfirmEnd(false)}
@@ -143,7 +174,16 @@ function stageIndex(lab: LabSessionResponse) {
   return lab.stage === 'DEFENSE' ? 1 : 0
 }
 
-function TopBar({ lab, onEnd }: { lab?: LabSessionResponse; onEnd: () => void }) {
+function TopBar({
+  lab,
+  onEnd,
+  action,
+}: {
+  lab?: LabSessionResponse
+  onEnd: () => void
+  /** 주 버튼(공격 검증 요청 등) */
+  action?: ReactNode
+}) {
   const live = lab && !isEnded(lab.status) && lab.status !== 'TERMINATING'
   return (
     <header className="flex h-12 shrink-0 items-center gap-5 border-b bg-card px-4">
@@ -195,6 +235,7 @@ function TopBar({ lab, onEnd }: { lab?: LabSessionResponse; onEnd: () => void })
         </>
       )}
       <div className="ml-auto flex items-center gap-2">
+        {action}
         {live && (
           <Button variant="ghost" size="sm" onClick={onEnd}>
             실습 종료
@@ -218,10 +259,15 @@ const RAIL: [View, string, LucideIcon][] = [
 function Rail({
   view,
   lab,
+  hints,
+  records,
   onChoose,
 }: {
   view: View
   lab?: LabSessionResponse
+  hints?: LabHintsResponse
+  /** 검증 기록 수 */
+  records?: number
   onChoose: (view: View) => void
 }) {
   const ready = lab?.status === 'READY'
@@ -229,8 +275,15 @@ function Rail({
     <nav aria-label="실습 화면" className="flex w-18 shrink-0 flex-col items-center gap-1 py-3">
       {RAIL.map(([key, label, Icon]) => {
         const locked = key === 'code' && lab?.stage !== 'DEFENSE'
-        const hints =
-          key === 'hints' && lab ? `${lab.attackHintsRevealed + lab.defenseHintsRevealed}/6` : null
+        // 힌트는 지금 단계에서 연 수와 전체 수, 기록은 검증 수
+        const badge =
+          key === 'hints' && lab && hints
+            ? lab.stage === 'ATTACK'
+              ? `${lab.attackHintsRevealed}/${hints.attackTotal}`
+              : `${lab.defenseHintsRevealed}/${hints.defenseTotal}`
+            : key === 'records' && records
+              ? String(records)
+              : null
         return (
           <button
             key={key}
@@ -247,8 +300,8 @@ function Rail({
             <Icon className="size-4.5" aria-hidden />
             {label}
             {locked && <LockIcon className="size-3" aria-label="잠김" />}
-            {hints && (
-              <span className="rounded-full bg-muted px-1.5 text-[10px] tabular-nums">{hints}</span>
+            {badge && (
+              <span className="rounded-full bg-muted px-1.5 text-[10px] tabular-nums">{badge}</span>
             )}
           </button>
         )
@@ -267,7 +320,15 @@ function useNow() {
   return now
 }
 
-function StatusBar({ lab, nickname }: { lab?: LabSessionResponse; nickname?: string }) {
+function StatusBar({
+  lab,
+  latest,
+  nickname,
+}: {
+  lab?: LabSessionResponse
+  latest?: VerificationResponse
+  nickname?: string
+}) {
   const now = useNow()
   const deadline = lab?.idleDeadline ? Date.parse(lab.idleDeadline) : null
   const stage = lab ? ['공격', '방어', '방어 검증 완료', '방어 검증 완료'][stageIndex(lab)] : ''
@@ -277,6 +338,16 @@ function StatusBar({ lab, nickname }: { lab?: LabSessionResponse; nickname?: str
         <span className="size-1.5 rounded-full bg-primary" aria-hidden />
         단계 <b className="font-semibold text-foreground">{stage}</b>
       </span>
+      {lab && (
+        <span className="flex items-center gap-1.5 border-l pl-4">
+          마지막 검증{' '}
+          {latest ? (
+            <Verdict status={latest.status} className="h-4.5 px-1.5 text-[10.5px]" />
+          ) : (
+            <b className="font-semibold text-foreground">없음</b>
+          )}
+        </span>
+      )}
       <span className="ml-auto flex items-center gap-1.5 tabular-nums">
         {deadline && (
           <>
@@ -316,14 +387,6 @@ function IdleWarning({ lab }: { lab: LabSessionResponse }) {
       <Button size="sm" disabled={keep.isPending} onClick={() => keep.mutate()}>
         계속하기
       </Button>
-    </div>
-  )
-}
-
-function Panel({ children, className }: { children: ReactNode; className?: string }) {
-  return (
-    <div className={cn('h-full overflow-auto rounded-xl border bg-card', className)}>
-      {children}
     </div>
   )
 }

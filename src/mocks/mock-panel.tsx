@@ -4,7 +4,14 @@ import { useReducer } from 'react'
 import { useMe } from '@/api/me'
 
 import { LOCKED_EMAIL, LOCKING_PASSWORD, WRONG_PASSWORD } from './handlers'
-import { ACCOUNTS, LABS, loadScenario, saveScenario, type Scenario } from './scenario'
+import {
+  ACCOUNTS,
+  LABS,
+  loadScenario,
+  saveScenario,
+  VERIFY_RESULTS,
+  type Scenario,
+} from './scenario'
 
 /** mock 모드에서만 화면 오른쪽 아래에 뜨는 시나리오 전환 패널. 바꾸면 모든 API 조회를 다시 한다 */
 export function MockPanel() {
@@ -38,7 +45,13 @@ export function MockPanel() {
           label="실습"
           value={scenario.lab}
           options={LABS}
-          onChange={(lab) => change({ ...scenario, lab })}
+          onChange={(lab) => change({ ...scenario, lab, progress: undefined })}
+        />
+        <Select
+          label="공격 검증"
+          value={scenario.verify ?? 'PASS'}
+          options={VERIFY_RESULTS}
+          onChange={(verify) => change({ ...scenario, verify })}
         />
         <p className="text-xs leading-relaxed wrap-anywhere text-muted-foreground">
           로그인 이메일은 forge_kim(학습자), newbie(승인 대기), denied(거절), admin(관리자) 뒤에

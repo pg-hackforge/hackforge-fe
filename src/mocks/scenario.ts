@@ -1,5 +1,7 @@
 import type { AdminUserResponse, UserResponse } from '@/api/generated/types.gen'
 
+import type { MockProgress } from './labs'
+
 /** mock 모드의 가짜 응답 상태. 화면 구석 패널에서 고르고 localStorage에 저장한다 */
 export const ACCOUNTS = {
   'logged-out': '로그아웃 상태',
@@ -14,6 +16,7 @@ export const LABS = {
   CREATING: 'CREATING(생성 중)',
   INITIALIZING: 'INITIALIZING(서비스 불러오는 중)',
   READY: 'READY(실습 가능)',
+  defense: 'READY, 방어 단계',
   'idle-warning': 'READY, 곧 자동 종료',
   FAILED: 'FAILED(생성 실패)',
   'ended-user': '학습자가 종료함',
@@ -21,9 +24,19 @@ export const LABS = {
   'capacity-full': '정원 초과',
 } as const
 
+/** 공격 검증을 요청하면 나올 결과 */
+export const VERIFY_RESULTS = {
+  PASS: 'PASS(공격 성공)',
+  FAIL: 'FAIL(공격 실패)',
+  ERROR: 'ERROR(실행 못 함)',
+} as const
+
 export type Scenario = {
   account: keyof typeof ACCOUNTS
   lab: keyof typeof LABS
+  verify?: keyof typeof VERIFY_RESULTS
+  /** 실습 중 검증·힌트·건너뛰기로 쌓인 진행. 실습 시나리오를 바꾸면 지운다 */
+  progress?: MockProgress
   /** 회원가입 화면으로 가입한 계정. 있으면 승인 대기 계정이 이 계정이 된다 */
   newUser?: UserResponse
   /** 회원 관리에서 바꾼 회원 목록. 없으면 처음 목록 */
