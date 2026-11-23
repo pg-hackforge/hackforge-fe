@@ -186,7 +186,8 @@ function StartPanel({ challengeId }: { challengeId: number }) {
       <>
         <p className="font-semibold">이전 실습을 정리하고 있어요</p>
         <p className="mt-1 text-sm text-muted-foreground">
-          {currentLab.challengeTitle} 실습 환경을 지우는 중이에요. 1분 안에 끝나면 시작할 수 있어요.
+          {currentLab.challengeTitle} 실습 환경을 지우는 중이에요. 정리가 끝나면 바로 시작할 수
+          있어요. 보통 1분 안에 끝나요.
         </p>
         <Button className="mt-4 w-full" disabled>
           실습 시작
