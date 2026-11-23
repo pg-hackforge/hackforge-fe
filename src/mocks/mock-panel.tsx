@@ -8,6 +8,8 @@ import {
   ACCOUNTS,
   LABS,
   loadScenario,
+  REDEPLOY_RESULTS,
+  SAVE_RESULTS,
   saveScenario,
   VERIFY_RESULTS,
   type Scenario,
@@ -52,6 +54,18 @@ export function MockPanel() {
           value={scenario.verify ?? 'PASS'}
           options={VERIFY_RESULTS}
           onChange={(verify) => change({ ...scenario, verify })}
+        />
+        <Select
+          label="재배포"
+          value={scenario.redeploy ?? 'SUCCESS'}
+          options={REDEPLOY_RESULTS}
+          onChange={(redeploy) => change({ ...scenario, redeploy })}
+        />
+        <Select
+          label="파일 저장"
+          value={scenario.save ?? 'OK'}
+          options={SAVE_RESULTS}
+          onChange={(save) => change({ ...scenario, save })}
         />
         <p className="text-xs leading-relaxed wrap-anywhere text-muted-foreground">
           로그인 이메일은 forge_kim(학습자), newbie(승인 대기), denied(거절), admin(관리자) 뒤에

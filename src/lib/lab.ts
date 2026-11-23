@@ -1,9 +1,11 @@
 import type {
   HintResponse,
+  LabFileEntry,
   LabPrepStep,
   LabSessionResponse,
   LabStage,
   LabStatus,
+  RedeployResponse,
   VerificationResponse,
   VerificationStatus,
 } from '@/api/generated/types.gen'
@@ -122,6 +124,7 @@ export type LabRecord = {
 export function labRecords(
   verifications: VerificationResponse[],
   hints: HintResponse[],
+  redeploys: RedeployResponse[] = [],
 ): LabRecord[] {
   const defenseOrder = verifications
     .filter((v) => v.type === 'DEFENSE')
@@ -135,13 +138,16 @@ export function labRecords(
         v.type === 'ATTACK'
           ? '공격 검증'
           : `방어 검증 ${String(defenseOrder.indexOf(v.id) + 1).padStart(2, '0')}`,
-      detail:
-        v.status === 'RUNNING'
-          ? '검증 중'
-          : [v.message, v.durationMs != null && `${(v.durationMs / 1000).toFixed(1)}초`]
-              .filter(Boolean)
-              .join(' · '),
+      detail: v.status === 'RUNNING' ? '검증 중' : withDuration(v.message, v.durationMs),
       status: v.status,
+    })),
+    ...redeploys.map((r) => ({
+      key: `r${r.id}`,
+      at: r.startedAt,
+      title: r.kind === 'REDEPLOY' ? '재배포' : '서비스 초기화',
+      detail: r.status === 'RUNNING' ? '진행 중' : withDuration(r.message, r.durationMs),
+      // 성공은 판정 표시 없이 줄만, 실패만 눈에 띄게
+      status: r.status === 'SUCCESS' ? undefined : r.status,
     })),
     ...hints.map((h) => ({
       key: `h${h.stage}${h.position}`,
@@ -152,6 +158,80 @@ export function labRecords(
   return records.sort((a, b) => b.at.localeCompare(a.at))
 }
 
+function withDuration(message: string | null, durationMs: number | null) {
+  return [message, durationMs != null && `${(durationMs / 1000).toFixed(1)}초`]
+    .filter(Boolean)
+    .join(' · ')
+}
+
 /** 기록의 시각(로컬 시:분) */
 export const clockTime = (iso: string) =>
   new Date(iso).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', hour12: false })
+
+export type FileNode = {
+  /** 폴더나 파일 이름 */
+  name: string
+  /** `/app` 기준 경로 */
+  path: string
+  depth: number
+  /** 파일이면 목록 항목, 폴더면 없음 */
+  entry?: LabFileEntry
+}
+
+/** 탐색기: 파일 목록(경로)을 폴더 먼저, 이름순으로 펼친 트리 */
+export function fileTree(entries: LabFileEntry[]): FileNode[] {
+  type Dir = { dirs: Map<string, Dir>; files: LabFileEntry[] }
+  const root: Dir = { dirs: new Map(), files: [] }
+  for (const entry of entries) {
+    const parts = entry.path.split('/')
+    let dir = root
+    for (const part of parts.slice(0, -1)) {
+      if (!dir.dirs.has(part)) dir.dirs.set(part, { dirs: new Map(), files: [] })
+      dir = dir.dirs.get(part)!
+    }
+    dir.files.push(entry)
+  }
+  const nodes: FileNode[] = []
+  const walk = (dir: Dir, prefix: string, depth: number) => {
+    for (const [name, child] of [...dir.dirs].sort(([a], [b]) => a.localeCompare(b))) {
+      nodes.push({ name, path: prefix + name, depth })
+      walk(child, `${prefix}${name}/`, depth + 1)
+    }
+    for (const entry of [...dir.files].sort((a, b) => a.path.localeCompare(b.path)))
+      nodes.push({ name: entry.path.split('/').pop()!, path: entry.path, depth, entry })
+  }
+  walk(root, '', 0)
+  return nodes
+}
+
+const LANGUAGES: Record<string, string> = {
+  php: 'php',
+  js: 'javascript',
+  mjs: 'javascript',
+  cjs: 'javascript',
+  jsx: 'javascript',
+  ts: 'typescript',
+  tsx: 'typescript',
+  py: 'python',
+  java: 'java',
+  go: 'go',
+  rb: 'ruby',
+  sql: 'sql',
+  yaml: 'yaml',
+  yml: 'yaml',
+  json: 'javascript',
+  html: 'html',
+  htm: 'html',
+  css: 'css',
+  sh: 'shell',
+  md: 'markdown',
+  xml: 'xml',
+}
+
+/** 편집기 언어(Monaco 언어 id). Dockerfile은 이름으로 */
+export function languageOf(path: string): string {
+  const name = path.split('/').pop()!
+  if (name.startsWith('Dockerfile')) return 'dockerfile'
+  const dot = name.lastIndexOf('.')
+  return (dot > 0 && LANGUAGES[name.slice(dot + 1).toLowerCase()]) || 'plaintext'
+}

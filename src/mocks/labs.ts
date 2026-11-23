@@ -4,6 +4,7 @@ import type {
   HintResponse,
   LabSessionResponse,
   LabStage,
+  RedeployResponse,
   VerificationResponse,
 } from '@/api/generated/types.gen'
 
@@ -40,7 +41,7 @@ export const ACTIVE_LABS: LabState[] = [
 export function labOf(state: LabState, progress = progressOf(state)): LabSessionResponse {
   const now = Date.now()
   const at = (minutes: number) => new Date(now + minutes * 60_000).toISOString()
-  const status: LabSessionResponse['status'] =
+  let status: LabSessionResponse['status'] =
     state === 'CREATING' || state === 'INITIALIZING' || state === 'FAILED'
       ? state
       : state === 'ended-user' || state === 'ended-admin'
@@ -48,6 +49,10 @@ export function labOf(state: LabState, progress = progressOf(state)): LabSession
         : state === 'terminating'
           ? 'TERMINATING'
           : 'READY'
+  // 실습 환경 다시 만들기: 잠시 준비 단계를 거쳐 다시 READY
+  const since = progress.recreateAt ? now - progress.recreateAt : Infinity
+  if (status === 'READY' && since < RECREATE_MS)
+    status = since < RECREATE_MS / 2 ? 'CREATING' : 'INITIALIZING'
   const ready = status === 'READY'
   const deadline = state === 'idle-warning' ? 3 : 30
   return {
@@ -87,18 +92,29 @@ export type MockProgress = {
   attackSkipped: boolean
   hints: HintResponse[]
   verifications: (VerificationResponse & { doneAt: number })[]
+  /** 재배포와 서비스 초기화. `doneAt`이 지나면 결과가 나온다 */
+  redeploys: (RedeployResponse & { doneAt: number })[]
+  /** 학습자가 고친 파일 내용(경로별). 없으면 원본 */
+  files: Record<string, string>
+  /** 실습 환경 다시 만들기를 요청한 시각 */
+  recreateAt?: number
 }
 
-const progressOf = (state: LabState, saved?: MockProgress): MockProgress =>
-  saved ?? {
-    stage: state === 'defense' ? 'DEFENSE' : 'ATTACK',
-    attackSkipped: false,
-    hints: [],
-    verifications: [],
-  }
+const progressOf = (state: LabState, saved?: Partial<MockProgress>): MockProgress => ({
+  stage: state === 'defense' ? 'DEFENSE' : 'ATTACK',
+  attackSkipped: false,
+  hints: [],
+  verifications: [],
+  redeploys: [],
+  files: {},
+  ...saved,
+})
 
 /** 화면 테스트에서는 바로, 브라우저에서는 2초 뒤 결과 */
-const VERIFY_MS = import.meta.env.MODE === 'test' ? 0 : 2_000
+const TEST = import.meta.env.MODE === 'test'
+const VERIFY_MS = TEST ? 0 : 2_000
+const REDEPLOY_MS = TEST ? 0 : 3_000
+const RECREATE_MS = TEST ? 0 : 6_000
 
 export const ATTACK_HINTS = [
   '로그인 폼에 넣은 **아이디**가 서버에서 어떻게 쓰이는지 생각해 봐요.',
@@ -111,6 +127,22 @@ export function settleProgress(): MockProgress {
   const scenario = loadScenario()
   const progress = progressOf(scenario.lab, scenario.progress)
   const result = scenario.verify ?? 'PASS'
+  for (const r of progress.redeploys) {
+    if (r.status !== 'RUNNING' || r.doneAt > Date.now()) continue
+    // 서비스 초기화는 늘 성공, 재배포는 mock 패널에서 고른 결과
+    const status = r.kind === 'RESET' ? 'SUCCESS' : (scenario.redeploy ?? 'SUCCESS')
+    Object.assign(r, {
+      status,
+      message: {
+        SUCCESS: '모든 서비스가 정상이에요',
+        FAIL: 'web 빌드에 실패했어요. 빌드 로그를 확인해 주세요',
+        ERROR: '재배포를 실행하지 못했어요. 다시 시도해 주세요',
+      }[status],
+      log: status === 'ERROR' ? null : status === 'SUCCESS' ? BUILD_LOG_OK : BUILD_LOG_FAIL,
+      durationMs: status === 'ERROR' ? null : 4_100,
+      finishedAt: new Date().toISOString(),
+    })
+  }
   for (const v of progress.verifications) {
     if (v.status !== 'RUNNING' || v.doneAt > Date.now()) continue
     Object.assign(v, {
@@ -132,6 +164,71 @@ export function settleProgress(): MockProgress {
 export function saveProgress(progress: MockProgress) {
   saveScenario({ ...loadScenario(), progress })
 }
+
+export function startRedeploy(
+  progress: MockProgress,
+  kind: RedeployResponse['kind'],
+): RedeployResponse {
+  const now = Date.now()
+  const redeploy = {
+    id: progress.redeploys.length + 1,
+    kind,
+    status: 'RUNNING' as const,
+    message: null,
+    log: null,
+    durationMs: null,
+    startedAt: new Date(now).toISOString(),
+    finishedAt: null,
+    doneAt: now + REDEPLOY_MS,
+  }
+  progress.redeploys.push(redeploy)
+  saveProgress(progress)
+  return publicRedeploy(redeploy, false)
+}
+
+/** 응답에는 mock 전용 `doneAt`을 넣지 않는다. 빌드 로그는 한 건 조회에서만 */
+export function publicRedeploy(
+  stored: MockProgress['redeploys'][number],
+  withLog: boolean,
+): RedeployResponse {
+  const { doneAt, ...redeploy } = stored
+  void doneAt
+  return { ...redeploy, log: withLog ? redeploy.log : null }
+}
+
+/** 실행 중인 검증이나 재배포·초기화가 있으면 새 작업을 받지 않는다(ADR 024) */
+export const jobRunning = (progress: MockProgress) =>
+  progress.verifications.some((v) => v.status === 'RUNNING') ||
+  progress.redeploys.some((r) => r.status === 'RUNNING')
+
+const BUILD_LOG_OK = `#1 [web internal] load build definition from Dockerfile
+#1 DONE 0.0s
+#2 [web 1/3] FROM hackforge/sqli-login-web-base
+#2 CACHED
+#3 [web 2/3] COPY src/ /var/www/html/
+#3 DONE 0.1s
+#4 [web 3/3] RUN php -l /var/www/html/index.php
+#4 0.312 No syntax errors detected in /var/www/html/index.php
+#4 DONE 0.4s
+#5 [web] exporting to image
+#5 DONE 0.2s
+ Container app-db-1  Running
+ Container app-web-1  Recreated
+ Container app-web-1  Started
+ Container app-web-1  Healthy
+`
+
+const BUILD_LOG_FAIL = `#1 [web internal] load build definition from Dockerfile
+#1 DONE 0.0s
+#2 [web 1/3] FROM hackforge/sqli-login-web-base
+#2 CACHED
+#3 [web 2/3] COPY src/ /var/www/html/
+#3 DONE 0.1s
+#4 [web 3/3] RUN php -l /var/www/html/index.php
+#4 0.298 PHP Parse error:  syntax error, unexpected token "}" in /var/www/html/index.php on line 12
+#4 ERROR: process "/bin/sh -c php -l /var/www/html/index.php" did not complete successfully: exit code: 255
+failed to solve: process "/bin/sh -c php -l /var/www/html/index.php" did not complete successfully: exit code: 255
+`
 
 export function startAttackVerification(progress: MockProgress): VerificationResponse {
   const now = Date.now()

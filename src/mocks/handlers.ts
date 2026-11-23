@@ -6,6 +6,8 @@ import type {
   ChangePasswordRequest,
   LoginRequest,
   Problem,
+  ResetLabRequest,
+  SaveLabFileRequest,
   SignupRequest,
   UserResponse,
 } from '@/api/generated/types.gen'
@@ -14,13 +16,17 @@ import { challengeDetail, listChallenges, myProgress } from './challenges'
 import {
   ACTIVE_LABS,
   ATTACK_HINTS,
+  jobRunning,
   labOf,
+  publicRedeploy,
   publicVerification,
   saveProgress,
   settleProgress,
   startAttackVerification,
+  startRedeploy,
   terminalHandler,
 } from './labs'
+import { fileEntries, hashOf, isReadOnly, ORIGINAL_FILES } from './lab-files'
 import { loadScenario, saveScenario, type Scenario } from './scenario'
 
 /** openapi.yaml 응답 형식 그대로의 가짜 응답. 타입이 생성 타입이라 spec이 바뀌면 타입 검사에서 걸린다 */
@@ -356,8 +362,7 @@ export const handlers = [
   http.post('*/api/labs/:id/attack-verifications', () => {
     if (!currentUser()) return unauthenticated()
     const progress = settleProgress()
-    if (progress.verifications.some((v) => v.status === 'RUNNING'))
-      return problem(409, 'LAB_JOB_RUNNING', '다른 작업이 실행 중이에요')
+    if (jobRunning(progress)) return problem(409, 'LAB_JOB_RUNNING', '다른 작업이 실행 중이에요')
     return HttpResponse.json(startAttackVerification(progress), { status: 202 })
   }),
   http.get('*/api/labs/:id/verifications', () => {
@@ -403,7 +408,102 @@ export const handlers = [
     saveProgress(progress)
     return HttpResponse.json(labOf(loadScenario().lab, progress))
   }),
+
+  // 코드(ADR 024): 방어 단계에서만. 내용은 mock 진행에 경로별로 저장한다
+  http.get('*/api/labs/:id/files', () => {
+    if (!currentUser()) return unauthenticated()
+    if (settleProgress().stage !== 'DEFENSE') return wrongStage()
+    return HttpResponse.json(fileEntries())
+  }),
+  http.get('*/api/labs/:id/files/content', ({ request }) => {
+    if (!currentUser()) return unauthenticated()
+    const path = new URL(request.url).searchParams.get('path') ?? ''
+    const progress = settleProgress()
+    if (progress.stage !== 'DEFENSE') return wrongStage()
+    const entry = fileEntries().find((f) => f.path === path)
+    if (!entry) return problem(404, 'FILE_NOT_FOUND', '파일을 찾을 수 없어요')
+    if (!entry.openable)
+      return problem(409, 'FILE_NOT_EDITABLE', '이 파일은 편집기에서 열 수 없어요')
+    return HttpResponse.json(fileOf(path, progress.files[path] ?? ORIGINAL_FILES[path]))
+  }),
+  http.put('*/api/labs/:id/files/content', async ({ request }) => {
+    if (!currentUser()) return unauthenticated()
+    const path = new URL(request.url).searchParams.get('path') ?? ''
+    const body = (await request.json()) as SaveLabFileRequest
+    const progress = settleProgress()
+    if (progress.stage !== 'DEFENSE') return wrongStage()
+    if (isReadOnly(path)) return problem(403, 'FILE_READ_ONLY', '수정할 수 없는 파일이에요')
+    const current = progress.files[path] ?? ORIGINAL_FILES[path]
+    if (
+      body.baseSha256 &&
+      (loadScenario().save === 'CONFLICT' || body.baseSha256 !== hashOf(current))
+    )
+      return problem(409, 'FILE_CHANGED', '파일이 다른 곳에서 바뀌었어요')
+    progress.files[path] = body.content
+    saveProgress(progress)
+    return HttpResponse.json(fileOf(path, body.content))
+  }),
+  http.post('*/api/labs/:id/files/revert', ({ request }) => {
+    if (!currentUser()) return unauthenticated()
+    const path = new URL(request.url).searchParams.get('path') ?? ''
+    const progress = settleProgress()
+    if (progress.stage !== 'DEFENSE') return wrongStage()
+    if (isReadOnly(path)) return problem(403, 'FILE_READ_ONLY', '수정할 수 없는 파일이에요')
+    if (!(path in ORIGINAL_FILES)) return problem(404, 'FILE_NOT_FOUND', '원본에 없는 파일이에요')
+    delete progress.files[path]
+    saveProgress(progress)
+    return HttpResponse.json(fileOf(path, ORIGINAL_FILES[path]))
+  }),
+
+  // 재배포와 서비스 초기화: RUNNING으로 접수하고, 조회할 때 시간이 됐으면 결과가 나온다
+  http.post('*/api/labs/:id/redeploys', () => {
+    if (!currentUser()) return unauthenticated()
+    const progress = settleProgress()
+    if (progress.stage !== 'DEFENSE') return wrongStage()
+    if (jobRunning(progress)) return problem(409, 'LAB_JOB_RUNNING', '다른 작업이 실행 중이에요')
+    return HttpResponse.json(startRedeploy(progress, 'REDEPLOY'), { status: 202 })
+  }),
+  http.get('*/api/labs/:id/redeploys', () => {
+    if (!currentUser()) return unauthenticated()
+    return HttpResponse.json(
+      settleProgress()
+        .redeploys.map((r) => publicRedeploy(r, false))
+        .reverse(),
+    )
+  }),
+  http.get('*/api/labs/:id/redeploys/:redeployId', ({ params }) => {
+    if (!currentUser()) return unauthenticated()
+    const found = settleProgress().redeploys.find((r) => r.id === Number(params.redeployId))
+    return found
+      ? HttpResponse.json(publicRedeploy(found, true))
+      : problem(404, 'REDEPLOY_NOT_FOUND', '기록을 찾을 수 없어요')
+  }),
+  http.post('*/api/labs/:id/reset', async ({ request }) => {
+    if (!currentUser()) return unauthenticated()
+    const body = (await request.json()) as ResetLabRequest
+    const progress = settleProgress()
+    if (jobRunning(progress)) return problem(409, 'LAB_JOB_RUNNING', '다른 작업이 실행 중이에요')
+    if (!body.keepStage) Object.assign(progress, { stage: 'ATTACK', attackSkipped: false })
+    progress.files = {}
+    const { lab } = loadScenario()
+    if (body.scope === 'ENVIRONMENT') {
+      progress.recreateAt = Date.now()
+      saveProgress(progress)
+      return HttpResponse.json({ session: labOf(lab, progress), redeploy: null }, { status: 202 })
+    }
+    const redeploy = startRedeploy(progress, 'RESET')
+    return HttpResponse.json({ session: labOf(lab, progress), redeploy }, { status: 202 })
+  }),
 ]
+
+const wrongStage = () => problem(409, 'WRONG_LAB_STAGE', '방어 단계에서만 할 수 있어요')
+
+const fileOf = (path: string, content: string) => ({
+  path,
+  content,
+  sha256: hashOf(content),
+  readOnly: isReadOnly(path),
+})
 
 /** HTTP와 웹 터미널(WebSocket) mock 모두. 브라우저 worker와 화면 테스트가 쓴다 */
 export const allHandlers = [...handlers, terminalHandler]

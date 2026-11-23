@@ -32,10 +32,25 @@ export const VERIFY_RESULTS = {
   ERROR: 'ERROR(실행 못 함)',
 } as const
 
+/** 재배포를 요청하면 나올 결과 */
+export const REDEPLOY_RESULTS = {
+  SUCCESS: 'SUCCESS(정상)',
+  FAIL: 'FAIL(빌드 실패)',
+  ERROR: 'ERROR(실행 못 함)',
+} as const
+
+/** 파일 저장: 정상이거나, 터미널 등에서 파일이 바뀐 상황(409) */
+export const SAVE_RESULTS = {
+  OK: '정상',
+  CONFLICT: '충돌(다른 곳에서 바뀜)',
+} as const
+
 export type Scenario = {
   account: keyof typeof ACCOUNTS
   lab: keyof typeof LABS
   verify?: keyof typeof VERIFY_RESULTS
+  redeploy?: keyof typeof REDEPLOY_RESULTS
+  save?: keyof typeof SAVE_RESULTS
   /** 실습 중 검증·힌트·건너뛰기로 쌓인 진행. 실습 시나리오를 바꾸면 지운다 */
   progress?: MockProgress
   /** 회원가입 화면으로 가입한 계정. 있으면 승인 대기 계정이 이 계정이 된다 */
