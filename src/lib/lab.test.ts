@@ -3,10 +3,12 @@ import { describe, expect, it } from 'vitest'
 import {
   clampFontSize,
   endNotice,
+  fileTree,
   formatRemaining,
   hintTitle,
   labPollInterval,
   labRecords,
+  languageOf,
   readFontSize,
   terminalCloseNotice,
   terminalUrl,
@@ -105,5 +107,65 @@ describe('실습 화면 로직', () => {
     ])
     expect(records[0]).toMatchObject({ status: 'RUNNING', detail: '검증 중' })
     expect(records[2]).toMatchObject({ status: 'PASS', detail: 'm1 · 3.2초' })
+  })
+
+  it('파일 목록은 폴더 먼저, 이름순 트리', () => {
+    const entry = (path: string) => ({ path, size: 1, readOnly: false, openable: true })
+    const tree = fileTree([
+      entry('web/src/index.php'),
+      entry('compose.yaml'),
+      entry('db/init.sql'),
+      entry('web/Dockerfile'),
+    ])
+    expect(tree.map((n) => `${'  '.repeat(n.depth)}${n.name}${n.entry ? '' : '/'}`)).toEqual([
+      'db/',
+      '  init.sql',
+      'web/',
+      '  src/',
+      '    index.php',
+      '  Dockerfile',
+      'compose.yaml',
+    ])
+    expect(tree[4]).toMatchObject({ path: 'web/src/index.php' })
+  })
+
+  it('확장자와 파일 이름으로 편집기 언어', () => {
+    expect(languageOf('web/src/index.php')).toBe('php')
+    expect(languageOf('web/Dockerfile')).toBe('dockerfile')
+    expect(languageOf('web/Dockerfile.base')).toBe('dockerfile')
+    expect(languageOf('compose.yaml')).toBe('yaml')
+    expect(languageOf('db/init.sql')).toBe('sql')
+    expect(languageOf('README')).toBe('plaintext')
+  })
+
+  it('기록에 재배포와 서비스 초기화도 넣고, 성공은 판정 표시 없음', () => {
+    const redeploy = (
+      id: number,
+      kind: 'REDEPLOY' | 'RESET',
+      status: 'SUCCESS' | 'FAIL',
+      at: string,
+    ) => ({
+      id,
+      kind,
+      status,
+      message: status === 'SUCCESS' ? '모든 서비스가 정상이에요' : '빌드에 실패했어요',
+      log: null,
+      durationMs: 4_100,
+      startedAt: at,
+      finishedAt: at,
+    })
+    const records = labRecords(
+      [],
+      [],
+      [
+        redeploy(2, 'RESET', 'SUCCESS', '2026-11-23T05:30:00Z'),
+        redeploy(1, 'REDEPLOY', 'FAIL', '2026-11-23T05:20:00Z'),
+      ],
+    )
+    expect(records.map((r) => [r.title, r.status])).toEqual([
+      ['서비스 초기화', undefined],
+      ['재배포', 'FAIL'],
+    ])
+    expect(records[1].detail).toBe('빌드에 실패했어요 · 4.1초')
   })
 })

@@ -1,10 +1,13 @@
 import { screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 
 import { renderAt, setupMockServer } from '@/test/app'
 
 setupMockServer()
+
+// jsdom에서는 Monaco가 돌지 않아 textarea로 흉내 낸다
+vi.mock('@/components/lab/monaco', () => import('@/test/monaco-fake'))
 
 const rail = (name: string) =>
   within(screen.getByRole('navigation', { name: '실습 화면' })).getByRole('button', {
@@ -71,7 +74,7 @@ describe('실습 화면', () => {
   })
 
   it('공격 검증 PASS면 결과 안내, 방어 단계로 넘어가고 코드가 열림', async () => {
-    renderAt('/labs/42', 'learner', 'READY', 'PASS')
+    renderAt('/labs/42', 'learner', 'READY', { verify: 'PASS' })
     await userEvent.click(await screen.findByRole('button', { name: /공격 검증 요청/ }))
     expect(await screen.findByRole('button', { name: /검증 중/ })).toBeDisabled()
     const notice = await screen.findByText(/공격에 성공했어요/, {}, { timeout: 4_000 })
@@ -85,7 +88,7 @@ describe('실습 화면', () => {
   })
 
   it('공격 검증 FAIL과 ERROR는 단계를 바꾸지 않고, 기록에 남음', async () => {
-    renderAt('/labs/42', 'learner', 'READY', 'FAIL')
+    renderAt('/labs/42', 'learner', 'READY', { verify: 'FAIL' })
     await userEvent.click(await screen.findByRole('button', { name: /공격 검증 요청/ }))
     expect(
       await screen.findByText('아직 공격이 확인되지 않았어요.', {}, { timeout: 4_000 }),
@@ -113,6 +116,82 @@ describe('실습 화면', () => {
     expect(await screen.findByText('공격을 건너뛰고 방어 단계로 왔어요.')).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: '힌트 2 보기' })).not.toBeInTheDocument()
     expect(rail('코드')).toBeEnabled()
+  })
+
+  it('방어 단계: 코드에서 고친 내용은 입력이 멈추면 자동 저장', async () => {
+    renderAt('/labs/42', 'learner', 'defense')
+    await userEvent.click(await screen.findByRole('button', { name: /^코드/ }))
+    const editor = await screen.findByRole('textbox', { name: '코드 편집기' })
+    await waitFor(() => expect(editor).toHaveDisplayValue(/<\?php/), {
+      timeout: 3_000,
+    })
+    expect(screen.getByRole('button', { name: /index\.php/ })).toHaveAttribute('aria-current')
+    await userEvent.type(editor, '// 고침')
+    expect(await screen.findByText(/자동 저장됨/, {}, { timeout: 3_000 })).toBeInTheDocument()
+  })
+
+  it('다른 곳에서 파일이 바뀌었으면 저장을 멈추고 덮어쓸지 물음', async () => {
+    renderAt('/labs/42', 'learner', 'defense', { save: 'CONFLICT' })
+    await userEvent.click(await screen.findByRole('button', { name: /^코드/ }))
+    const editor = await screen.findByRole('textbox', { name: '코드 편집기' })
+    await waitFor(() => expect(editor).toHaveDisplayValue(/<\?php/), {
+      timeout: 3_000,
+    })
+    await userEvent.type(editor, 'x')
+    const alert = await screen.findByRole('alert', {}, { timeout: 3_000 })
+    expect(alert).toHaveTextContent('터미널 등에서 이 파일이 바뀌었어요')
+    await userEvent.click(within(alert).getByRole('button', { name: '내 내용으로 덮어쓰기' }))
+    expect(await screen.findByText(/자동 저장됨/)).toBeInTheDocument()
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+  })
+
+  it('수정 불가 파일은 읽기 전용, 처음 상태로 되돌리기 없음', async () => {
+    renderAt('/labs/42', 'learner', 'defense')
+    await userEvent.click(await screen.findByRole('button', { name: /^코드/ }))
+    await userEvent.click(await screen.findByRole('button', { name: /compose\.yaml/ }))
+    const editor = await screen.findByRole('textbox', { name: '코드 편집기' })
+    await waitFor(() => expect(editor).toHaveDisplayValue(/services:/), {
+      timeout: 3_000,
+    })
+    expect(editor).toHaveAttribute('readonly')
+    expect(screen.getByText('읽기 전용 파일이에요')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /처음 상태로/ })).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /logo\.png/ })).toBeDisabled()
+  })
+
+  it('재배포 성공과 실패(빌드 로그)', async () => {
+    renderAt('/labs/42', 'learner', 'defense', { redeploy: 'FAIL' })
+    await userEvent.click(await screen.findByRole('button', { name: '재배포' }))
+    expect(
+      await screen.findByText(/재배포에 실패했어요/, {}, { timeout: 4_000 }),
+    ).toBeInTheDocument()
+    await userEvent.click(screen.getByRole('button', { name: '빌드 로그' }))
+    const log = await screen.findByRole('dialog', { name: '빌드 로그' })
+    expect(log).toHaveTextContent('PHP Parse error')
+  })
+
+  it('초기화: 방어 단계에서 처음부터 고르면 서비스 초기화 뒤 공격 단계', async () => {
+    renderAt('/labs/42', 'learner', 'defense')
+    await userEvent.click(await screen.findByRole('button', { name: '초기화' }))
+    const dialog = await screen.findByRole('alertdialog', { name: '무엇을 초기화할까요?' })
+    expect(within(dialog).getByRole('radio', { name: /^서비스 초기화/ })).toBeChecked()
+    await userEvent.click(within(dialog).getByRole('radio', { name: /공격 단계\)부터/ }))
+    await userEvent.click(within(dialog).getByRole('button', { name: '초기화하기' }))
+    expect(
+      await screen.findByText('서비스를 처음 상태로 되돌렸어요.', {}, { timeout: 4_000 }),
+    ).toBeInTheDocument()
+    await waitFor(() =>
+      expect(screen.getByText('공격', { selector: '[aria-current="step"]' })).toBeInTheDocument(),
+    )
+    expect(rail('코드')).toBeDisabled()
+  })
+
+  it('공격 단계의 초기화는 단계를 묻지 않음', async () => {
+    renderAt('/labs/42', 'learner', 'READY')
+    await userEvent.click(await screen.findByRole('button', { name: '초기화' }))
+    const dialog = await screen.findByRole('alertdialog', { name: '무엇을 초기화할까요?' })
+    expect(within(dialog).getByRole('radio', { name: /실습 환경 다시 만들기/ })).toBeInTheDocument()
+    expect(within(dialog).queryByRole('radio', { name: /공격 단계\)부터/ })).not.toBeInTheDocument()
   })
 
   it('로그인하지 않았으면 로그인 화면으로', async () => {

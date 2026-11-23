@@ -8,6 +8,7 @@ import { revealAttackHint, skipAttack } from '@/api/generated/sdk.gen'
 import { useHints } from '@/api/labs'
 import type {
   LabSessionResponse,
+  RedeployResponse,
   VerificationResponse,
   VerificationStatus,
 } from '@/api/generated/types.gen'
@@ -19,7 +20,7 @@ import { clockTime, hintTitle, labRecords } from '@/lib/lab'
 import { cn } from '@/lib/utils'
 
 /** 작업 영역의 패널 한 면 */
-export function Panel({ children, className }: { children: ReactNode; className?: string }) {
+export function Panel({ children, className }: { children?: ReactNode; className?: string }) {
   return (
     <div className={cn('h-full overflow-auto rounded-xl border bg-card', className)}>
       {children}
@@ -269,14 +270,16 @@ export function HintsPanel({ lab }: { lab: LabSessionResponse }) {
 /** 기록(확정 캡처 `lab-records`): 맨 위에 마지막 검증 결과, 아래에 이 실습의 기록 */
 export function RecordsPanel({
   verifications,
+  redeploys,
   labId,
 }: {
   verifications?: VerificationResponse[]
+  redeploys?: RedeployResponse[]
   labId: number
 }) {
   const hints = useHints(labId, true).data
   const latest = verifications?.[0]
-  const records = labRecords(verifications ?? [], hints?.hints ?? [])
+  const records = labRecords(verifications ?? [], hints?.hints ?? [], redeploys ?? [])
   return (
     <Panel className="px-8 py-7">
       <div className="mx-auto max-w-200">

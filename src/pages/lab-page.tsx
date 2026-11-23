@@ -13,7 +13,7 @@ import {
   TerminalIcon,
   type LucideIcon,
 } from 'lucide-react'
-import { lazy, Suspense, useEffect, useState, type ReactNode } from 'react'
+import { lazy, Suspense, useEffect, useRef, useState, type ReactNode } from 'react'
 import { Link, NavLink, useNavigate, useParams } from 'react-router'
 
 import { ApiError } from '@/api/errors'
@@ -27,7 +27,14 @@ import type {
   LabSessionResponse,
   VerificationResponse,
 } from '@/api/generated/types.gen'
-import { useAttackVerification, useHints, useLab, useVerifications } from '@/api/labs'
+import {
+  useAttackVerification,
+  useHints,
+  useLab,
+  useRedeploy,
+  useRedeploys,
+  useVerifications,
+} from '@/api/labs'
 import { useMe } from '@/api/me'
 import { ActionButton, CancelButton, Dialog, DialogText } from '@/components/dialog'
 import { FormAlert } from '@/components/form'
@@ -41,6 +48,7 @@ import {
   VerifyButton,
   VerifyNotice,
 } from '@/components/lab/attack'
+import { JobButton, RedeployNotice, ResetDialog } from '@/components/lab/jobs'
 import { Button, buttonVariants } from '@/components/ui/button'
 import { endNotice, formatRemaining, isEnded, PREP_STEPS } from '@/lib/lab'
 import { cn } from '@/lib/utils'
@@ -49,6 +57,10 @@ import { NotFoundPage } from '@/pages/status-pages'
 // xterm은 터미널을 처음 열 때 불러온다
 const TerminalPanel = lazy(() =>
   import('@/components/lab/terminal-panel').then((m) => ({ default: m.TerminalPanel })),
+)
+// Monaco는 코드를 처음 열 때 불러온다(ADR 027)
+const CodePanel = lazy(() =>
+  import('@/components/lab/code-panel').then((m) => ({ default: m.CodePanel })),
 )
 
 type View = 'problem' | 'target' | 'code' | 'terminal' | 'hints' | 'records'
@@ -63,6 +75,10 @@ export function LabPage() {
   const me = useMe().data
   const [view, setView] = useState<View>('target')
   const [terminalOpened, setTerminalOpened] = useState(false)
+  const [codeOpened, setCodeOpened] = useState(false)
+  const [confirmReset, setConfirmReset] = useState(false)
+  // 재배포 전에 편집기의 저장 안 된 내용을 저장한다
+  const flushCode = useRef<() => Promise<void>>(async () => {})
   const [confirmEnd, setConfirmEnd] = useState(false)
   const queryClient = useQueryClient()
   const end = useMutation({
@@ -78,10 +94,16 @@ export function LabPage() {
   const verifications = useVerifications(id, ready, verify.pending).data
   const hints = useHints(id, ready).data
   const verifying = verify.pending || !!verifications?.some((v) => v.status === 'RUNNING')
+  const jobs = useRedeploy(id, () => flushCode.current())
+  const redeploys = useRedeploys(id, ready, jobs.pending).data
+  const redeploying = jobs.pending || !!redeploys?.some((r) => r.status === 'RUNNING')
+  // 세션마다 검증, 재배포, 초기화 중 하나만 실행한다(ADR 024)
+  const busy = verifying || redeploying
 
   const choose = (next: View) => {
     setView(next)
     if (next === 'terminal') setTerminalOpened(true)
+    if (next === 'code') setCodeOpened(true)
   }
 
   if (
@@ -90,6 +112,9 @@ export function LabPage() {
   )
     return <NotFoundPage />
   const data = lab.data
+  const defense = data?.stage === 'DEFENSE'
+  // 처음부터 초기화로 공격 단계가 되면 코드는 다시 잠긴다
+  const shown = view === 'code' && !defense ? 'target' : view
 
   return (
     <div className="flex h-svh min-w-[1280px] flex-col bg-background">
@@ -97,8 +122,23 @@ export function LabPage() {
         lab={data}
         onEnd={() => setConfirmEnd(true)}
         action={
-          ready &&
-          data?.stage === 'ATTACK' && <VerifyButton busy={verifying} onClick={verify.start} />
+          ready && (
+            <>
+              {defense && (
+                <JobButton
+                  busy={busy}
+                  running={jobs.pending && !jobs.resetting}
+                  onClick={jobs.redeploy}
+                >
+                  {jobs.pending && !jobs.resetting ? '재배포 중…' : '재배포'}
+                </JobButton>
+              )}
+              <JobButton busy={busy} running={jobs.resetting} onClick={() => setConfirmReset(true)}>
+                {jobs.resetting ? '초기화 중…' : '초기화'}
+              </JobButton>
+              {!defense && <VerifyButton busy={busy} onClick={verify.start} />}
+            </>
+          )
         }
       />
       <div className="flex min-h-0 flex-1">
@@ -106,7 +146,7 @@ export function LabPage() {
           view={view}
           lab={data}
           hints={hints}
-          records={verifications?.length}
+          records={(verifications?.length ?? 0) + (redeploys?.length ?? 0)}
           onChoose={choose}
         />
         <main className="flex min-w-0 flex-1 flex-col p-3 pl-0">
@@ -123,20 +163,27 @@ export function LabPage() {
                 onOpenRecords={() => choose('records')}
                 onDismiss={verify.dismiss}
               />
+              <RedeployNotice result={jobs.result} error={jobs.error} onDismiss={jobs.dismiss} />
               <div className="relative min-h-0 flex-1">
-                {view === 'problem' && <ProblemPanel challengeId={data.challengeId} />}
-                {view === 'target' && <TargetPanel url={data.targetUrl} />}
-                {view === 'code' && (
-                  <ComingSoon
-                    title="코드"
-                    text="방어 단계에서 웹 IDE로 코드를 고쳐요. 다음 작업에서 만들어요."
-                  />
+                {shown === 'problem' && <ProblemPanel challengeId={data.challengeId} />}
+                {shown === 'target' && <TargetPanel url={data.targetUrl} />}
+                {shown === 'hints' && <HintsPanel lab={data} />}
+                {shown === 'records' && (
+                  <RecordsPanel labId={id} verifications={verifications} redeploys={redeploys} />
                 )}
-                {view === 'hints' && <HintsPanel lab={data} />}
-                {view === 'records' && <RecordsPanel labId={id} verifications={verifications} />}
                 {terminalOpened && (
                   <Suspense fallback={null}>
-                    <TerminalPanel labId={id} visible={view === 'terminal'} />
+                    <TerminalPanel labId={id} visible={shown === 'terminal'} />
+                  </Suspense>
+                )}
+                {codeOpened && defense && (
+                  <Suspense fallback={<Panel className="grid place-items-center" />}>
+                    <CodePanel
+                      labId={id}
+                      visible={shown === 'code'}
+                      lastRedeployAt={redeploys?.find((r) => r.kind === 'REDEPLOY')?.startedAt}
+                      onFlush={(flush) => (flushCode.current = flush)}
+                    />
                   </Suspense>
                 )}
               </div>
@@ -164,6 +211,14 @@ export function LabPage() {
       >
         <DialogText>실습 환경과 그 안에서 고친 코드가 지워져요. 검증 기록은 남아요.</DialogText>
       </Dialog>
+      {data && (
+        <ResetDialog
+          open={confirmReset}
+          stage={data.stage}
+          onClose={() => setConfirmReset(false)}
+          onReset={jobs.reset}
+        />
+      )}
     </div>
   )
 }

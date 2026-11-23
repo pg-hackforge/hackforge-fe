@@ -3,17 +3,28 @@ import { useState } from 'react'
 
 import {
   getCurrentLabQueryKey,
+  listLabFilesQueryKey,
   listLabHintsOptions,
+  listRedeploysOptions,
+  listRedeploysQueryKey,
   listVerificationsOptions,
   listVerificationsQueryKey,
 } from './generated/@tanstack/react-query.gen'
 import {
   getCurrentLab,
   getLab,
+  getRedeploy,
   getVerification,
   requestAttackVerification,
+  requestRedeploy,
+  resetLab,
 } from './generated/sdk.gen'
-import type { LabSessionResponse, VerificationResponse } from './generated/types.gen'
+import type {
+  LabSessionResponse,
+  RedeployResponse,
+  ResetLabRequest,
+  VerificationResponse,
+} from './generated/types.gen'
 import { labPollInterval } from '@/lib/lab'
 
 /** 진행 중인 내 실습. 없으면(204) 빈 객체가 아니라 null */
@@ -97,6 +108,81 @@ export function useAttackVerification(labId: number) {
   return {
     start: () => mutation.mutate(),
     pending: mutation.isPending,
+    result,
+    error: mutation.error,
+    dismiss: () => {
+      setResult(null)
+      mutation.reset()
+    },
+  }
+}
+
+/** 재배포·서비스 초기화 기록. 실행 중인 기록이 남아 있으면(새로고침 등) 끝날 때까지 다시 조회한다 */
+export function useRedeploys(labId: number, enabled: boolean, watching: boolean) {
+  return useQuery({
+    ...listRedeploysOptions({ path: { id: labId } }),
+    enabled,
+    refetchInterval: (query) =>
+      !watching && query.state.data?.some((r) => r.status === 'RUNNING') ? 1_000 : false,
+  })
+}
+
+/**
+ * 재배포와 초기화(ADR 024). 재배포와 서비스 초기화는 접수(RUNNING) 뒤 1초 간격으로 기록 하나를 조회해
+ * 빌드 로그와 결과를 받는다. 실습 환경 다시 만들기는 세션이 준비 단계로 돌아가므로 기다리지 않는다.
+ * 시작 전에 `beforeStart`(편집기의 저장 안 된 내용 저장)를 기다린다
+ */
+export function useRedeploy(labId: number, beforeStart?: () => Promise<void>) {
+  const queryClient = useQueryClient()
+  const [result, setResult] = useState<RedeployResponse | null>(null)
+  const listKey = listRedeploysQueryKey({ path: { id: labId } })
+  const mutation = useMutation({
+    mutationFn: async (reset?: ResetLabRequest) => {
+      setResult(null)
+      await beforeStart?.()
+      let redeploy: RedeployResponse | null
+      if (reset) {
+        const data = (await resetLab({ path: { id: labId }, body: reset, throwOnError: true })).data
+        queryClient.setQueryData(['lab', labId], data.session)
+        redeploy = data.redeploy
+      } else {
+        redeploy = (await requestRedeploy({ path: { id: labId }, throwOnError: true })).data
+      }
+      if (!redeploy) return null
+      const started = redeploy
+      queryClient.setQueryData<RedeployResponse[]>(listKey, (old) => [started, ...(old ?? [])])
+      while (redeploy.status === 'RUNNING') {
+        await sleep(1_000)
+        redeploy = (
+          await getRedeploy({
+            path: { id: labId, redeployId: redeploy.id },
+            throwOnError: true,
+          })
+        ).data
+      }
+      return redeploy
+    },
+    onSuccess: setResult,
+    onSettled: (_data, _error, reset) => {
+      void queryClient.invalidateQueries({ queryKey: listKey })
+      void queryClient.invalidateQueries({ queryKey: ['lab', labId] })
+      // 초기화는 코드를 원본으로 되돌린다
+      if (reset) {
+        void queryClient.invalidateQueries({
+          queryKey: listLabFilesQueryKey({ path: { id: labId } }),
+        })
+        void queryClient.invalidateQueries({
+          predicate: (query) => (query.queryKey[0] as { _id?: string })._id === 'getLabFile',
+        })
+      }
+    },
+  })
+  return {
+    redeploy: () => mutation.mutate(undefined),
+    reset: (request: ResetLabRequest) => mutation.mutate(request),
+    pending: mutation.isPending,
+    /** 지금 실행 중인 것이 초기화인지 */
+    resetting: mutation.isPending && !!mutation.variables,
     result,
     error: mutation.error,
     dismiss: () => {

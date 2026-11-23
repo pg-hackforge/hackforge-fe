@@ -34,9 +34,10 @@ export function renderAt(
   path: string,
   account: Scenario['account'],
   lab: Scenario['lab'] = 'none',
-  verify?: Scenario['verify'],
+  /** 검증·재배포 결과, 저장 충돌 같은 나머지 mock 선택 */
+  more: Pick<Scenario, 'verify' | 'redeploy' | 'save'> = {},
 ) {
-  saveScenario({ account, lab, verify })
+  saveScenario({ account, lab, ...more })
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   const router = createMemoryRouter(routes, { initialEntries: [path] })
   render(
