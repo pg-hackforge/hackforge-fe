@@ -4,6 +4,7 @@ import { useEffect, useState, type ReactNode } from 'react'
 import { Link } from 'react-router'
 
 import {
+  getMyActivityOptions,
   getMyProgressOptions,
   listChallengesOptions,
   listLabsOptions,
@@ -15,15 +16,18 @@ import type {
   UserResponse,
 } from '@/api/generated/types.gen'
 import { isLive, useCurrentLab } from '@/api/labs'
+import { useRecommendedProblem } from '@/api/recommend'
 import { FormAlert } from '@/components/form'
+import { RecommendedProblem } from '@/components/lab/recommend'
 import { LabRow } from '@/components/lab/lab-row'
 import { buttonVariants } from '@/components/ui/button'
+import { categoryStats, weaknesses } from '@/lib/analysis'
 import { clockTime, formatRemaining } from '@/lib/lab'
 import { cn } from '@/lib/utils'
 import { Difficulty } from '@/pages/problems-page'
 
 /** 분류별 진행에서 처음에 보이는 분류 수 */
-const CATEGORY_PREVIEW = 7
+const CATEGORY_PREVIEW = 5
 /** 홈의 문제 목록과 최근 기록에서 보이는 수 */
 const PREVIEW = 3
 
@@ -80,22 +84,10 @@ function MainHome({
             문제를 골라 공격하고, 고쳐서 막았는지 검증해요.
           </p>
         </div>
-        <div className="flex items-center gap-5 text-sm text-muted-foreground">
-          <span>
-            완료 <b className="font-semibold text-foreground tabular-nums">{progress.completed}</b>
-          </span>
-          <span>
-            끝내지 못함{' '}
-            <b className="font-semibold text-foreground tabular-nums">{progress.unfinished}</b>
-          </span>
-          <span>
-            전체 문제{' '}
-            <b className="font-semibold text-foreground tabular-nums">{progress.totalChallenges}</b>
-          </span>
-          <Link to="/problems" className={buttonVariants({ size: 'sm' })}>
-            전체 문제 보기
-          </Link>
-        </div>
+        {/* 진행 숫자는 오른쪽 내 진행 카드에 한 번만 */}
+        <Link to="/problems" className={buttonVariants({ size: 'sm' })}>
+          전체 문제 보기
+        </Link>
       </div>
 
       {live && <CurrentLab lab={live} />}
@@ -130,7 +122,11 @@ function MainHome({
             )}
           </Card>
         </div>
-        <ProgressCard progress={progress} />
+        <div className="space-y-5">
+          {/* 지금 할 일(추천)이 돌아보기(내 진행)보다 위 */}
+          <RecommendCard liveChallengeId={live?.challengeId} />
+          <ProgressCard progress={progress} />
+        </div>
       </div>
     </>
   )
@@ -277,37 +273,99 @@ function ProblemRow({ challenge: c }: { challenge: ChallengeResponse }) {
   )
 }
 
-/** 내 진행: 완료한 문제 수와 분류별 완료(막대는 장식이고 수는 글자로 읽힌다) */
+/** 추천 문제: 분석(ADR 030)에서 가장 보완할 분류의 문제 하나. 보완할 점이 없으면 숨긴다 */
+function RecommendCard({ liveChallengeId }: { liveChallengeId?: number }) {
+  const activity = useQuery(getMyActivityOptions()).data
+  const finding = activity ? weaknesses(categoryStats(activity))[0] : undefined
+  const challenge = useRecommendedProblem(finding, liveChallengeId)
+  if (!finding || !challenge) return null
+  return (
+    <Card title="추천 문제" more={['/records/analysis', '분석 보기']}>
+      <div className="pt-3 pb-2">
+        <RecommendedProblem finding={finding} challenge={challenge} />
+      </div>
+    </Card>
+  )
+}
+
+/**
+ * 내 진행: 얼마나 풀었나. 전체는 진행 요약, 분류는 내 분석(ADR 030)에서 진행한 분류만 많이 한 순으로.
+ * 실력(공격·방어)은 분석 탭과 추천 문제가 맡는다. 막대는 장식이고 수는 글자로 읽힌다
+ */
 function ProgressCard({ progress }: { progress: MyProgressResponse }) {
   const [all, setAll] = useState(false)
-  const categories = progress.categories.filter((c) => c.total > 0)
-  const shown = all ? categories : categories.slice(0, CATEGORY_PREVIEW)
+  const activity = useQuery(getMyActivityOptions()).data
+  const stats = activity ? categoryStats(activity) : []
+  const tried = stats
+    .filter((s) => s.tried > 0)
+    .sort((a, b) => b.completed - a.completed || b.tried - a.tried)
+  const untried = stats.filter((s) => s.tried === 0 && s.total > 0)
+  const shown = all ? tried : tried.slice(0, CATEGORY_PREVIEW)
+  // 분류와 같은 출처(내 분석)로 센다. 불러오기 전에는 진행 요약
+  const total = activity?.totalChallenges ?? progress.totalChallenges
+  const completed = activity
+    ? activity.challenges.filter((c) => c.result !== 'UNFINISHED').length
+    : progress.completed
+  const unfinished = activity
+    ? activity.challenges.filter((c) => c.result === 'UNFINISHED').length
+    : progress.unfinished
+  const percent = total ? Math.round((completed / total) * 100) : 0
   return (
-    <Card title="내 진행" more={['/records', '내 기록']}>
+    <Card title="내 진행" more={['/problems', '문제 보기']}>
       <p className="mt-4 flex items-baseline gap-1.5">
-        <b className="text-4xl font-semibold tabular-nums">{progress.completed}</b>
-        <span className="text-sm text-muted-foreground">/ {progress.totalChallenges} 완료</span>
+        <b className="text-4xl font-semibold tabular-nums">{completed}</b>
+        <span className="text-sm text-muted-foreground">/ {total} 완료</span>
+        <span className="ml-auto text-sm font-medium tabular-nums">{percent}%</span>
       </p>
-      <Bar value={progress.completed} total={progress.totalChallenges} className="mt-3 h-1.5" />
-      <ul className="mt-5 space-y-2.5 pb-3">
-        {shown.map((c) => (
-          <li key={c.key} className="grid grid-cols-[1fr_120px_44px] items-center gap-3 text-sm">
-            <span className="truncate">{c.name}</span>
-            <Bar value={c.completed} total={c.total} className="h-1" />
-            <span className="text-right font-mono text-xs text-muted-foreground tabular-nums">
-              {c.completed}/{c.total}
-            </span>
-          </li>
-        ))}
-      </ul>
-      {categories.length > CATEGORY_PREVIEW && (
-        <button
-          type="button"
-          onClick={() => setAll(!all)}
-          className="mb-3 text-[13px] text-muted-foreground hover:text-foreground"
+      <Bar value={completed} total={total} className="mt-3 h-1.5" />
+      <p className="mt-2.5 text-[13px] text-muted-foreground tabular-nums">
+        끝내지 못함 {unfinished} · 시작 전 {total - completed - unfinished}
+      </p>
+      {tried.length > 0 && (
+        <>
+          <h3 className="mt-5 text-xs font-medium text-muted-foreground">진행한 분류</h3>
+          <ul className="mt-2.5 space-y-3">
+            {shown.map((s) => (
+              <li key={s.key}>
+                <Link
+                  to={`/problems?category=${s.key}`}
+                  className="-mx-2 grid grid-cols-[128px_minmax(0,1fr)_40px] items-center gap-3 rounded-md px-2 py-1 hover:bg-muted/50"
+                >
+                  <span className="min-w-0">
+                    <span className="block truncate text-sm">{s.name}</span>
+                    {s.tried > s.completed && (
+                      <span className="block text-[11px] text-muted-foreground">
+                        끝내지 못함 {s.tried - s.completed}
+                      </span>
+                    )}
+                  </span>
+                  <Bar value={s.completed} total={s.total} className="h-1.5" />
+                  <span className="text-right font-mono text-xs text-muted-foreground tabular-nums">
+                    {s.completed}/{s.total}
+                  </span>
+                </Link>
+              </li>
+            ))}
+          </ul>
+          {tried.length > CATEGORY_PREVIEW && (
+            <button
+              type="button"
+              onClick={() => setAll(!all)}
+              className="mt-2 text-[13px] text-muted-foreground hover:text-foreground"
+            >
+              {all ? '접기' : `진행한 분류 ${tried.length - CATEGORY_PREVIEW}개 더 보기`}
+            </button>
+          )}
+        </>
+      )}
+      {untried.length > 0 && (
+        <Link
+          to={`/problems?${untried.map((s) => `category=${s.key}`).join('&')}`}
+          className="-mx-2 mt-3 mb-2 flex items-center justify-between rounded-md border-t px-2 pt-3 pb-1 text-[13px] text-muted-foreground hover:text-foreground"
         >
-          {all ? '접기' : `분류 ${categories.length - CATEGORY_PREVIEW}개 더 보기`}
-        </button>
+          안 해 본 분류 {untried.length}개
+          <ChevronRightIcon className="size-3.5" aria-hidden />
+        </Link>
       )}
     </Card>
   )

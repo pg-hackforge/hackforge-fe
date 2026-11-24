@@ -12,6 +12,7 @@ import type {
   UserResponse,
 } from '@/api/generated/types.gen'
 
+import { myActivity } from './activity'
 import { challengeDetail, listChallenges, myProgress } from './challenges'
 import {
   ACTIVE_LABS,
@@ -313,6 +314,10 @@ export const handlers = [
   }),
   http.get('*/api/me/progress', () =>
     currentUser() ? HttpResponse.json(myProgress()) : unauthenticated(),
+  ),
+  // 내 분석(ADR 030). 문제와 분류가 많은 서비스를 가정한 mock
+  http.get('*/api/me/activity', () =>
+    currentUser() ? HttpResponse.json(myActivity()) : unauthenticated(),
   ),
 
   http.get('*/api/labs/current', () => {
