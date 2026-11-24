@@ -17,7 +17,8 @@ describe('관리자 실습 세션', () => {
     const [first, preparing, , , terminating] = await rows()
     expect(first).toHaveTextContent('이수민')
     expect(first).toHaveTextContent('실습 중')
-    expect(first).toHaveTextContent(/\d+분 뒤 자동 종료/)
+    expect(first).toHaveTextContent(/12분째/)
+    expect(first).toHaveTextContent(/\d\d:\d\d 예정/)
     expect(within(first).getByRole('link', { name: '프로필 사진 웹셸 업로드' })).toHaveAttribute(
       'href',
       '/admin/labs/108',
@@ -36,7 +37,7 @@ describe('관리자 실습 세션', () => {
     await user.click(await screen.findByRole('tab', { name: /전체/ }))
     const all = await rows()
     expect(all).toHaveLength(9)
-    expect(all[5]).toHaveTextContent(/\d\d:\d\d 종료 · 입력 없음/)
+    expect(all[5]).toHaveTextContent(/39분\d\d:\d\d · 입력 없음/)
     expect(all[7]).toHaveTextContent('생성 실패')
   })
 

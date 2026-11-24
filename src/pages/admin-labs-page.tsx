@@ -10,7 +10,7 @@ import { SmallButton } from '@/components/admin/small-button'
 import { TerminateDialog, type TerminateTarget } from '@/components/admin/terminate-dialog'
 import { FormAlert } from '@/components/form'
 import { Pagination } from '@/components/pagination'
-import { adminProgress, adminStatus, adminTime, canTerminate } from '@/lib/admin'
+import { adminDuration, adminEnd, adminProgress, adminStatus, canTerminate } from '@/lib/admin'
 import { cn } from '@/lib/utils'
 
 const FILTERS: [AdminLabFilter, string][] = [
@@ -28,7 +28,7 @@ const REFRESH_MS = 10_000
 
 /**
  * `/admin/labs` 실습 세션(ADR 026): 진행 중 기본과 전체, 최근 시작 순, 페이지는 주소에.
- * 줄마다 학습자, 문제, 상태, 진행, 시간과 강제 종료. 문제를 누르면 그 세션의 기록
+ * 줄마다 학습자, 문제, 상태, 진행, 실습 시간, 종료와 강제 종료. 문제를 누르면 그 세션의 기록
  */
 export function AdminLabsPage() {
   const [params, setParams] = useSearchParams()
@@ -143,7 +143,7 @@ const TONE = {
   fail: 'border border-fail/50 text-fail',
 }
 
-/** 남은 시간은 목록을 받은 시각(now) 기준이라 다시 불러올 때마다(10초) 새로 센다 */
+/** 진행 중 실습 시간은 목록을 받은 시각(now) 기준이라 다시 불러올 때마다(10초) 새로 센다 */
 function SessionTable({
   sessions,
   dim,
@@ -165,7 +165,8 @@ function SessionTable({
             <th className="px-3 pt-3 pb-2 font-medium">문제</th>
             <th className="px-3 pt-3 pb-2 font-medium">상태</th>
             <th className="px-3 pt-3 pb-2 font-medium">진행</th>
-            <th className="px-3 pt-3 pb-2 font-medium">시간</th>
+            <th className="px-3 pt-3 pb-2 font-medium">실습 시간</th>
+            <th className="px-3 pt-3 pb-2 font-medium">종료</th>
             <th className="px-3 pt-3 pb-2">
               <span className="sr-only">동작</span>
             </th>
@@ -212,7 +213,10 @@ function SessionTable({
                   )}
                 </td>
                 <td className="px-3 py-3.25 whitespace-nowrap text-muted-foreground tabular-nums">
-                  {adminTime(lab, now)}
+                  {adminDuration(lab, now)}
+                </td>
+                <td className="px-3 py-3.25 whitespace-nowrap text-muted-foreground tabular-nums">
+                  {adminEnd(lab)}
                 </td>
                 <td className="px-3 py-3.25 text-right whitespace-nowrap">
                   {canTerminate(lab) && (

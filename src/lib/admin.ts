@@ -1,5 +1,5 @@
 import type { LabSessionResponse } from '@/api/generated/types.gen'
-import { clockTime, END_REASON_SHORT, isEnded, PREP_STEPS } from '@/lib/lab'
+import { clockTime, END_REASON_SHORT, isEnded, labDuration, PREP_STEPS } from '@/lib/lab'
 
 type Lab = Pick<
   LabSessionResponse,
@@ -48,21 +48,30 @@ export function adminProgress(lab: Lab): string {
   return parts.join(' · ')
 }
 
-/** 시간 한 줄: 실습 중이면 자동 종료까지, 준비 중이면 시작한 지, 끝났으면 종료 시각과 사유 */
-export function adminTime(lab: Lab, now: number): string {
-  const minutes = (from: string) => Math.max(0, Math.floor((now - Date.parse(from)) / 60_000))
-  if (lab.status === 'READY' && lab.idleDeadline) {
-    const left = Math.max(0, Math.ceil((Date.parse(lab.idleDeadline) - now) / 60_000))
-    return `${left}분 뒤 자동 종료`
+/** 실습 시간: 시작부터 지금(끝났으면 종료)까지. 준비 중이거나 실습 중이면 "째" */
+export function adminDuration(lab: Lab, now: number): string {
+  const time = labDuration(lab, now)
+  return canTerminate(lab) ? `${time}째` : time
+}
+
+/**
+ * 종료: 모든 줄을 시각으로. 끝났으면 종료 시각과 사유, 실습 중이면 자동 종료 예정 시각.
+ * 시작한 날과 다른 날이면 날짜도 붙인다
+ */
+export function adminEnd(lab: Lab): string {
+  const at = (iso: string) => {
+    const sameDay = new Date(iso).toDateString() === new Date(lab.createdAt).toDateString()
+    if (sameDay) return clockTime(iso)
+    const d = new Date(iso)
+    return `${String(d.getMonth() + 1).padStart(2, '0')}. ${String(d.getDate()).padStart(2, '0')}. ${clockTime(iso)}`
   }
-  if (lab.status === 'CREATING' || lab.status === 'INITIALIZING')
-    return `시작한 지 ${minutes(lab.createdAt)}분`
-  if (lab.status === 'TERMINATING') return '실습 환경 정리 중'
-  if (isEnded(lab.status) && lab.endedAt) {
-    const reason = lab.endReason ? ` · ${END_REASON_SHORT[lab.endReason]}` : ''
-    return `${clockTime(lab.endedAt)} 종료${reason}`
-  }
-  return ''
+  if (lab.status === 'READY' && lab.idleDeadline) return `${at(lab.idleDeadline)} 예정`
+  if (lab.status === 'TERMINATING') return '정리 중'
+  if (isEnded(lab.status) && lab.endedAt)
+    return [at(lab.endedAt), lab.endReason && END_REASON_SHORT[lab.endReason]]
+      .filter(Boolean)
+      .join(' · ')
+  return '–'
 }
 
 /** 강제 종료할 수 있는 세션: 종료 전(종료 중 제외) */
