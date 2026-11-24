@@ -232,7 +232,7 @@ describe('실습 화면', () => {
     expect(await screen.findByRole('heading', { name: '방어 검증 01' })).toBeInTheDocument()
     expect(screen.getByText('아직 통하는 공격이 있어요')).toBeInTheDocument()
     expect(screen.getByText('정상 기능이 동작해요')).toBeInTheDocument()
-    expect(screen.getByText(/시도 1\/3/)).toBeInTheDocument()
+    expect(screen.getByText(/· 시도 1 · 3번 실패하면 해답$/)).toBeInTheDocument()
     // 상태 막대의 단계
     expect(screen.getByText('방어 검증', { selector: 'footer b' })).toBeInTheDocument()
     const attack = screen.getByText('관리자 계정으로 로그인됨(mock)')
@@ -259,6 +259,8 @@ describe('실습 화면', () => {
       await screen.findByText('아직 통과하지 못했어요.', {}, { timeout: 4_000 })
     }
     await userEvent.click(rail('기록'))
+    // 해답을 열 수 있으면 시도 수에 최대 횟수를 붙이지 않는다(최대를 넘어도 검증은 계속 받음)
+    expect(await screen.findByText(/· 시도 3$/, {}, { timeout: 4_000 })).toBeInTheDocument()
     await userEvent.click(
       await screen.findByRole('button', { name: '해답 보기' }, { timeout: 4_000 }),
     )

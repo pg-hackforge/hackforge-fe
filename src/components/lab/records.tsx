@@ -36,7 +36,11 @@ export function RecordsPanel({
             </h1>
             <span className="ml-auto font-mono text-xs text-muted-foreground">
               {clockTime(latest.startedAt)}
-              {defense && ` · 시도 ${lab.defenseAttempts}/${lab.maxDefenseAttempts}`}
+              {/* 최대 횟수는 해답이 열리는 기준이지 검증 한도가 아니라서, 해답을 열 수 있게 되면 붙이지 않는다 */}
+              {defense &&
+                (lab.solutionAvailable || lab.solutionViewedAt
+                  ? ` · 시도 ${lab.defenseAttempts}`
+                  : ` · 시도 ${lab.defenseAttempts} · ${lab.maxDefenseAttempts}번 실패하면 해답`)}
             </span>
           </div>
         ) : (
