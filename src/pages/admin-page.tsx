@@ -362,7 +362,7 @@ function RoleDialog({
               value={value}
               checked={role === value}
               onChange={() => setRole(value)}
-              className="size-4 accent-primary"
+              className="size-4"
             />
             {ROLE_LABEL[value]}
             {value === user.role && (

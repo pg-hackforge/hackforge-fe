@@ -57,6 +57,21 @@ describe('로그인', () => {
     )
   })
 
+  it('비밀번호는 [보기]로 잠깐 보이고, 비밀번호 관리자용 자동완성 값', async () => {
+    renderAt('/login', 'logged-out')
+    const password = await screen.findByLabelText('비밀번호')
+    expect(password).toHaveAttribute('type', 'password')
+    expect(password).toHaveAttribute('autocomplete', 'current-password')
+    expect(screen.getByLabelText('이메일')).toHaveAttribute('spellcheck', 'false')
+
+    const toggle = screen.getByRole('button', { name: '비밀번호 보기' })
+    await userEvent.click(toggle)
+    expect(password).toHaveAttribute('type', 'text')
+    expect(toggle).toHaveAttribute('aria-pressed', 'true')
+    await userEvent.click(toggle)
+    expect(password).toHaveAttribute('type', 'password')
+  })
+
   it('잠긴 계정은 15분 뒤 다시 시도하라는 안내', async () => {
     renderAt('/login', 'logged-out')
     await logIn('locked@example.com')
@@ -80,6 +95,14 @@ describe('회원가입', () => {
       await screen.findByRole('heading', { name: '안녕하세요, new_kim님' }),
     ).toBeInTheDocument()
     expect(screen.getByRole('status')).toHaveTextContent('가입 승인을 기다리고 있어요')
+  })
+
+  it('가입 이메일은 비밀번호 관리자가 저장하도록 username 자동완성', async () => {
+    renderAt('/signup', 'logged-out')
+    const email = await screen.findByLabelText('이메일')
+    expect(email).toHaveAttribute('autocomplete', 'username')
+    expect(email).toHaveAttribute('spellcheck', 'false')
+    expect(screen.getAllByRole('button', { name: '비밀번호 보기' })).toHaveLength(2)
   })
 
   it('이미 가입된 이메일은 이메일 칸 아래에', async () => {

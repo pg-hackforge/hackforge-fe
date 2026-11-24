@@ -5,7 +5,7 @@ import { ApiError } from '@/api/errors'
 import { changeMyPassword } from '@/api/generated/sdk.gen'
 import type { ChangePasswordRequest, UserResponse } from '@/api/generated/types.gen'
 import { hasSession, useEndSession, useMe } from '@/api/me'
-import { Field, FormAlert, PasswordRules } from '@/components/form'
+import { Field, FormAlert, PasswordRules, PasswordInput } from '@/components/form'
 import { Button } from '@/components/ui/button'
 import { ROLE_LABEL, STATUS_LABEL } from '@/lib/account'
 import { cn, formText } from '@/lib/utils'
@@ -155,10 +155,9 @@ function ChangePassword() {
       >
         <Field label="현재 비밀번호" error={fieldErrors.currentPassword}>
           {(control) => (
-            <input
+            <PasswordInput
               {...control}
               name="currentPassword"
-              type="password"
               autoComplete="current-password"
               required
               maxLength={64}
@@ -171,10 +170,9 @@ function ChangePassword() {
           below={<PasswordRules password={password} />}
         >
           {(control) => (
-            <input
+            <PasswordInput
               {...control}
               name="newPassword"
-              type="password"
               autoComplete="new-password"
               required
               maxLength={64}
@@ -185,10 +183,9 @@ function ChangePassword() {
         </Field>
         <Field label="새 비밀번호 확인" error={fieldErrors.newPasswordConfirm}>
           {(control) => (
-            <input
+            <PasswordInput
               {...control}
               name="newPasswordConfirm"
-              type="password"
               autoComplete="new-password"
               required
               maxLength={64}
