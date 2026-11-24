@@ -19,6 +19,7 @@ import {
   DEFENSE_HINTS,
   jobRunning,
   labOf,
+  myLabs,
   publicRedeploy,
   publicVerification,
   saveProgress,
@@ -319,6 +320,8 @@ export const handlers = [
       ? HttpResponse.json(labOf(state, settleProgress()))
       : new HttpResponse(null, { status: 204 })
   }),
+
+  http.get('*/api/labs', () => (currentUser() ? HttpResponse.json(myLabs()) : unauthenticated())),
 
   http.post('*/api/labs', () => {
     const me = currentUser()

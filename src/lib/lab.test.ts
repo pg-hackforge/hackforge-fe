@@ -8,6 +8,7 @@ import {
   hintTitle,
   labPollInterval,
   labRecords,
+  labResult,
   lineChanges,
   languageOf,
   readFontSize,
@@ -230,5 +231,32 @@ describe('실습 화면 로직', () => {
       title: '방어 검증 01',
       detail: '해답 확인 후 · 공격이 모두 막히고 정상 기능이 동작해요 · 2.0초',
     })
+  })
+
+  it('세션 하나의 결과: 진행 중, 완료, 끝내지 못함과 그 이유', () => {
+    const lab = {
+      status: 'DELETED' as const,
+      endReason: 'IDLE' as const,
+      completedAt: null,
+      solutionViewedAt: null,
+    }
+    expect(labResult({ ...lab, status: 'READY', endReason: null })).toEqual({
+      label: '진행 중',
+      tone: 'active',
+    })
+    expect(labResult({ ...lab, completedAt: '2026-11-24T05:00:00Z' })).toEqual({
+      label: '완료',
+      tone: 'pass',
+    })
+    expect(
+      labResult({
+        ...lab,
+        completedAt: '2026-11-24T05:00:00Z',
+        solutionViewedAt: '2026-11-24T04:50:00Z',
+      }),
+    ).toEqual({ label: '해답 확인 후 완료', tone: 'pass' })
+    expect(labResult(lab)).toEqual({ label: '끝내지 못함 · 입력 없음', tone: 'muted' })
+    expect(labResult({ ...lab, endReason: 'ADMIN' }).label).toBe('끝내지 못함 · 관리자 종료')
+    expect(labResult({ ...lab, status: 'FAILED', endReason: null }).label).toBe('생성 실패')
   })
 })

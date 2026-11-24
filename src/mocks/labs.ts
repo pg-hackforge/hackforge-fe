@@ -2,13 +2,14 @@ import { ws } from 'msw'
 
 import type {
   HintResponse,
+  LabSessionPageResponse,
   LabSessionResponse,
   LabStage,
   RedeployResponse,
   VerificationResponse,
 } from '@/api/generated/types.gen'
 
-import { LAB_CHALLENGE } from './challenges'
+import { LAB_CHALLENGE, listChallenges } from './challenges'
 import { loadScenario, saveScenario, type Scenario } from './scenario'
 
 export const LAB_ID = 42
@@ -391,3 +392,49 @@ export const terminalHandler = ws
       }
     })
   })
+
+/**
+ * 내 실습 기록(`GET /api/labs`). 진행 중인 시나리오 세션과, 내 상태가 완료·끝내지 못함인 문제의 지난 세션.
+ * 최근 시작 순
+ */
+export function myLabs(): LabSessionPageResponse {
+  const { lab, progress } = loadScenario()
+  const day = 24 * 60 * 60_000
+  const ago = (ms: number) => new Date(Date.now() - ms).toISOString()
+  const past = (
+    challenge: { id: number; title: string },
+    index: number,
+    end: Partial<LabSessionResponse>,
+  ): LabSessionResponse => ({
+    ...labOf('ended-user'),
+    id: LAB_ID - 1 - index,
+    challengeId: challenge.id,
+    challengeTitle: challenge.title,
+    stage: 'DEFENSE',
+    createdAt: ago((index + 1) * day),
+    readyAt: ago((index + 1) * day),
+    endedAt: ago((index + 1) * day - 40 * 60_000),
+    ...end,
+  })
+  const completed = listChallenges(new URLSearchParams('myStatus=COMPLETED')).items
+  const unfinished = listChallenges(new URLSearchParams('myStatus=UNFINISHED')).items.filter(
+    (c) => c.id !== LAB_CHALLENGE.id,
+  )
+  const items = [
+    ...(ACTIVE_LABS.includes(lab) ? [labOf(lab, progressOf(lab, progress))] : []),
+    past(completed[0], 0, {
+      endReason: 'IDLE',
+      completedAt: ago(day - 30 * 60_000),
+      defenseAttempts: 2,
+    }),
+    past(unfinished[0], 1, { endReason: 'IDLE', defenseAttempts: 3 }),
+    past(completed[1], 2, {
+      endReason: 'USER',
+      completedAt: ago(3 * day - 20 * 60_000),
+      solutionViewedAt: ago(3 * day - 25 * 60_000),
+      defenseAttempts: 6,
+    }),
+    past(unfinished[1], 3, { endReason: 'ADMIN', stage: 'ATTACK' }),
+  ]
+  return { items, page: 1, size: 20, totalItems: items.length, totalPages: 1 }
+}
