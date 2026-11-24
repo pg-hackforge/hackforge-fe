@@ -51,15 +51,20 @@ const READ_ONLY = /(^|\/)(compose\.yaml|Dockerfile(\.base)?)$|\.sql$/
 
 export const isReadOnly = (path: string) => READ_ONLY.test(path)
 
-export function fileEntries(): LabFileEntry[] {
+/** 파일 목록. `edited`는 학습자가 고친 내용(경로별)이고, 원본과 다르면 modified */
+export function fileEntries(edited: Record<string, string> = {}): LabFileEntry[] {
   return [
-    ...Object.entries(ORIGINAL_FILES).map(([path, content]) => ({
-      path,
-      size: new TextEncoder().encode(content).length,
-      readOnly: isReadOnly(path),
-      openable: true,
-    })),
-    { ...BINARY, readOnly: false, openable: false },
+    ...Object.entries(ORIGINAL_FILES).map(([path, original]) => {
+      const content = edited[path] ?? original
+      return {
+        path,
+        size: new TextEncoder().encode(content).length,
+        readOnly: isReadOnly(path),
+        openable: true,
+        modified: content !== original,
+      }
+    }),
+    { ...BINARY, readOnly: false, openable: false, modified: false },
   ].sort((a, b) => a.path.localeCompare(b.path))
 }
 

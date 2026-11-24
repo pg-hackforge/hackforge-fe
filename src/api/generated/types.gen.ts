@@ -377,6 +377,10 @@ export type LabFileEntry = {
      * 1MB 이하이고 바이너리가 아니면 true
      */
     openable: boolean;
+    /**
+     * 원본(`/hackforge/original`)과 내용이 다르거나 원본에 없는 파일이면 true(hackforge-docs ADR 029)
+     */
+    modified: boolean;
 };
 
 export type LabFileResponse = {
@@ -1730,6 +1734,50 @@ export type RevertLabFileResponses = {
 };
 
 export type RevertLabFileResponse = RevertLabFileResponses[keyof RevertLabFileResponses];
+
+export type GetOriginalLabFileData = {
+    body?: never;
+    path: {
+        id: number;
+    };
+    query: {
+        /**
+         * `/app` 기준 상대 경로(예: `web/src/index.php`). `..`로 `/app` 밖을 가리키면 400
+         */
+        path: string;
+    };
+    url: '/api/labs/{id}/files/original';
+};
+
+export type GetOriginalLabFileErrors = {
+    /**
+     * 입력 규칙 위반(`VALIDATION_FAILED`). 항목별 이유는 `errors`
+     */
+    400: Problem;
+    /**
+     * 로그인하지 않음(`UNAUTHENTICATED`)
+     */
+    401: Problem;
+    /**
+     * 없는 세션(`LAB_NOT_FOUND`), 원본에 없는 파일(`FILE_NOT_FOUND`, 학습자가 새로 만든 파일)
+     */
+    404: Problem;
+    /**
+     * `READY`가 아님(`LAB_NOT_READY`), `DEFENSE` 단계가 아님(`WRONG_LAB_STAGE`), 1MB 초과나 바이너리(`FILE_NOT_EDITABLE`)
+     */
+    409: Problem;
+};
+
+export type GetOriginalLabFileError = GetOriginalLabFileErrors[keyof GetOriginalLabFileErrors];
+
+export type GetOriginalLabFileResponses = {
+    /**
+     * 원본 파일
+     */
+    200: LabFileResponse;
+};
+
+export type GetOriginalLabFileResponse = GetOriginalLabFileResponses[keyof GetOriginalLabFileResponses];
 
 export type ListRedeploysData = {
     body?: never;

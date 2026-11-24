@@ -25,6 +25,8 @@ export const monaco = {
           return { dispose: () => listeners.delete(listener) }
         },
         onDidChangeCursorPosition: () => ({ dispose: () => {} }),
+        // 바뀐 줄 막대는 화면 테스트에서 보지 않는다(탐색기 M과 +/− 수로 확인)
+        createDecorationsCollection: () => ({ set: () => {}, clear: () => {} }),
         dispose: () => area.remove(),
       }
     },

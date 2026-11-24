@@ -14,7 +14,9 @@ import { ApiError } from '@/api/errors'
 import {
   getLabFileOptions,
   getLabFileQueryKey,
+  getOriginalLabFileOptions,
   listLabFilesOptions,
+  listLabFilesQueryKey,
 } from '@/api/generated/@tanstack/react-query.gen'
 import { revertLabFile, saveLabFile } from '@/api/generated/sdk.gen'
 import type { LabFileResponse } from '@/api/generated/types.gen'
@@ -22,7 +24,15 @@ import { ActionButton, CancelButton, Dialog, DialogText } from '@/components/dia
 import { FormAlert } from '@/components/form'
 import { applyEditorTheme, monaco } from '@/components/lab/monaco'
 import { Button } from '@/components/ui/button'
-import { clampFontSize, clockTime, FONT_SIZE, fileTree, languageOf, readFontSize } from '@/lib/lab'
+import {
+  clampFontSize,
+  clockTime,
+  FONT_SIZE,
+  fileTree,
+  languageOf,
+  lineChanges,
+  readFontSize,
+} from '@/lib/lab'
 import { cn } from '@/lib/utils'
 
 /** 편집기 글자 크기를 저장하는 곳(터미널과 따로) */
@@ -75,6 +85,18 @@ export function CodePanel({
     chosen ?? files.data?.find((f) => f.openable && !f.readOnly)?.path ?? files.data?.[0]?.path
   const fileOptions = getLabFileOptions({ path: { id: labId }, query: { path: path ?? '' } })
   const file = useQuery({ ...fileOptions, enabled: !!path })
+  const entry = files.data?.find((f) => f.path === path)
+  // 원본(ADR 029). 원본에 없는 파일(학습자가 만든 파일)은 null로 보고 모든 줄을 더한 줄로 표시한다
+  const originalQuery = useQuery({
+    ...getOriginalLabFileOptions({ path: { id: labId }, query: { path: path ?? '' } }),
+    enabled: !!entry?.openable,
+    retry: false,
+  })
+  const original = originalQuery.data
+    ? originalQuery.data.content
+    : originalQuery.error instanceof ApiError && originalQuery.error.code === 'FILE_NOT_FOUND'
+      ? null
+      : undefined
 
   const host = useRef<HTMLDivElement>(null)
   const editorRef = useRef<monaco.editor.IStandaloneCodeEditor>(null)
@@ -94,6 +116,29 @@ export function CodePanel({
   const [fontSize, setFontSize] = useState(storedFontSize)
   const [confirmRevert, setConfirmRevert] = useState(false)
   const [revertError, setRevertError] = useState(false)
+  const [changes, setChanges] = useState({ added: 0, removed: 0 })
+  const originalRef = useRef<{ path: string; content: string | null }>(null)
+  const decorations = useRef<monaco.editor.IEditorDecorationsCollection>(null)
+  const diffTimer = useRef<ReturnType<typeof setTimeout>>(undefined)
+
+  /** 원본과 지금 편집기 내용을 비교해 막대와 +/− 수를 바꾼다. 원본을 아직 못 받았으면 표시하지 않는다 */
+  const refreshDiff = useCallback(() => {
+    const editor = editorRef.current
+    const base = originalRef.current
+    if (!editor || !base || base.path !== docRef.current?.path) {
+      decorations.current?.clear()
+      setChanges({ added: 0, removed: 0 })
+      return
+    }
+    const result = lineChanges(base.content, editor.getValue())
+    decorations.current?.set(
+      result.lines.map(({ line, kind }) => ({
+        range: { startLineNumber: line, startColumn: 1, endLineNumber: line, endColumn: 1 },
+        options: { linesDecorationsClassName: `hf-line-${kind}` },
+      })),
+    )
+    setChanges({ added: result.added, removed: result.removed })
+  }, [])
 
   const fileKey = useCallback(
     (p: string) => getLabFileQueryKey({ path: { id: labId }, query: { path: p } }),
@@ -127,6 +172,10 @@ export function CodePanel({
           doc.sha = saved.sha256
           doc.dirty = docRef.current === doc && editor.getValue() !== content
           queryClient.setQueryData(fileKey(doc.path), saved)
+          // 다른 파일의 M(원본과 다름)은 목록이 알려 준다
+          void queryClient.invalidateQueries({
+            queryKey: listLabFilesQueryKey({ path: { id: labId } }),
+          })
           if (docRef.current !== doc) return
           if (doc.dirty) {
             setSave({ state: 'dirty' })
@@ -165,8 +214,9 @@ export function CodePanel({
       docRef.current = { path: data.path, sha: data.sha256, dirty: false, readOnly: data.readOnly }
       setReadOnly(data.readOnly)
       setSave({ state: 'loaded' })
+      refreshDiff()
     },
-    [setSave],
+    [setSave, refreshDiff],
   )
 
   // 편집기는 한 번 만들고 파일을 바꿔 끼운다
@@ -183,7 +233,10 @@ export function CodePanel({
       renderLineHighlight: 'all',
     })
     editorRef.current = editor
+    decorations.current = editor.createDecorationsCollection()
     const change = editor.onDidChangeModelContent(() => {
+      clearTimeout(diffTimer.current)
+      diffTimer.current = setTimeout(refreshDiff, 150)
       const doc = docRef.current
       if (loading.current || !doc || doc.readOnly) return
       doc.dirty = true
@@ -204,11 +257,19 @@ export function CodePanel({
       themeWatch.disconnect()
       change.dispose()
       move.dispose()
+      clearTimeout(diffTimer.current)
       void flushRef.current()
       editor.dispose()
       editorRef.current = null
     }
-  }, [setSave])
+  }, [setSave, refreshDiff])
+
+  // 원본을 받으면(또는 원본에 없는 파일이면) 다시 비교한다
+  useEffect(() => {
+    if (!path || original === undefined) return
+    originalRef.current = { path, content: original }
+    refreshDiff()
+  }, [path, original, refreshDiff])
 
   // 받은 내용이 편집기와 다르면 넣는다. 저장 안 된 변경이 있으면 덮지 않는다
   useEffect(() => {
@@ -244,6 +305,9 @@ export function CodePanel({
       ).data
       queryClient.setQueryData(fileKey(data.path), data)
       load(data)
+      void queryClient.invalidateQueries({
+        queryKey: listLabFilesQueryKey({ path: { id: labId } }),
+      })
     } catch {
       setRevertError(true)
     }
@@ -259,7 +323,6 @@ export function CodePanel({
     }
   }
 
-  const entry = files.data?.find((f) => f.path === path)
   const language = path
     ? (monaco.languages.getLanguages().find((l) => l.id === languageOf(path))?.aliases?.[0] ??
       '텍스트')
@@ -294,6 +357,9 @@ export function CodePanel({
                 </li>
               )
             const { openable, readOnly: locked } = node.entry
+            // 지금 연 파일은 입력 중인 내용으로, 나머지는 저장된 파일 기준(목록의 modified)
+            const changed =
+              node.path === path ? changes.added + changes.removed > 0 : node.entry.modified
             return (
               <li key={node.path}>
                 <button
@@ -307,6 +373,14 @@ export function CodePanel({
                 >
                   <FileIcon className="size-3.5 shrink-0 text-muted-foreground" aria-hidden />
                   <span className="min-w-0 flex-1 truncate">{node.name}</span>
+                  {changed && (
+                    <span
+                      className="shrink-0 font-mono text-[11px] font-bold text-primary"
+                      title="원본과 달라요"
+                    >
+                      M
+                    </span>
+                  )}
                   {locked && (
                     <span className="shrink-0 rounded border px-1 text-[10.5px] text-muted-foreground">
                       읽기 전용
@@ -317,9 +391,19 @@ export function CodePanel({
             )
           })}
         </ul>
-        <div className="flex justify-between border-t px-3 py-2.5 text-xs text-muted-foreground">
-          마지막 재배포
-          <span className="font-mono">{lastRedeployAt ? clockTime(lastRedeployAt) : '없음'}</span>
+        <div className="space-y-1 border-t px-3 py-2.5 text-xs text-muted-foreground">
+          {path && (
+            <p className="flex justify-between gap-2" aria-label="원본과 달라진 줄">
+              <span className="truncate">{path.split('/').pop()}</span>
+              <span className="shrink-0 font-mono tabular-nums">
+                +{changes.added} −{changes.removed}
+              </span>
+            </p>
+          )}
+          <p className="flex justify-between">
+            마지막 재배포
+            <span className="font-mono">{lastRedeployAt ? clockTime(lastRedeployAt) : '없음'}</span>
+          </p>
         </div>
       </aside>
 
