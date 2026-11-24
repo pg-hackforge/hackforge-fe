@@ -1,11 +1,12 @@
 import { useQuery } from '@tanstack/react-query'
-import { ChevronRightIcon, CircleHelpIcon } from 'lucide-react'
+import { CircleHelpIcon } from 'lucide-react'
 import { Link } from 'react-router'
 
 import { getMyActivityOptions } from '@/api/generated/@tanstack/react-query.gen'
-import { listChallengesOptions } from '@/api/generated/@tanstack/react-query.gen'
+import { useRecommendedProblem } from '@/api/recommend'
 import { FormAlert } from '@/components/form'
 import { ActivityGrid } from '@/components/lab/activity'
+import { RecommendedProblem } from '@/components/lab/recommend'
 import { RecordsHeader } from '@/components/lab/records-header'
 import { buttonVariants } from '@/components/ui/button'
 import {
@@ -19,7 +20,6 @@ import {
   type CategoryStat,
   type Finding,
 } from '@/lib/analysis'
-import { DIFFICULTY_LABEL } from '@/lib/problems'
 import { cn } from '@/lib/utils'
 
 /** `/records/analysis` 내 분석: 분류별 공격·방어, 강점과 보완점, 추천 문제, 최근 1년 활동 */
@@ -294,39 +294,13 @@ function Findings({
   )
 }
 
-/** 보완할 분류에서 끝내지 못한 문제부터, 없으면 시작 전 문제 중 쉬운 것 */
 function NextProblem({ finding }: { finding: Finding }) {
-  const list = useQuery(
-    listChallengesOptions({
-      query: {
-        category: [finding.stat.key],
-        myStatus: ['UNFINISHED', 'NOT_STARTED'],
-        sort: 'DIFFICULTY',
-      },
-    }),
-  )
-  const items = list.data?.items ?? []
-  const next = items.find((c) => c.myStatus === 'UNFINISHED') ?? items[0]
-  if (!next) return null
+  const challenge = useRecommendedProblem(finding)
+  if (!challenge) return null
   return (
     <section className="rounded-xl border bg-card p-5">
       <h2 className="text-sm font-semibold">추천 문제</h2>
-      <p className="mt-1 text-xs text-muted-foreground">
-        {finding.stat.name} {SIDE_LABEL[finding.side]} 연습
-      </p>
-      <Link
-        to={`/problems/${next.id}`}
-        className="-mx-2 mt-3 flex items-center gap-3 rounded-md px-2 py-2 hover:bg-muted/50"
-      >
-        <span className="min-w-0 flex-1">
-          <span className="block truncate text-sm font-medium">{next.title}</span>
-          <span className="mt-0.5 block text-xs text-muted-foreground">
-            {DIFFICULTY_LABEL[next.difficulty]} · 예상 {next.estimatedMinutes}분
-            {next.myStatus === 'UNFINISHED' && ' · 끝내지 못한 문제'}
-          </span>
-        </span>
-        <ChevronRightIcon className="size-4 shrink-0 text-muted-foreground" aria-hidden />
-      </Link>
+      <RecommendedProblem finding={finding} challenge={challenge} />
     </section>
   )
 }

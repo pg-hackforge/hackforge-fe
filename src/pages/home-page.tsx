@@ -4,6 +4,7 @@ import { useEffect, useState, type ReactNode } from 'react'
 import { Link } from 'react-router'
 
 import {
+  getMyActivityOptions,
   getMyProgressOptions,
   listChallengesOptions,
   listLabsOptions,
@@ -15,9 +16,12 @@ import type {
   UserResponse,
 } from '@/api/generated/types.gen'
 import { isLive, useCurrentLab } from '@/api/labs'
+import { useRecommendedProblem } from '@/api/recommend'
 import { FormAlert } from '@/components/form'
+import { RecommendedProblem } from '@/components/lab/recommend'
 import { LabRow } from '@/components/lab/lab-row'
 import { buttonVariants } from '@/components/ui/button'
+import { categoryStats, weaknesses } from '@/lib/analysis'
 import { clockTime, formatRemaining } from '@/lib/lab'
 import { cn } from '@/lib/utils'
 import { Difficulty } from '@/pages/problems-page'
@@ -130,7 +134,10 @@ function MainHome({
             )}
           </Card>
         </div>
-        <ProgressCard progress={progress} />
+        <div className="space-y-5">
+          <ProgressCard progress={progress} />
+          <RecommendCard />
+        </div>
       </div>
     </>
   )
@@ -274,6 +281,21 @@ function ProblemRow({ challenge: c }: { challenge: ChallengeResponse }) {
         보기
       </Link>
     </li>
+  )
+}
+
+/** 추천 문제: 분석(ADR 030)에서 가장 보완할 분류의 문제 하나. 보완할 점이 없으면 숨긴다 */
+function RecommendCard() {
+  const activity = useQuery(getMyActivityOptions()).data
+  const finding = activity ? weaknesses(categoryStats(activity))[0] : undefined
+  const challenge = useRecommendedProblem(finding)
+  if (!finding || !challenge) return null
+  return (
+    <Card title="추천 문제" more={['/records/analysis', '분석 보기']}>
+      <div className="pt-3 pb-2">
+        <RecommendedProblem finding={finding} challenge={challenge} />
+      </div>
+    </Card>
   )
 }
 
