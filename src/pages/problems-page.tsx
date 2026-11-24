@@ -209,12 +209,7 @@ function FilterOption({
 }) {
   return (
     <label className="flex cursor-pointer items-center gap-2.5 rounded-md px-1 py-1.25 hover:bg-muted/60">
-      <input
-        type="checkbox"
-        checked={checked}
-        onChange={onChange}
-        className="size-3.75 rounded accent-primary"
-      />
+      <input type="checkbox" checked={checked} onChange={onChange} className="size-3.75 rounded" />
       <span className={cn('flex-1', checked && 'font-medium')}>{label}</span>
       <span className="font-mono text-xs text-muted-foreground tabular-nums">{count}</span>
     </label>
@@ -331,8 +326,9 @@ function ProblemTable({
         dim && 'opacity-60',
       )}
     >
+      {/* 열 이름은 보기용이다. 각 행은 링크 하나라 낭독기는 링크 글자(번호, 제목, 분류, 난이도…)를 읽는다 */}
       <div
-        role="row"
+        aria-hidden
         className={cn(
           'grid items-center gap-3 border-b px-4.5 py-2.5 text-xs font-medium text-muted-foreground',
           COLUMNS,
@@ -346,7 +342,7 @@ function ProblemTable({
         <span>내 상태</span>
         <span />
       </div>
-      <ul>
+      <ul aria-label="문제 목록">
         {items?.map((c) => (
           <li key={c.id} className="border-b last:border-b-0">
             <Link

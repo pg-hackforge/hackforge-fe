@@ -63,7 +63,7 @@ export function TerminalPanel({ labId, visible }: { labId: number; visible: bool
 
   return (
     <div className={cn('flex h-full min-h-0', !visible && 'hidden')}>
-      <div className="flex min-w-0 flex-1 flex-col overflow-hidden rounded-xl bg-terminal">
+      <div className="flex min-w-0 flex-1 flex-col overflow-hidden rounded-xl bg-terminal scheme-dark">
         <div
           role="tablist"
           aria-label="터미널"

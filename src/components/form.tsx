@@ -3,10 +3,12 @@ import {
   CircleAlertIcon,
   CircleCheckIcon,
   DotIcon,
+  EyeIcon,
+  EyeOffIcon,
   InfoIcon,
   LockIcon,
 } from 'lucide-react'
-import { useId, type ReactNode } from 'react'
+import { useId, useState, type ComponentProps, type ReactNode } from 'react'
 
 import { passwordRules } from '@/lib/password'
 import { cn } from '@/lib/utils'
@@ -74,6 +76,32 @@ export function Field({
           {hint}
         </p>
       )}
+    </div>
+  )
+}
+
+/**
+ * 비밀번호 칸과 [보기] 버튼. 누르면 입력한 글자가 보이고 다시 누르면 숨긴다.
+ * 이름은 그대로 두고 눌림 상태(aria-pressed)로 지금 보이는지 알린다
+ */
+export function PasswordInput({ className, ...props }: Omit<ComponentProps<'input'>, 'type'>) {
+  const [shown, setShown] = useState(false)
+  return (
+    <div className="relative">
+      <input {...props} type={shown ? 'text' : 'password'} className={cn(className, 'pr-10')} />
+      <button
+        type="button"
+        aria-label="비밀번호 보기"
+        aria-pressed={shown}
+        onClick={() => setShown((value) => !value)}
+        className="absolute inset-y-0 right-0 grid w-10 place-items-center rounded-r-[9px] text-subtle-foreground outline-none hover:text-foreground focus-visible:text-foreground focus-visible:ring-3 focus-visible:ring-primary/20"
+      >
+        {shown ? (
+          <EyeOffIcon className="size-4" aria-hidden />
+        ) : (
+          <EyeIcon className="size-4" aria-hidden />
+        )}
+      </button>
     </div>
   )
 }

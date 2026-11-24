@@ -136,7 +136,7 @@ function BuildLog({
             ref={(el) => {
               if (el) el.scrollTop = el.scrollHeight
             }}
-            className="mt-4 min-h-0 flex-1 overflow-auto rounded-lg bg-terminal p-4 font-mono text-[12.5px] leading-relaxed whitespace-pre-wrap text-terminal-foreground"
+            className="mt-4 min-h-0 flex-1 overflow-auto rounded-lg bg-terminal p-4 font-mono text-[12.5px] leading-relaxed whitespace-pre-wrap text-terminal-foreground scheme-dark"
           >
             {log}
           </pre>
@@ -241,13 +241,7 @@ function Choice({
         checked && 'border-primary/60 bg-ember-soft/50',
       )}
     >
-      <input
-        type="radio"
-        name={name}
-        checked={checked}
-        onChange={onChange}
-        className="mt-0.5 accent-primary"
-      />
+      <input type="radio" name={name} checked={checked} onChange={onChange} className="mt-0.5" />
       <span>
         <span className="block font-semibold">{title}</span>
         {text && <span className="mt-0.5 block text-[12.5px] text-muted-foreground">{text}</span>}

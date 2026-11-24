@@ -7,7 +7,7 @@ import { ApiError } from '@/api/errors'
 import { login, signup } from '@/api/generated/sdk.gen'
 import type { LoginRequest, SignupRequest, UserResponse } from '@/api/generated/types.gen'
 import { meQueryKey } from '@/api/me'
-import { Field, FormAlert, PasswordRules } from '@/components/form'
+import { Field, FormAlert, PasswordRules, PasswordInput } from '@/components/form'
 import { Button } from '@/components/ui/button'
 import { cn, formText } from '@/lib/utils'
 
@@ -123,6 +123,7 @@ export function LoginPage() {
               name="email"
               type="email"
               autoComplete="username"
+              spellCheck={false}
               required
               maxLength={254}
               defaultValue={state?.signedUpEmail}
@@ -135,10 +136,9 @@ export function LoginPage() {
           hint="비밀번호를 잊었다면 관리자에게 임시 비밀번호를 요청해 주세요."
         >
           {(control) => (
-            <input
+            <PasswordInput
               {...control}
               name="password"
-              type="password"
               autoComplete="current-password"
               required
               maxLength={64}
@@ -234,7 +234,8 @@ export function SignupPage() {
               {...control}
               name="email"
               type="email"
-              autoComplete="email"
+              autoComplete="username"
+              spellCheck={false}
               required
               maxLength={254}
             />
@@ -246,10 +247,9 @@ export function SignupPage() {
           below={<PasswordRules password={password} />}
         >
           {(control) => (
-            <input
+            <PasswordInput
               {...control}
               name="password"
-              type="password"
               autoComplete="new-password"
               required
               maxLength={64}
@@ -260,10 +260,9 @@ export function SignupPage() {
         </Field>
         <Field label="비밀번호 확인" error={fieldErrors.passwordConfirm}>
           {(control) => (
-            <input
+            <PasswordInput
               {...control}
               name="passwordConfirm"
-              type="password"
               autoComplete="new-password"
               required
               maxLength={64}
@@ -333,7 +332,7 @@ function Consent({ error }: { error?: string }) {
             type="checkbox"
             required
             aria-invalid={error ? true : undefined}
-            className="size-4 shrink-0 accent-primary"
+            className="size-4 shrink-0"
           />
           <label htmlFor={id} className="font-medium">
             [필수] 개인정보 수집·이용 동의

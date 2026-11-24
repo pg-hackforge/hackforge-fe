@@ -824,6 +824,12 @@
   }
   html {
     @apply font-sans;
+    /* 스크롤바, 체크박스, 선택 상자 같은 브라우저 기본 부품도 테마를 따르고 불씨색을 쓴다 */
+    color-scheme: light;
+    accent-color: var(--color-primary);
+  }
+  html.dark {
+    color-scheme: dark;
   }
 }
 
