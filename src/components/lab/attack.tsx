@@ -4,19 +4,20 @@ import { useEffect, useState, type ReactNode } from 'react'
 
 import { ApiError } from '@/api/errors'
 import { listLabHintsQueryKey } from '@/api/generated/@tanstack/react-query.gen'
-import { revealAttackHint, skipAttack } from '@/api/generated/sdk.gen'
+import { revealAttackHint, revealDefenseHint, skipAttack } from '@/api/generated/sdk.gen'
 import { useHints } from '@/api/labs'
 import type {
   LabSessionResponse,
-  RedeployResponse,
+  LabStage,
   VerificationResponse,
   VerificationStatus,
+  VerificationType,
 } from '@/api/generated/types.gen'
 import { ActionButton, CancelButton, Dialog, DialogText } from '@/components/dialog'
 import { FormAlert } from '@/components/form'
 import { Markdown } from '@/components/markdown'
 import { Button } from '@/components/ui/button'
-import { clockTime, hintTitle, labRecords } from '@/lib/lab'
+import { clockTime, hintTitle } from '@/lib/lab'
 import { cn } from '@/lib/utils'
 
 /** 작업 영역의 패널 한 면 */
@@ -47,8 +48,16 @@ export function Verdict({ status, className }: { status: VerificationStatus; cla
   )
 }
 
-/** 상단 줄의 [공격 검증 요청]. Ctrl+Enter로도 누른다(터미널 안에서는 셸 입력이라 제외) */
-export function VerifyButton({ busy, onClick }: { busy: boolean; onClick: () => void }) {
+/** 상단 줄의 주 버튼 [공격 검증 요청]·[방어 검증 요청]. Ctrl+Enter로도 누른다(터미널 안에서는 셸 입력이라 제외) */
+export function VerifyButton({
+  type,
+  busy,
+  onClick,
+}: {
+  type: VerificationType
+  busy: boolean
+  onClick: () => void
+}) {
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
       if (!(event.ctrlKey && event.key === 'Enter') || busy) return
@@ -63,18 +72,28 @@ export function VerifyButton({ busy, onClick }: { busy: boolean; onClick: () => 
     <Button size="sm" disabled={busy} onClick={onClick} className="gap-2">
       {busy ? (
         <>
-          <LoaderCircleIcon className="size-4 animate-spin" aria-hidden />
+          <Spinner />
           검증 중…
         </>
       ) : (
         <>
-          공격 검증 요청
+          {type === 'ATTACK' ? '공격 검증 요청' : '방어 검증 요청'}
           <kbd className="rounded bg-primary-foreground/15 px-1.5 font-mono text-[10.5px] font-medium">
             Ctrl ↵
           </kbd>
         </>
       )}
     </Button>
+  )
+}
+
+/** 실행 중 표시. 움직임 줄이기를 켠 사용자에게는 느리게 돈다 */
+export function Spinner() {
+  return (
+    <LoaderCircleIcon
+      className="size-4 animate-spin motion-reduce:[animation-duration:3s]"
+      aria-hidden
+    />
   )
 }
 
@@ -99,11 +118,15 @@ export function VerifyNotice({
 }) {
   if (!result && !error) return null
   let text: ReactNode
+  const defense = result?.type === 'DEFENSE'
   if (!result) text = verifyErrorText(error!)
   else if (result.status === 'PASS')
-    // 요청 버튼은 공격 단계에만 있어서 PASS면 방어 단계로 넘어간다
-    text = '공격에 성공했어요. 이제 방어 단계예요. 코드를 고쳐 같은 공격을 막아요.'
-  else if (result.status === 'FAIL') text = '아직 공격이 확인되지 않았어요.'
+    // 공격 검증 버튼은 공격 단계에만 있어서 PASS면 방어 단계로 넘어간다
+    text = defense
+      ? '방어에 성공했어요. 공격은 막히고 정상 기능은 그대로예요.'
+      : '공격에 성공했어요. 이제 방어 단계예요. 코드를 고쳐 같은 공격을 막아요.'
+  else if (result.status === 'FAIL')
+    text = defense ? '아직 통과하지 못했어요.' : '아직 공격이 확인되지 않았어요.'
   else text = '플랫폼 문제로 검증을 실행하지 못했어요. 잠시 뒤 다시 요청해 주세요.'
   return (
     <div
@@ -135,21 +158,24 @@ export function VerifyNotice({
 }
 
 /**
- * 힌트(ADR 023). 공격 힌트는 공격 단계에서 1 → 2 → 3 순서로 하나씩 연다. 연 힌트는 단계가 바뀌어도 계속 보인다.
- * 맨 아래 [공격 건너뛰기]로 언제든 방어 단계로 넘어간다
+ * 힌트(ADR 023, ADR 024). 지금 단계의 힌트를 1 → 2 → 3 순서로 하나씩 연다. 연 힌트는 단계가 바뀌어도 계속 보인다.
+ * 공격 단계에서는 맨 아래 [공격 건너뛰기]로 언제든 방어 단계로 넘어간다
  */
 export function HintsPanel({ lab }: { lab: LabSessionResponse }) {
   const queryClient = useQueryClient()
   const hints = useHints(lab.id, true)
   const [confirmSkip, setConfirmSkip] = useState(false)
-  const refresh = () => {
-    void queryClient.invalidateQueries({ queryKey: listLabHintsQueryKey({ path: { id: lab.id } }) })
-    void queryClient.invalidateQueries({ queryKey: ['lab', lab.id] })
-  }
   const reveal = useMutation({
-    mutationFn: async () =>
-      (await revealAttackHint({ path: { id: lab.id }, throwOnError: true })).data,
-    onSettled: refresh,
+    mutationFn: async () => {
+      const request = lab.stage === 'ATTACK' ? revealAttackHint : revealDefenseHint
+      return (await request({ path: { id: lab.id }, throwOnError: true })).data
+    },
+    onSettled: () => {
+      void queryClient.invalidateQueries({
+        queryKey: listLabHintsQueryKey({ path: { id: lab.id } }),
+      })
+      void queryClient.invalidateQueries({ queryKey: ['lab', lab.id] })
+    },
   })
   const skip = useMutation({
     mutationFn: async () => (await skipAttack({ path: { id: lab.id }, throwOnError: true })).data,
@@ -158,9 +184,16 @@ export function HintsPanel({ lab }: { lab: LabSessionResponse }) {
   })
 
   const data = hints.data
-  const attack = data?.hints.filter((h) => h.stage === 'ATTACK') ?? []
-  const defense = data?.hints.filter((h) => h.stage === 'DEFENSE') ?? []
   const attackStage = lab.stage === 'ATTACK'
+  // 방어 단계에서는 연 공격 힌트만 보이고, 방어 힌트를 연다
+  const groups: [LabStage, number][] = data
+    ? attackStage
+      ? [['ATTACK', data.attackTotal]]
+      : [
+          ['ATTACK', data.hints.filter((h) => h.stage === 'ATTACK').length],
+          ['DEFENSE', data.defenseTotal],
+        ]
+    : []
   return (
     <Panel className="px-8 py-7">
       <div className="mx-auto max-w-160">
@@ -171,58 +204,58 @@ export function HintsPanel({ lab }: { lab: LabSessionResponse }) {
         {hints.isError && (
           <FormAlert tone="error">힌트를 불러오지 못했어요. 잠시 뒤 다시 시도해 주세요.</FormAlert>
         )}
-        {data && (
-          <ol className="mt-6 space-y-2.5">
-            {Array.from({ length: data.attackTotal }, (_, i) => i + 1).map((position) => {
-              const hint = attack.find((h) => h.position === position)
-              if (hint)
-                return (
-                  <li key={position} className="rounded-xl border px-4.5 py-3.5">
-                    <p className="flex items-baseline justify-between text-[13px] font-semibold">
-                      {hintTitle('ATTACK', position)}
-                      <span className="font-mono text-xs font-normal text-muted-foreground">
-                        {clockTime(hint.revealedAt)}
-                      </span>
-                    </p>
-                    <Markdown className="mt-1.5 text-sm">{hint.content}</Markdown>
-                  </li>
-                )
-              const next = attackStage && position === attack.length + 1
-              return (
-                <li
-                  key={position}
-                  className="flex items-center justify-between gap-3 rounded-xl border border-dashed px-4.5 py-3 text-[13px] text-muted-foreground"
-                >
-                  <span className="flex items-center gap-2">
-                    <LockIcon className="size-3.5" aria-hidden />
-                    {hintTitle('ATTACK', position)}
-                  </span>
-                  {next && (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      disabled={reveal.isPending}
-                      onClick={() => reveal.mutate()}
+        {groups.map(([stage, total]) => {
+          if (total === 0) return null
+          const revealed = data!.hints.filter((h) => h.stage === stage)
+          return (
+            <section key={stage} className="mt-6">
+              {!attackStage && (
+                <h2 className="mb-2 text-[13px] font-semibold text-muted-foreground">
+                  {stage === 'ATTACK' ? '공격 힌트' : '방어 힌트'}
+                </h2>
+              )}
+              <ol className="space-y-2.5">
+                {Array.from({ length: total }, (_, i) => i + 1).map((position) => {
+                  const hint = revealed.find((h) => h.position === position)
+                  if (hint)
+                    return (
+                      <li key={position} className="rounded-xl border px-4.5 py-3.5">
+                        <p className="flex items-baseline justify-between text-[13px] font-semibold">
+                          {hintTitle(stage, position)}
+                          <span className="font-mono text-xs font-normal text-muted-foreground">
+                            {clockTime(hint.revealedAt)}
+                          </span>
+                        </p>
+                        <Markdown className="mt-1.5 text-sm">{hint.content}</Markdown>
+                      </li>
+                    )
+                  const next = stage === lab.stage && position === revealed.length + 1
+                  return (
+                    <li
+                      key={position}
+                      className="flex items-center justify-between gap-3 rounded-xl border border-dashed px-4.5 py-3 text-[13px] text-muted-foreground"
                     >
-                      힌트 {position} 보기
-                    </Button>
-                  )}
-                </li>
-              )
-            })}
-            {defense.map((hint) => (
-              <li key={`d${hint.position}`} className="rounded-xl border px-4.5 py-3.5">
-                <p className="flex items-baseline justify-between text-[13px] font-semibold">
-                  {hintTitle('DEFENSE', hint.position)}
-                  <span className="font-mono text-xs font-normal text-muted-foreground">
-                    {clockTime(hint.revealedAt)}
-                  </span>
-                </p>
-                <Markdown className="mt-1.5 text-sm">{hint.content}</Markdown>
-              </li>
-            ))}
-          </ol>
-        )}
+                      <span className="flex items-center gap-2">
+                        <LockIcon className="size-3.5" aria-hidden />
+                        {hintTitle(stage, position)}
+                      </span>
+                      {next && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          disabled={reveal.isPending}
+                          onClick={() => reveal.mutate()}
+                        >
+                          힌트 {position} 보기
+                        </Button>
+                      )}
+                    </li>
+                  )
+                })}
+              </ol>
+            </section>
+          )
+        })}
         {reveal.error && (
           <FormAlert tone="error">힌트를 열지 못했어요. 잠시 뒤 다시 시도해 주세요.</FormAlert>
         )}
@@ -263,71 +296,6 @@ export function HintsPanel({ lab }: { lab: LabSessionResponse }) {
           방어 단계로 넘어가고 공격 단계로 돌아오지 않아요. 공격 힌트도 더 열 수 없어요.
         </DialogText>
       </Dialog>
-    </Panel>
-  )
-}
-
-/** 기록(확정 캡처 `lab-records`): 맨 위에 마지막 검증 결과, 아래에 이 실습의 기록 */
-export function RecordsPanel({
-  verifications,
-  redeploys,
-  labId,
-}: {
-  verifications?: VerificationResponse[]
-  redeploys?: RedeployResponse[]
-  labId: number
-}) {
-  const hints = useHints(labId, true).data
-  const latest = verifications?.[0]
-  const records = labRecords(verifications ?? [], hints?.hints ?? [], redeploys ?? [])
-  return (
-    <Panel className="px-8 py-7">
-      <div className="mx-auto max-w-200">
-        {latest ? (
-          <div className="flex items-center gap-3">
-            <Verdict status={latest.status} className="h-7 px-2.5 text-[13px]" />
-            <h1 className="text-xl font-semibold tracking-tight">
-              {records.find((r) => r.key === `v${latest.id}`)?.title}
-            </h1>
-            <span className="ml-auto font-mono text-xs text-muted-foreground">
-              {clockTime(latest.startedAt)}
-            </span>
-          </div>
-        ) : (
-          <h1 className="text-xl font-semibold tracking-tight">기록</h1>
-        )}
-        {latest?.message && <p className="mt-2 text-sm">{latest.message}</p>}
-        <h2 className="mt-8 border-b pb-2 text-[13px] font-semibold text-muted-foreground">
-          이 실습의 기록
-        </h2>
-        {records.length === 0 ? (
-          <p className="py-6 text-sm text-muted-foreground">
-            아직 기록이 없어요. 공격 대상에서 공격한 뒤 [공격 검증 요청]을 눌러요.
-          </p>
-        ) : (
-          <ul>
-            {records.map((record) => (
-              <li
-                key={record.key}
-                className="grid grid-cols-[56px_1fr_auto] items-start gap-3 border-b py-3"
-              >
-                <span className="pt-0.5 font-mono text-[13px] text-muted-foreground">
-                  {clockTime(record.at)}
-                </span>
-                <span className="min-w-0">
-                  <span className="block text-sm font-semibold">{record.title}</span>
-                  {record.detail && (
-                    <span className="mt-0.5 block text-[13px] text-muted-foreground">
-                      {record.detail}
-                    </span>
-                  )}
-                </span>
-                {record.status && record.status !== 'RUNNING' && <Verdict status={record.status} />}
-              </li>
-            ))}
-          </ul>
-        )}
-      </div>
     </Panel>
   )
 }

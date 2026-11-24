@@ -216,6 +216,83 @@ describe('실습 화면', () => {
     expect(within(dialog).queryByRole('radio', { name: /공격 단계\)부터/ })).not.toBeInTheDocument()
   })
 
+  it('방어 검증 FAIL이면 어느 쪽이 안 됐는지 카드로, 통한 공격은 펼쳐서 봄', async () => {
+    renderAt('/labs/42', 'learner', 'defense', { defense: 'FAIL-security' })
+    await userEvent.click(await screen.findByRole('button', { name: /방어 검증 요청/ }))
+    expect(
+      await screen.findByText('아직 통과하지 못했어요.', {}, { timeout: 4_000 }),
+    ).toBeInTheDocument()
+    await waitFor(() =>
+      expect(
+        screen.getByText('방어 검증', { selector: '[aria-current="step"]' }),
+      ).toBeInTheDocument(),
+    )
+
+    await userEvent.click(screen.getByRole('button', { name: '기록 보기' }))
+    expect(await screen.findByRole('heading', { name: '방어 검증 01' })).toBeInTheDocument()
+    expect(screen.getByText('아직 통하는 공격이 있어요')).toBeInTheDocument()
+    expect(screen.getByText('정상 기능이 동작해요')).toBeInTheDocument()
+    expect(screen.getByText(/시도 1\/3/)).toBeInTheDocument()
+    // 상태 막대의 단계
+    expect(screen.getByText('방어 검증', { selector: 'footer b' })).toBeInTheDocument()
+    const attack = screen.getByText('관리자 계정으로 로그인됨(mock)')
+    expect(attack).not.toBeVisible()
+    await userEvent.click(screen.getByText('통한 공격 보기'))
+    expect(attack).toBeVisible()
+  })
+
+  it('방어 검증 PASS면 실습 완료, 5분 뒤 종료 안내', async () => {
+    renderAt('/labs/42', 'learner', 'defense', { defense: 'PASS' })
+    await userEvent.click(await screen.findByRole('button', { name: /방어 검증 요청/ }))
+    expect(await screen.findByText(/방어에 성공했어요/, {}, { timeout: 4_000 })).toBeInTheDocument()
+    expect(await screen.findByRole('alert')).toHaveTextContent('실습을 완료했어요.')
+    expect(screen.queryByText('방어 검증', { selector: '[aria-current="step"]' })).toBeNull()
+    expect(screen.getByText('실습 완료', { selector: 'footer b' })).toBeInTheDocument()
+  })
+
+  it('방어 검증을 최대 횟수만큼 통과하지 못하면 확인 창을 거쳐 해답', async () => {
+    renderAt('/labs/42', 'learner', 'defense', { defense: 'FAIL-functional' })
+    const request = await screen.findByRole('button', { name: /방어 검증 요청/ })
+    for (let i = 0; i < 3; i++) {
+      await waitFor(() => expect(request).toBeEnabled(), { timeout: 4_000 })
+      await userEvent.click(request)
+      await screen.findByText('아직 통과하지 못했어요.', {}, { timeout: 4_000 })
+    }
+    await userEvent.click(rail('기록'))
+    await userEvent.click(
+      await screen.findByRole('button', { name: '해답 보기' }, { timeout: 4_000 }),
+    )
+    const dialog = await screen.findByRole('alertdialog', { name: '해답을 볼까요?' })
+    await userEvent.click(within(dialog).getByRole('button', { name: '해답 보기' }))
+    expect(await screen.findByRole('heading', { name: '고치는 방법' })).toBeInTheDocument()
+  }, 20_000)
+
+  it('방어 단계에서는 방어 힌트를 순서대로 열고, 연 공격 힌트는 그대로', async () => {
+    renderAt('/labs/42', 'learner', 'defense')
+    await userEvent.click(await rail('힌트'))
+    expect(await screen.findByRole('heading', { name: '방어 힌트' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: '공격 건너뛰기' })).not.toBeInTheDocument()
+    await userEvent.click(screen.getByRole('button', { name: '힌트 1 보기' }))
+    expect(await screen.findByText(/쿼리 문장의 일부/)).toBeInTheDocument()
+    expect(screen.getByText('방어 힌트 1 · 방향')).toBeInTheDocument()
+    await waitFor(() => expect(rail('힌트')).toHaveTextContent('1/3'))
+  })
+
+  it('저장하고 재배포하지 않았으면 방어 검증 전에 알림', async () => {
+    renderAt('/labs/42', 'learner', 'defense')
+    await userEvent.click(await screen.findByRole('button', { name: /^코드/ }))
+    const editor = await screen.findByRole('textbox', { name: '코드 편집기' })
+    await waitFor(() => expect(editor).toHaveDisplayValue(/<\?php/), { timeout: 3_000 })
+    await userEvent.type(editor, '// 고침')
+    await screen.findByText(/자동 저장됨/, {}, { timeout: 3_000 })
+
+    await userEvent.click(screen.getByRole('button', { name: /방어 검증 요청/ }))
+    const dialog = await screen.findByRole('alertdialog', {
+      name: '재배포하지 않은 변경이 있어요',
+    })
+    expect(within(dialog).getByRole('button', { name: '그대로 검증하기' })).toBeEnabled()
+  })
+
   it('로그인하지 않았으면 로그인 화면으로', async () => {
     const router = renderAt('/labs/42', 'logged-out')
     await waitFor(() => expect(router.state.location.pathname).toBe('/login'))

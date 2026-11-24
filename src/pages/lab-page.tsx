@@ -28,11 +28,11 @@ import type {
   VerificationResponse,
 } from '@/api/generated/types.gen'
 import {
-  useAttackVerification,
   useHints,
   useLab,
   useRedeploy,
   useRedeploys,
+  useVerification,
   useVerifications,
 } from '@/api/labs'
 import { useMe } from '@/api/me'
@@ -40,15 +40,9 @@ import { ActionButton, CancelButton, Dialog, DialogText } from '@/components/dia
 import { FormAlert } from '@/components/form'
 import { Logo } from '@/components/logo'
 import { Markdown } from '@/components/markdown'
-import {
-  HintsPanel,
-  Panel,
-  RecordsPanel,
-  Verdict,
-  VerifyButton,
-  VerifyNotice,
-} from '@/components/lab/attack'
+import { HintsPanel, Panel, Verdict, VerifyButton, VerifyNotice } from '@/components/lab/attack'
 import { JobButton, RedeployNotice, ResetDialog } from '@/components/lab/jobs'
+import { RecordsPanel } from '@/components/lab/records'
 import { Button, buttonVariants } from '@/components/ui/button'
 import { endNotice, formatRemaining, isEnded, PREP_STEPS } from '@/lib/lab'
 import { cn } from '@/lib/utils'
@@ -80,6 +74,9 @@ export function LabPage() {
   // 재배포 전에 편집기의 저장 안 된 내용을 저장한다
   const flushCode = useRef<() => Promise<void>>(async () => {})
   const [confirmEnd, setConfirmEnd] = useState(false)
+  // 편집기에서 마지막으로 저장한 시각. 그 뒤로 재배포하지 않았으면 방어 검증 전에 알린다(ADR 025)
+  const [lastSavedAt, setLastSavedAt] = useState<number | null>(null)
+  const [confirmUndeployed, setConfirmUndeployed] = useState(false)
   const queryClient = useQueryClient()
   const end = useMutation({
     mutationFn: async () => (await endLab({ path: { id }, throwOnError: true })).data,
@@ -90,7 +87,7 @@ export function LabPage() {
     onSettled: () => setConfirmEnd(false),
   })
   const ready = lab.data?.status === 'READY'
-  const verify = useAttackVerification(id)
+  const verify = useVerification(id)
   const verifications = useVerifications(id, ready, verify.pending).data
   const hints = useHints(id, ready).data
   const verifying = verify.pending || !!verifications?.some((v) => v.status === 'RUNNING')
@@ -99,6 +96,9 @@ export function LabPage() {
   const redeploying = jobs.pending || !!redeploys?.some((r) => r.status === 'RUNNING')
   // 세션마다 검증, 재배포, 초기화 중 하나만 실행한다(ADR 024)
   const busy = verifying || redeploying
+  // 재배포와 서비스 초기화 모두 지금 코드로 서비스를 다시 띄운다
+  const lastDeployAt = redeploys?.[0] ? Date.parse(redeploys[0].startedAt) : null
+  const undeployed = lastSavedAt !== null && (lastDeployAt === null || lastSavedAt > lastDeployAt)
 
   const choose = (next: View) => {
     setView(next)
@@ -136,7 +136,17 @@ export function LabPage() {
               <JobButton busy={busy} running={jobs.resetting} onClick={() => setConfirmReset(true)}>
                 {jobs.resetting ? '초기화 중…' : '초기화'}
               </JobButton>
-              {!defense && <VerifyButton busy={busy} onClick={verify.start} />}
+              <VerifyButton
+                type={defense ? 'DEFENSE' : 'ATTACK'}
+                busy={busy}
+                onClick={() =>
+                  !defense
+                    ? verify.start('ATTACK')
+                    : undeployed
+                      ? setConfirmUndeployed(true)
+                      : verify.start('DEFENSE')
+                }
+              />
             </>
           )
         }
@@ -169,7 +179,7 @@ export function LabPage() {
                 {shown === 'target' && <TargetPanel url={data.targetUrl} />}
                 {shown === 'hints' && <HintsPanel lab={data} />}
                 {shown === 'records' && (
-                  <RecordsPanel labId={id} verifications={verifications} redeploys={redeploys} />
+                  <RecordsPanel lab={data} verifications={verifications} redeploys={redeploys} />
                 )}
                 {terminalOpened && (
                   <Suspense fallback={null}>
@@ -183,6 +193,7 @@ export function LabPage() {
                       visible={shown === 'code'}
                       lastRedeployAt={redeploys?.find((r) => r.kind === 'REDEPLOY')?.startedAt}
                       onFlush={(flush) => (flushCode.current = flush)}
+                      onSaved={() => setLastSavedAt(Date.now())}
                     />
                   </Suspense>
                 )}
@@ -211,6 +222,29 @@ export function LabPage() {
       >
         <DialogText>실습 환경과 그 안에서 고친 코드가 지워져요. 검증 기록은 남아요.</DialogText>
       </Dialog>
+      <Dialog
+        open={confirmUndeployed}
+        onClose={() => setConfirmUndeployed(false)}
+        title="재배포하지 않은 변경이 있어요"
+        actions={
+          <>
+            <CancelButton />
+            <ActionButton
+              onClick={() => {
+                setConfirmUndeployed(false)
+                verify.start('DEFENSE')
+              }}
+            >
+              그대로 검증하기
+            </ActionButton>
+          </>
+        }
+      >
+        <DialogText>
+          방어 검증은 지금 떠 있는 서비스를 시험해요. 마지막 재배포 뒤에 저장한 코드는 [재배포]를
+          해야 서비스에 반영돼요.
+        </DialogText>
+      </Dialog>
       {data && (
         <ResetDialog
           open={confirmReset}
@@ -223,10 +257,11 @@ export function LabPage() {
   )
 }
 
-/** 단계 표시: 공격 → 방어 → 방어 검증. 첫 방어 검증 PASS(완료)면 셋 다 끝남 */
+/** 단계 표시: 공격 → 방어 → 방어 검증. 방어 검증을 한 번이라도 하면 방어 검증, 첫 PASS(완료)면 셋 다 끝남 */
 function stageIndex(lab: LabSessionResponse) {
   if (lab.completedAt) return 3
-  return lab.stage === 'DEFENSE' ? 1 : 0
+  if (lab.stage === 'ATTACK') return 0
+  return lab.defenseAttempts > 0 ? 2 : 1
 }
 
 function TopBar({
@@ -386,7 +421,7 @@ function StatusBar({
 }) {
   const now = useNow()
   const deadline = lab?.idleDeadline ? Date.parse(lab.idleDeadline) : null
-  const stage = lab ? ['공격', '방어', '방어 검증 완료', '방어 검증 완료'][stageIndex(lab)] : ''
+  const stage = lab ? ['공격', '방어', '방어 검증', '실습 완료'][stageIndex(lab)] : ''
   return (
     <footer className="flex h-7.5 shrink-0 items-center gap-4 border-t bg-card px-4 text-xs text-muted-foreground">
       <span className="flex items-center gap-1.5">

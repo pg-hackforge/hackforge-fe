@@ -103,13 +103,16 @@ export function readFontSize(stored: string | null): number {
   return stored && Number.isFinite(size) ? clampFontSize(size) : FONT_SIZE.initial
 }
 
-/** 공격 힌트가 순서마다 알려 주는 것(openapi.yaml `revealAttackHint`) */
-const ATTACK_HINT_KIND = ['방향', '위치', '공격 방법']
+/** 힌트가 순서마다 알려 주는 것(ADR 023, ADR 024) */
+const HINT_KIND: Record<LabStage, string[]> = {
+  ATTACK: ['방향', '위치', '공격 방법'],
+  DEFENSE: ['방향', '위치', '고치는 방법'],
+}
 
 export function hintTitle(stage: LabStage, position: number): string {
-  return stage === 'ATTACK'
-    ? `공격 힌트 ${position} · ${ATTACK_HINT_KIND[position - 1]}`
-    : `방어 힌트 ${position}`
+  const kind = HINT_KIND[stage][position - 1]
+  const name = `${stage === 'ATTACK' ? '공격' : '방어'} 힌트 ${position}`
+  return kind ? `${name} · ${kind}` : name
 }
 
 export type LabRecord = {
@@ -138,7 +141,12 @@ export function labRecords(
         v.type === 'ATTACK'
           ? '공격 검증'
           : `방어 검증 ${String(defenseOrder.indexOf(v.id) + 1).padStart(2, '0')}`,
-      detail: v.status === 'RUNNING' ? '검증 중' : withDuration(v.message, v.durationMs),
+      detail:
+        v.status === 'RUNNING'
+          ? '검증 중'
+          : [v.afterSolution && '해답 확인 후', withDuration(v.message, v.durationMs)]
+              .filter(Boolean)
+              .join(' · '),
       status: v.status,
     })),
     ...redeploys.map((r) => ({

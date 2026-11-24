@@ -16,6 +16,7 @@ import {
   getRedeploy,
   getVerification,
   requestAttackVerification,
+  requestDefenseVerification,
   requestRedeploy,
   resetLab,
 } from './generated/sdk.gen'
@@ -24,6 +25,7 @@ import type {
   RedeployResponse,
   ResetLabRequest,
   VerificationResponse,
+  VerificationType,
 } from './generated/types.gen'
 import { labPollInterval } from '@/lib/lab'
 
@@ -71,19 +73,18 @@ export const useHints = (labId: number, enabled: boolean) =>
   useQuery({ ...listLabHintsOptions({ path: { id: labId } }), enabled })
 
 /**
- * 공격 검증 요청(ADR 023). 접수(RUNNING)되면 1초 간격으로 검증 하나를 조회해 결과를 기다린다.
- * 끝나면 결과를 안내 띠로 보여 주고, PASS로 단계가 바뀌었을 수 있으니 세션을 다시 읽는다
+ * 공격 검증(ADR 023)과 방어 검증(ADR 025) 요청. 접수(RUNNING)되면 1초 간격으로 검증 하나를 조회해 결과를 기다린다.
+ * 끝나면 결과를 안내 띠로 보여 주고, 단계·완료·해답 상태가 바뀌었을 수 있으니 세션을 다시 읽는다
  */
-export function useAttackVerification(labId: number) {
+export function useVerification(labId: number) {
   const queryClient = useQueryClient()
   const [result, setResult] = useState<VerificationResponse | null>(null)
   const listKey = listVerificationsQueryKey({ path: { id: labId } })
   const mutation = useMutation({
-    mutationFn: async () => {
+    mutationFn: async (type: VerificationType) => {
       setResult(null)
-      let verification = (
-        await requestAttackVerification({ path: { id: labId }, throwOnError: true })
-      ).data
+      const request = type === 'ATTACK' ? requestAttackVerification : requestDefenseVerification
+      let verification = (await request({ path: { id: labId }, throwOnError: true })).data
       queryClient.setQueryData<VerificationResponse[]>(listKey, (old) => [
         verification,
         ...(old ?? []),
@@ -106,7 +107,7 @@ export function useAttackVerification(labId: number) {
     },
   })
   return {
-    start: () => mutation.mutate(),
+    start: (type: VerificationType) => mutation.mutate(type),
     pending: mutation.isPending,
     result,
     error: mutation.error,

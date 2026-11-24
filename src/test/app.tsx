@@ -35,7 +35,7 @@ export function renderAt(
   account: Scenario['account'],
   lab: Scenario['lab'] = 'none',
   /** 검증·재배포 결과, 저장 충돌 같은 나머지 mock 선택 */
-  more: Pick<Scenario, 'verify' | 'redeploy' | 'save'> = {},
+  more: Pick<Scenario, 'verify' | 'defense' | 'redeploy' | 'save'> = {},
 ) {
   saveScenario({ account, lab, ...more })
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
