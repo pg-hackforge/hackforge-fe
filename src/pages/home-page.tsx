@@ -17,7 +17,7 @@ import type {
 import { isLive, useCurrentLab } from '@/api/labs'
 import { FormAlert } from '@/components/form'
 import { buttonVariants } from '@/components/ui/button'
-import { clockTime, formatRemaining, labResult } from '@/lib/lab'
+import { clockTime, formatRemaining, labResult, labSummary } from '@/lib/lab'
 import { cn } from '@/lib/utils'
 import { Difficulty } from '@/pages/problems-page'
 
@@ -327,6 +327,8 @@ function Bar({ value, total, className }: { value: number; total: number; classN
 function RecentLab({ lab }: { lab: LabSessionResponse }) {
   const result = labResult(lab)
   const date = new Date(lab.createdAt)
+  // 진행 중 세션의 "N분째"는 화면을 연 시각 기준이면 충분하다
+  const [now] = useState(Date.now)
   return (
     <li className="border-b last:border-b-0">
       <Link
@@ -339,11 +341,9 @@ function RecentLab({ lab }: { lab: LabSessionResponse }) {
         </span>
         <span className="min-w-0">
           <span className="block truncate text-sm font-semibold">{lab.challengeTitle}</span>
-          {lab.defenseAttempts > 0 && (
-            <span className="mt-0.5 block text-[13px] text-muted-foreground">
-              방어 검증 {lab.defenseAttempts}번
-            </span>
-          )}
+          <span className="mt-0.5 block truncate text-[13px] text-muted-foreground">
+            {labSummary(lab, now)}
+          </span>
         </span>
         <span
           className={cn(

@@ -342,3 +342,24 @@ export function labResult(
     tone: 'muted',
   }
 }
+
+/** 세션 하나의 진행 한 줄(최근 기록): 어디까지 했는지와 걸린 시간. 결과는 labResult가 따로 보여 준다 */
+export function labSummary(
+  lab: Pick<
+    LabSessionResponse,
+    'status' | 'endReason' | 'stage' | 'attackSkipped' | 'defenseAttempts' | 'createdAt' | 'endedAt'
+  >,
+  now: number,
+): string {
+  if (lab.status === 'FAILED') return '실습 환경을 만들지 못했어요'
+  const live = !isEnded(lab.status) && !lab.endReason
+  const parts = []
+  if (lab.attackSkipped) parts.push('공격 건너뜀')
+  if (lab.defenseAttempts > 0) parts.push(`방어 검증 ${lab.defenseAttempts}번`)
+  else if (!lab.attackSkipped) parts.push(lab.stage === 'ATTACK' ? '공격 단계' : '방어 단계')
+  const end = live || !lab.endedAt ? now : Date.parse(lab.endedAt)
+  const minutes = Math.max(1, Math.floor((end - Date.parse(lab.createdAt)) / 60_000))
+  const time = minutes < 60 ? `${minutes}분` : `${Math.floor(minutes / 60)}시간 ${minutes % 60}분`
+  parts.push(live ? `${time}째` : time)
+  return parts.join(' · ')
+}

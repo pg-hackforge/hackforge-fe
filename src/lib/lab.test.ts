@@ -9,6 +9,7 @@ import {
   labPollInterval,
   labRecords,
   labResult,
+  labSummary,
   lineChanges,
   languageOf,
   readFontSize,
@@ -258,5 +259,45 @@ describe('실습 화면 로직', () => {
     expect(labResult(lab)).toEqual({ label: '끝내지 못함 · 입력 없음', tone: 'muted' })
     expect(labResult({ ...lab, endReason: 'ADMIN' }).label).toBe('끝내지 못함 · 관리자 종료')
     expect(labResult({ ...lab, status: 'FAILED', endReason: null }).label).toBe('생성 실패')
+  })
+
+  it('세션 하나의 진행 한 줄: 어디까지 했는지와 걸린 시간', () => {
+    const lab = {
+      status: 'DELETED' as const,
+      endReason: 'IDLE' as const,
+      stage: 'ATTACK' as const,
+      attackSkipped: false,
+      defenseAttempts: 0,
+      createdAt: '2026-11-24T05:00:00Z',
+      endedAt: '2026-11-24T05:12:30Z',
+    }
+    const now = Date.parse('2026-11-24T05:18:00Z')
+    expect(labSummary(lab, now)).toBe('공격 단계 · 12분')
+    expect(labSummary({ ...lab, stage: 'DEFENSE' }, now)).toBe('방어 단계 · 12분')
+    expect(labSummary({ ...lab, stage: 'DEFENSE', defenseAttempts: 3 }, now)).toBe(
+      '방어 검증 3번 · 12분',
+    )
+    expect(
+      labSummary({ ...lab, stage: 'DEFENSE', attackSkipped: true, defenseAttempts: 2 }, now),
+    ).toBe('공격 건너뜀 · 방어 검증 2번 · 12분')
+    expect(labSummary({ ...lab, endedAt: '2026-11-24T06:05:00Z', stage: 'DEFENSE' }, now)).toBe(
+      '방어 단계 · 1시간 5분',
+    )
+    expect(
+      labSummary(
+        {
+          ...lab,
+          status: 'READY',
+          endReason: null,
+          endedAt: null,
+          stage: 'DEFENSE',
+          defenseAttempts: 1,
+        },
+        now,
+      ),
+    ).toBe('방어 검증 1번 · 18분째')
+    expect(labSummary({ ...lab, status: 'FAILED', endReason: null }, now)).toBe(
+      '실습 환경을 만들지 못했어요',
+    )
   })
 })
