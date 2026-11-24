@@ -9,6 +9,7 @@ import { IndexPage } from '@/pages/placeholder-pages'
 import { LabPage } from '@/pages/lab-page'
 import { ProblemPage } from '@/pages/problem-page'
 import { ProblemsPage } from '@/pages/problems-page'
+import { AnalysisPage } from '@/pages/analysis-page'
 import { RecordPage, RecordsPage } from '@/pages/records-page'
 import { NotFoundPage } from '@/pages/status-pages'
 
@@ -30,6 +31,7 @@ export const routes: RouteObject[] = [
           { path: 'problems', element: <ProblemsPage /> },
           { path: 'problems/:id', element: <ProblemPage /> },
           { path: 'records', element: <RecordsPage /> },
+          { path: 'records/analysis', element: <AnalysisPage /> },
           { path: 'records/:id', element: <RecordPage /> },
           { path: 'account', element: <AccountPage /> },
           { element: <RequireAdmin />, children: [{ path: 'admin', element: <AdminPage /> }] },

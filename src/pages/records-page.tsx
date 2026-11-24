@@ -15,6 +15,7 @@ import { useHints, useLab } from '@/api/labs'
 import { FormAlert } from '@/components/form'
 import { Verdict } from '@/components/lab/attack'
 import { DefenseResult, SolutionSection } from '@/components/lab/defense'
+import { RecordsHeader, SummaryPanel } from '@/components/lab/records-header'
 import { LabRow, ResultChip } from '@/components/lab/lab-row'
 import { Pagination } from '@/components/pagination'
 import { buttonVariants } from '@/components/ui/button'
@@ -29,7 +30,10 @@ import {
 import { cn } from '@/lib/utils'
 import { NotFoundPage } from '@/pages/status-pages'
 
-/** `/records` 내 실습 기록(ADR 026, ADR 027): 내 세션을 최근 시작 순으로. 페이지는 주소에 둔다 */
+/**
+ * `/records` 내 실습 기록(ADR 026, ADR 027): 내 세션을 최근 시작 순으로 날짜별로 묶고, 오른쪽에 내 실습 요약.
+ * 페이지는 주소에 둔다
+ */
 export function RecordsPage() {
   const [params, setParams] = useSearchParams()
   const page = Math.max(1, Math.floor(Number(params.get('page'))) || 1)
@@ -39,59 +43,61 @@ export function RecordsPage() {
   })
   const data = list.data
   return (
-    <div className="mx-auto w-full max-w-200 px-4 pt-10 pb-14 sm:px-6">
-      <h1 className="text-2xl font-semibold tracking-tight">내 기록</h1>
-      <p className="mt-1 text-sm text-muted-foreground tabular-nums">
-        {data ? `실습 ${data.totalItems}번` : ' '}
-      </p>
-      {list.isError ? (
-        <FormAlert tone="error">
-          실습 기록을 불러오지 못했어요. 잠시 뒤 다시 시도해 주세요.
-        </FormAlert>
-      ) : data?.items.length === 0 ? (
-        <div className="mt-6 rounded-xl border border-dashed px-5 py-10 text-center">
-          <p className="text-sm text-muted-foreground">아직 실습 기록이 없어요.</p>
-          <Link
-            to="/problems"
-            className={buttonVariants({ variant: 'outline', className: 'mt-4' })}
-          >
-            문제 보기
-          </Link>
-        </div>
-      ) : (
-        data && (
-          <>
-            <div
-              className={cn(
-                'mt-6 rounded-xl border bg-card px-5 pb-1',
-                list.isPlaceholderData && 'opacity-60',
-              )}
-            >
-              {byDay(data.items).map(([day, labs]) => (
-                <section key={day}>
-                  <h2 className="border-b pt-4 pb-2 text-[13px] font-semibold text-muted-foreground">
-                    {day}
-                  </h2>
-                  <ul aria-label={day}>
-                    {labs.map((lab) => (
-                      <LabRow key={lab.id} lab={lab} time="clock" />
-                    ))}
-                  </ul>
-                </section>
-              ))}
+    <div className="mx-auto w-full max-w-310 px-4 pt-10 pb-14 sm:px-6">
+      <RecordsHeader />
+      <div className="mt-6 grid items-start gap-5 lg:grid-cols-[minmax(0,1fr)_360px]">
+        <div className="min-w-0">
+          {list.isError ? (
+            <FormAlert tone="error">
+              실습 기록을 불러오지 못했어요. 잠시 뒤 다시 시도해 주세요.
+            </FormAlert>
+          ) : data?.items.length === 0 ? (
+            <div className="rounded-xl border border-dashed px-5 py-10 text-center">
+              <p className="text-sm text-muted-foreground">아직 실습 기록이 없어요.</p>
+              <Link
+                to="/problems"
+                className={buttonVariants({ variant: 'outline', className: 'mt-4' })}
+              >
+                문제 보기
+              </Link>
             </div>
-            {data.totalPages > 1 && (
-              <Pagination
-                page={page}
-                totalPages={data.totalPages}
-                totalItems={data.totalItems}
-                size={data.size}
-                onPage={(p) => setParams({ page: String(p) })}
-              />
-            )}
-          </>
-        )
-      )}
+          ) : (
+            data && (
+              <>
+                <div
+                  className={cn(
+                    'rounded-xl border bg-card px-5 pb-1',
+                    list.isPlaceholderData && 'opacity-60',
+                  )}
+                >
+                  {byDay(data.items).map(([day, labs]) => (
+                    <section key={day}>
+                      <h2 className="border-b pt-4 pb-2 text-[13px] font-semibold text-muted-foreground">
+                        {day}
+                      </h2>
+                      <ul aria-label={day}>
+                        {labs.map((lab) => (
+                          <LabRow key={lab.id} lab={lab} time="clock" />
+                        ))}
+                      </ul>
+                    </section>
+                  ))}
+                </div>
+                {data.totalPages > 1 && (
+                  <Pagination
+                    page={page}
+                    totalPages={data.totalPages}
+                    totalItems={data.totalItems}
+                    size={data.size}
+                    onPage={(p) => setParams({ page: String(p) })}
+                  />
+                )}
+              </>
+            )
+          )}
+        </div>
+        <SummaryPanel />
+      </div>
     </div>
   )
 }
