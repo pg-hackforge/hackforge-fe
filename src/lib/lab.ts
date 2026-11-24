@@ -1,5 +1,6 @@
 import type {
   HintResponse,
+  LabEventResponse,
   LabFileEntry,
   LabPrepStep,
   LabSessionResponse,
@@ -362,4 +363,64 @@ export function labSummary(
   const time = minutes < 60 ? `${minutes}분` : `${Math.floor(minutes / 60)}시간 ${minutes % 60}분`
   parts.push(live ? `${time}째` : time)
   return parts.join(' · ')
+}
+
+/**
+ * 내 실습 기록의 세션 하나: 상태 변경(ADR 026)과 검증·힌트·재배포, 완료, 해답 열람을 오래된 순으로.
+ * 준비 중 세부 상태와 정리 완료(DELETED)는 빼고, 준비 완료에는 걸린 시간을 붙인다
+ */
+export function sessionRecords(
+  lab: Pick<LabSessionResponse, 'endReason' | 'completedAt' | 'solutionViewedAt'> &
+    Partial<Pick<LabSessionResponse, 'createdAt'>>,
+  events: LabEventResponse[],
+  verifications: VerificationResponse[],
+  hints: HintResponse[],
+  redeploys: RedeployResponse[],
+): LabRecord[] {
+  const records: LabRecord[] = []
+  let preparing = ''
+  events.forEach((e, i) => {
+    const record = (title: string, detail?: string) =>
+      records.push({ key: `e${i}`, at: e.at, title, detail })
+    if (e.fromStatus === null) {
+      preparing = e.at
+      record('실습 시작')
+    } else if (
+      e.fromStatus === 'READY' &&
+      (e.toStatus === 'CREATING' || e.toStatus === 'INITIALIZING')
+    ) {
+      preparing = e.at
+      record('실습 환경 다시 만들기')
+    } else if (e.toStatus === 'READY') {
+      record(
+        '실습 환경 준비 완료',
+        preparing && `${Math.round((Date.parse(e.at) - Date.parse(preparing)) / 1000)}초`,
+      )
+    } else if (e.toStatus === 'TERMINATING' && e.fromStatus !== 'READY') {
+      // 준비 중 종료. 시스템이면 생성 실패라 뒤의 FAILED로 보여 준다
+      if (e.actor === 'LEARNER') record('준비 중에 실습 종료')
+      else if (e.actor === 'ADMIN') record('관리자가 실습 종료')
+    } else if (e.toStatus === 'TERMINATING') {
+      record(
+        e.actor === 'LEARNER'
+          ? '실습 종료'
+          : e.actor === 'ADMIN'
+            ? '관리자가 실습 종료'
+            : lab.endReason === 'POD_LOST'
+              ? '실습 환경 오류로 실습 종료'
+              : lab.endReason === 'IDLE'
+                ? `${lab.completedAt ? '완료 뒤 ' : ''}입력이 없어 실습 종료`
+                : '실습 종료',
+      )
+    } else if (e.toStatus === 'FAILED') record('실습 환경을 만들지 못함')
+  })
+  // 상태 기록이 생기기 전(ADR 026, V13) 세션은 시작만 세션 시각으로
+  if (events.length === 0 && lab.createdAt)
+    records.push({ key: 'start', at: lab.createdAt, title: '실습 시작' })
+  if (lab.solutionViewedAt)
+    records.push({ key: 'solution', at: lab.solutionViewedAt, title: '해답 열람' })
+  if (lab.completedAt) records.push({ key: 'completed', at: lab.completedAt, title: '실습 완료' })
+  // labRecords는 최근 순이라 뒤집어 합친다. 같은 시각이면 넣은 순서를 지킨다
+  records.push(...labRecords(verifications, hints, redeploys).reverse())
+  return records.sort((a, b) => a.at.localeCompare(b.at))
 }

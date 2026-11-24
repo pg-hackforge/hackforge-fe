@@ -2,6 +2,7 @@ import { ws } from 'msw'
 
 import type {
   HintResponse,
+  LabEventResponse,
   LabSessionPageResponse,
   LabSessionResponse,
   LabStage,
@@ -430,11 +431,147 @@ export function myLabs(): LabSessionPageResponse {
     past(unfinished[0], 1, { endReason: 'IDLE', defenseAttempts: 3 }),
     past(completed[1], 2, {
       endReason: 'USER',
-      completedAt: ago(3 * day - 20 * 60_000),
-      solutionViewedAt: ago(3 * day - 25 * 60_000),
+      completedAt: ago(3 * day - 32 * 60_000),
+      solutionViewedAt: ago(3 * day - 27 * 60_000),
       defenseAttempts: 6,
     }),
     past(unfinished[1], 3, { endReason: 'ADMIN', stage: 'ATTACK' }),
+    past(unfinished[2] ?? unfinished[0], 4, {
+      status: 'FAILED',
+      endReason: null,
+      stage: 'ATTACK',
+      readyAt: null,
+      endedAt: ago(5 * day - 4 * 60_000),
+    }),
   ]
   return { items, page: 1, size: 20, totalItems: items.length, totalPages: 1 }
+}
+
+/** 세션 하나의 상태 기록. 종료 주체는 종료 사유로 정한다 */
+export function eventsOf(lab: LabSessionResponse): LabEventResponse[] {
+  const start = Date.parse(lab.createdAt)
+  const at = (seconds: number) => new Date(start + seconds * 1000).toISOString()
+  const events: LabEventResponse[] = [
+    { fromStatus: null, toStatus: 'CREATING', actor: 'LEARNER', at: at(0) },
+    { fromStatus: 'CREATING', toStatus: 'INITIALIZING', actor: 'SYSTEM', at: at(10) },
+  ]
+  if (lab.status === 'FAILED')
+    return [
+      ...events,
+      { fromStatus: 'INITIALIZING', toStatus: 'TERMINATING', actor: 'SYSTEM', at: at(230) },
+      { fromStatus: 'TERMINATING', toStatus: 'FAILED', actor: 'SYSTEM', at: at(240) },
+    ]
+  if (lab.status === 'CREATING') return events.slice(0, 1)
+  if (lab.status === 'INITIALIZING') return events
+  events.push({ fromStatus: 'INITIALIZING', toStatus: 'READY', actor: 'SYSTEM', at: at(38) })
+  if (!lab.endedAt) return events
+  const end = Date.parse(lab.endedAt)
+  const actor =
+    lab.endReason === 'USER' ? 'LEARNER' : lab.endReason === 'ADMIN' ? 'ADMIN' : 'SYSTEM'
+  return [
+    ...events,
+    {
+      fromStatus: 'READY',
+      toStatus: 'TERMINATING',
+      actor,
+      at: new Date(end - 20_000).toISOString(),
+    },
+    { fromStatus: 'TERMINATING', toStatus: 'DELETED', actor: 'SYSTEM', at: lab.endedAt },
+  ]
+}
+
+/**
+ * 지난 세션 하나의 기록(내 실습 기록). `myLabs`의 지난 세션에 맞춰 공격 검증, 힌트, 재배포, 방어 검증을 만든다.
+ * 진행 중 세션은 시나리오 진행을 쓰므로 여기서 다루지 않는다
+ */
+export function pastRecord(id: number) {
+  const lab = myLabs().items.find((l) => l.id === id && l.id !== LAB_ID)
+  if (!lab) return undefined
+  const start = Date.parse(lab.createdAt)
+  const iso = (ms: number) => new Date(ms).toISOString()
+  const minute = 60_000
+  const verifications: VerificationResponse[] = []
+  const redeploys: RedeployResponse[] = []
+  const hints: HintResponse[] = []
+  const verify = (
+    type: VerificationResponse['type'],
+    startedAt: number,
+    status: 'PASS' | 'FAIL',
+    defense?: { secure: boolean },
+  ) => {
+    const ms = defense ? 6_200 : 3_400
+    verifications.push({
+      id: verifications.length + 1,
+      type,
+      status,
+      message: defense
+        ? status === 'PASS'
+          ? '공격이 모두 막히고 정상 기능이 동작해요'
+          : defense.secure
+            ? '정상 기능이 동작하지 않아요'
+            : '공격이 아직 통해요'
+        : status === 'PASS'
+          ? 'admin으로 로그인함'
+          : '관리자로 로그인하지 못했어요',
+      durationMs: ms,
+      securityPassed: defense ? defense.secure : null,
+      functionalPassed: defense ? status === 'PASS' || !defense.secure : null,
+      securityMessage: defense && !defense.secure ? '관리자 계정으로 로그인됨(mock)' : null,
+      functionalMessage:
+        defense && defense.secure && status === 'FAIL' ? 'guest 로그인이 실패했어요' : null,
+      defenseHintsRevealed: defense ? hints.filter((h) => h.stage === 'DEFENSE').length : null,
+      afterSolution: defense
+        ? !!lab.solutionViewedAt && Date.parse(lab.solutionViewedAt) < startedAt
+        : null,
+      startedAt: iso(startedAt),
+      finishedAt: iso(startedAt + ms),
+    })
+  }
+  if (lab.status !== 'FAILED') {
+    hints.push({
+      stage: 'ATTACK',
+      position: 1,
+      content: ATTACK_HINTS[0],
+      revealedAt: iso(start + 3 * minute),
+    })
+    verify('ATTACK', start + 4 * minute, 'FAIL')
+  }
+  if (lab.stage === 'DEFENSE') {
+    verify('ATTACK', start + 8 * minute, 'PASS')
+    const n = lab.defenseAttempts
+    // 마지막 방어 검증: 완료했으면 완료 시각에 끝나고, 아니면 종료 5분 전
+    const last = lab.completedAt
+      ? Date.parse(lab.completedAt) - 6_200
+      : Date.parse(lab.endedAt!) - 5 * minute
+    for (let i = 0; i < n; i++) {
+      const at = last - (n - 1 - i) * 4 * minute
+      if (i === 0)
+        hints.push({
+          stage: 'DEFENSE',
+          position: 1,
+          content: DEFENSE_HINTS[0],
+          revealedAt: iso(at - 2 * minute),
+        })
+      redeploys.push({
+        id: redeploys.length + 1,
+        kind: 'REDEPLOY',
+        status: 'SUCCESS',
+        message: '모든 서비스가 정상이에요',
+        log: null,
+        durationMs: 4_100,
+        startedAt: iso(at - minute),
+        finishedAt: iso(at - minute + 4_100),
+      })
+      const pass = !!lab.completedAt && i === n - 1
+      verify('DEFENSE', at, pass ? 'PASS' : 'FAIL', { secure: pass || i % 2 === 1 })
+    }
+  }
+  // 목록 API처럼 최근 순
+  return {
+    lab,
+    events: eventsOf(lab),
+    verifications: verifications.reverse(),
+    redeploys: redeploys.reverse(),
+    hints,
+  }
 }
