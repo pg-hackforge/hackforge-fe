@@ -5,10 +5,11 @@ import { RequireAdmin, RequireLoggedOut, RequireLogin } from '@/components/route
 import { LoginPage, SignupPage } from '@/pages/auth-pages'
 import { AccountPage } from '@/pages/account-page'
 import { AdminPage } from '@/pages/admin-page'
-import { IndexPage, RecordsPage } from '@/pages/placeholder-pages'
+import { IndexPage } from '@/pages/placeholder-pages'
 import { LabPage } from '@/pages/lab-page'
 import { ProblemPage } from '@/pages/problem-page'
 import { ProblemsPage } from '@/pages/problems-page'
+import { RecordPage, RecordsPage } from '@/pages/records-page'
 import { NotFoundPage } from '@/pages/status-pages'
 
 export const routes: RouteObject[] = [
@@ -29,6 +30,7 @@ export const routes: RouteObject[] = [
           { path: 'problems', element: <ProblemsPage /> },
           { path: 'problems/:id', element: <ProblemPage /> },
           { path: 'records', element: <RecordsPage /> },
+          { path: 'records/:id', element: <RecordPage /> },
           { path: 'account', element: <AccountPage /> },
           { element: <RequireAdmin />, children: [{ path: 'admin', element: <AdminPage /> }] },
         ],

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
 import {
+  recordSections,
   clampFontSize,
   endNotice,
   fileTree,
@@ -10,6 +11,7 @@ import {
   labRecords,
   labResult,
   labSummary,
+  sessionRecords,
   lineChanges,
   languageOf,
   readFontSize,
@@ -299,5 +301,145 @@ describe('실습 화면 로직', () => {
     expect(labSummary({ ...lab, status: 'FAILED', endReason: null }, now)).toBe(
       '실습 환경을 만들지 못했어요',
     )
+  })
+
+  it('세션 하나의 기록: 상태 변경과 검증·힌트·재배포·완료·해답을 오래된 순으로', () => {
+    const t = (m: number, s = 0) => new Date(Date.UTC(2026, 10, 24, 5, m, s)).toISOString()
+    const lab = { endReason: 'IDLE' as const, completedAt: t(30), solutionViewedAt: t(20) }
+    const events = [
+      { fromStatus: null, toStatus: 'CREATING' as const, actor: 'LEARNER' as const, at: t(0) },
+      {
+        fromStatus: 'CREATING' as const,
+        toStatus: 'INITIALIZING' as const,
+        actor: 'SYSTEM' as const,
+        at: t(0, 10),
+      },
+      {
+        fromStatus: 'INITIALIZING' as const,
+        toStatus: 'READY' as const,
+        actor: 'SYSTEM' as const,
+        at: t(0, 38),
+      },
+      {
+        fromStatus: 'READY' as const,
+        toStatus: 'CREATING' as const,
+        actor: 'LEARNER' as const,
+        at: t(10),
+      },
+      {
+        fromStatus: 'CREATING' as const,
+        toStatus: 'READY' as const,
+        actor: 'SYSTEM' as const,
+        at: t(10, 40),
+      },
+      {
+        fromStatus: 'READY' as const,
+        toStatus: 'TERMINATING' as const,
+        actor: 'SYSTEM' as const,
+        at: t(35),
+      },
+      {
+        fromStatus: 'TERMINATING' as const,
+        toStatus: 'DELETED' as const,
+        actor: 'SYSTEM' as const,
+        at: t(35, 20),
+      },
+    ]
+    const hints = [{ stage: 'ATTACK' as const, position: 1, content: '', revealedAt: t(2) }]
+    const records = sessionRecords(lab, events, [], hints, [])
+    expect(records.map((r) => r.title)).toEqual([
+      '실습 시작',
+      '실습 환경 준비 완료',
+      '공격 힌트 1 · 방향 열람',
+      '실습 환경 다시 만들기',
+      '실습 환경 준비 완료',
+      '해답 열람',
+      '실습 완료',
+      '완료 뒤 입력이 없어 실습 종료',
+    ])
+    expect(records[1].detail).toBe('38초')
+    expect(records[4].detail).toBe('40초')
+
+    const ended = (
+      actor: 'LEARNER' | 'ADMIN' | 'SYSTEM',
+      endReason: 'USER' | 'ADMIN' | 'IDLE' | 'POD_LOST',
+    ) =>
+      sessionRecords(
+        { endReason, completedAt: null, solutionViewedAt: null },
+        [{ fromStatus: 'READY', toStatus: 'TERMINATING', actor, at: t(5) }],
+        [],
+        [],
+        [],
+      )[0].title
+    expect(ended('LEARNER', 'USER')).toBe('실습 종료')
+    expect(ended('ADMIN', 'ADMIN')).toBe('관리자가 실습 종료')
+    expect(ended('SYSTEM', 'IDLE')).toBe('입력이 없어 실습 종료')
+    expect(ended('SYSTEM', 'POD_LOST')).toBe('실습 환경 오류로 실습 종료')
+
+    // 생성 실패: 정리 중 상태는 빼고 실패만
+    expect(
+      sessionRecords(
+        { endReason: null, completedAt: null, solutionViewedAt: null },
+        [
+          { fromStatus: null, toStatus: 'CREATING', actor: 'LEARNER', at: t(0) },
+          { fromStatus: 'INITIALIZING', toStatus: 'TERMINATING', actor: 'SYSTEM', at: t(4) },
+          { fromStatus: 'TERMINATING', toStatus: 'FAILED', actor: 'SYSTEM', at: t(4, 10) },
+        ],
+        [],
+        [],
+        [],
+      ).map((r) => r.title),
+    ).toEqual(['실습 시작', '실습 환경을 만들지 못함'])
+
+    // 준비 중에 직접 종료
+    expect(
+      sessionRecords(
+        { endReason: 'USER', completedAt: null, solutionViewedAt: null },
+        [
+          { fromStatus: null, toStatus: 'CREATING', actor: 'LEARNER', at: t(0) },
+          { fromStatus: 'INITIALIZING', toStatus: 'TERMINATING', actor: 'LEARNER', at: t(1) },
+        ],
+        [],
+        [],
+        [],
+      ).map((r) => r.title),
+    ).toEqual(['실습 시작', '준비 중에 실습 종료'])
+
+    // 상태 기록이 생기기 전(V13) 세션은 시작 시각으로 시작만
+    expect(
+      sessionRecords(
+        { endReason: 'IDLE', completedAt: null, solutionViewedAt: null, createdAt: t(0) },
+        [],
+        [],
+        hints,
+        [],
+      ).map((r) => r.title),
+    ).toEqual(['실습 시작', '공격 힌트 1 · 방향 열람'])
+  })
+
+  it('기록을 학습 단계로 나눔: 상태 변경은 앞 줄을 따르고, 건너뛴 공격은 빈 단계', () => {
+    const r = (title: string, stage?: 'ATTACK' | 'DEFENSE') => ({
+      key: title,
+      at: '',
+      title,
+      stage,
+    })
+    const shape = (skipped: boolean, ...records: ReturnType<typeof r>[]) =>
+      recordSections(records, skipped).map((s) => [
+        s.stage ?? '-',
+        s.skipped ? 'skipped' : s.records.map((x) => x.title).join(','),
+      ])
+    expect(
+      shape(false, r('시작'), r('준비'), r('공격', 'ATTACK'), r('방어', 'DEFENSE'), r('종료')),
+    ).toEqual([
+      ['-', '시작,준비'],
+      ['ATTACK', '공격'],
+      ['DEFENSE', '방어,종료'],
+    ])
+    expect(shape(true, r('시작'), r('방어 힌트', 'DEFENSE'))).toEqual([
+      ['-', '시작'],
+      ['ATTACK', 'skipped'],
+      ['DEFENSE', '방어 힌트'],
+    ])
   })
 })

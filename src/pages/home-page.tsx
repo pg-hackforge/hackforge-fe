@@ -16,8 +16,9 @@ import type {
 } from '@/api/generated/types.gen'
 import { isLive, useCurrentLab } from '@/api/labs'
 import { FormAlert } from '@/components/form'
+import { LabRow } from '@/components/lab/lab-row'
 import { buttonVariants } from '@/components/ui/button'
-import { clockTime, formatRemaining, labResult, labSummary } from '@/lib/lab'
+import { clockTime, formatRemaining } from '@/lib/lab'
 import { cn } from '@/lib/utils'
 import { Difficulty } from '@/pages/problems-page'
 
@@ -123,7 +124,7 @@ function MainHome({
             ) : (
               <ul>
                 {labs.data?.items.slice(0, PREVIEW + 2).map((lab) => (
-                  <RecentLab key={lab.id} lab={lab} />
+                  <LabRow key={lab.id} lab={lab} />
                 ))}
               </ul>
             )}
@@ -320,43 +321,6 @@ function Bar({ value, total, className }: { value: number; total: number; classN
         style={{ width: `${total ? (value / total) * 100 : 0}%` }}
       />
     </span>
-  )
-}
-
-/** 최근 기록 한 줄: 시작 시각, 문제, 결과. 누르면 그 세션의 기록 */
-function RecentLab({ lab }: { lab: LabSessionResponse }) {
-  const result = labResult(lab)
-  const date = new Date(lab.createdAt)
-  // 진행 중 세션의 "N분째"는 화면을 연 시각 기준이면 충분하다
-  const [now] = useState(Date.now)
-  return (
-    <li className="border-b last:border-b-0">
-      <Link
-        to={`/records/${lab.id}`}
-        className="-mx-2.5 grid grid-cols-[92px_1fr_auto] items-center gap-3 rounded-md px-2.5 py-3 hover:bg-muted/50"
-      >
-        <span className="font-mono text-[13px] text-muted-foreground tabular-nums">
-          {`${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`}{' '}
-          {clockTime(lab.createdAt)}
-        </span>
-        <span className="min-w-0">
-          <span className="block truncate text-sm font-semibold">{lab.challengeTitle}</span>
-          <span className="mt-0.5 block truncate text-[13px] text-muted-foreground">
-            {labSummary(lab, now)}
-          </span>
-        </span>
-        <span
-          className={cn(
-            'rounded-md px-2 py-0.5 text-xs font-medium',
-            result.tone === 'pass' && 'border border-pass text-pass',
-            result.tone === 'active' && 'bg-primary text-primary-foreground',
-            result.tone === 'muted' && 'border text-muted-foreground',
-          )}
-        >
-          {result.label}
-        </span>
-      </Link>
-    </li>
   )
 }
 

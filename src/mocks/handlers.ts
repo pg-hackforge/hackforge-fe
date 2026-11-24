@@ -19,7 +19,10 @@ import {
   DEFENSE_HINTS,
   jobRunning,
   labOf,
+  eventsOf,
+  LAB_ID,
   myLabs,
+  pastRecord,
   publicRedeploy,
   publicVerification,
   saveProgress,
@@ -343,9 +346,19 @@ export const handlers = [
   }),
 
   // 조회는 시나리오 상태로 응답한다. 없음(시작한 뒤)은 준비 완료
-  http.get('*/api/labs/:id', () => {
+  http.get('*/api/labs/:id', ({ params }) => {
     if (!currentUser()) return unauthenticated()
+    const past = pastOf(params)
+    if (past) return HttpResponse.json(past.lab)
+    if (past === null) return labNotFound()
     return HttpResponse.json(labOf(loadScenario().lab, settleProgress()))
+  }),
+  http.get('*/api/labs/:id/events', ({ params }) => {
+    if (!currentUser()) return unauthenticated()
+    const past = pastOf(params)
+    if (past) return HttpResponse.json(past.events)
+    if (past === null) return labNotFound()
+    return HttpResponse.json(eventsOf(labOf(loadScenario().lab, settleProgress())))
   }),
 
   http.delete('*/api/labs/:id', () => {
@@ -372,8 +385,10 @@ export const handlers = [
     if (jobRunning(progress)) return problem(409, 'LAB_JOB_RUNNING', '다른 작업이 실행 중이에요')
     return HttpResponse.json(startVerification(progress, 'ATTACK'), { status: 202 })
   }),
-  http.get('*/api/labs/:id/verifications', () => {
+  http.get('*/api/labs/:id/verifications', ({ params }) => {
     if (!currentUser()) return unauthenticated()
+    const past = pastOf(params)
+    if (past) return HttpResponse.json(past.verifications)
     return HttpResponse.json(settleProgress().verifications.map(publicVerification).reverse())
   }),
   http.get('*/api/labs/:id/verifications/:verificationId', ({ params }) => {
@@ -384,8 +399,10 @@ export const handlers = [
       : problem(404, 'VERIFICATION_NOT_FOUND', '검증을 찾을 수 없어요')
   }),
 
-  http.get('*/api/labs/:id/hints', () => {
+  http.get('*/api/labs/:id/hints', ({ params }) => {
     if (!currentUser()) return unauthenticated()
+    const past = pastOf(params)
+    if (past) return HttpResponse.json({ attackTotal: 3, defenseTotal: 3, hints: past.hints })
     return HttpResponse.json({ attackTotal: 3, defenseTotal: 3, hints: settleProgress().hints })
   }),
   http.post('*/api/labs/:id/attack-hints', () => {
@@ -449,8 +466,13 @@ export const handlers = [
     saveProgress(progress)
     return HttpResponse.json({ content: MOCK_SOLUTION, viewedAt: progress.solutionViewedAt })
   }),
-  http.get('*/api/labs/:id/solution', () => {
+  http.get('*/api/labs/:id/solution', ({ params }) => {
     if (!currentUser()) return unauthenticated()
+    const past = pastOf(params)
+    if (past)
+      return past.lab.solutionViewedAt
+        ? HttpResponse.json({ content: MOCK_SOLUTION, viewedAt: past.lab.solutionViewedAt })
+        : solutionLocked()
     const { solutionViewedAt } = settleProgress()
     return solutionViewedAt
       ? HttpResponse.json({ content: MOCK_SOLUTION, viewedAt: solutionViewedAt })
@@ -519,8 +541,10 @@ export const handlers = [
     if (jobRunning(progress)) return problem(409, 'LAB_JOB_RUNNING', '다른 작업이 실행 중이에요')
     return HttpResponse.json(startRedeploy(progress, 'REDEPLOY'), { status: 202 })
   }),
-  http.get('*/api/labs/:id/redeploys', () => {
+  http.get('*/api/labs/:id/redeploys', ({ params }) => {
     if (!currentUser()) return unauthenticated()
+    const past = pastOf(params)
+    if (past) return HttpResponse.json(past.redeploys)
     return HttpResponse.json(
       settleProgress()
         .redeploys.map((r) => publicRedeploy(r, false))
@@ -551,6 +575,15 @@ export const handlers = [
     return HttpResponse.json({ session: labOf(lab, progress), redeploy }, { status: 202 })
   }),
 ]
+
+/** 지난 세션이면 그 기록, 진행 중 세션(LAB_ID)이면 undefined, 내 세션이 아니면 null */
+function pastOf(params: Record<string, string | readonly string[] | undefined>) {
+  const id = Number(params.id)
+  if (id === LAB_ID) return undefined
+  return pastRecord(id) ?? null
+}
+
+const labNotFound = () => problem(404, 'LAB_NOT_FOUND', '실습 세션을 찾을 수 없어요')
 
 const solutionLocked = () =>
   problem(409, 'SOLUTION_LOCKED', '방어 검증을 더 시도하면 해답을 볼 수 있어요')
