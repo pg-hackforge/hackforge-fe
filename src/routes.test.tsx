@@ -40,9 +40,13 @@ describe('로그인함', () => {
   })
 
   it('관리자는 관리 메뉴가 있고 관리 화면에 들어감', async () => {
-    renderAt('/admin', 'admin')
+    const router = renderAt('/admin', 'admin')
     expect(within(await nav()).getByRole('link', { name: '관리자' })).toBeInTheDocument()
-    expect(await screen.findByRole('heading', { name: '회원 관리' })).toBeInTheDocument()
+    // 관리자 첫 화면은 실습 세션
+    expect(
+      await screen.findByRole('link', { name: '실습 세션', current: 'page' }),
+    ).toBeInTheDocument()
+    expect(router.state.location.pathname).toBe('/admin/labs')
   })
 
   it.each([

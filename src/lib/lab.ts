@@ -330,7 +330,7 @@ export function lineChanges(
   return { added, removed, lines }
 }
 
-const END_REASON_SHORT: Record<NonNullable<LabSessionResponse['endReason']>, string> = {
+export const END_REASON_SHORT: Record<NonNullable<LabSessionResponse['endReason']>, string> = {
   USER: '직접 종료',
   IDLE: '입력 없음',
   POD_LOST: '환경 오류',

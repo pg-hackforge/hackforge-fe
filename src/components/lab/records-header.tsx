@@ -1,33 +1,22 @@
 import { useQuery } from '@tanstack/react-query'
 import { ChevronRightIcon } from 'lucide-react'
-import { Link, NavLink } from 'react-router'
+import { Link } from 'react-router'
 
 import { getMyActivityOptions } from '@/api/generated/@tanstack/react-query.gen'
 import { ActivityGrid } from '@/components/lab/activity'
+import { PageHeader } from '@/components/page-header'
 import { categoryStats, formatMinutes, SIDE_LABEL, strengths, weaknesses } from '@/lib/analysis'
-import { cn } from '@/lib/utils'
 
 /** 내 기록 제목과 탭(실습 기록, 분석) */
 export function RecordsHeader() {
-  const tab = ({ isActive }: { isActive: boolean }) =>
-    cn(
-      '-mb-px border-b-2 px-1 pb-2.5 text-sm font-medium transition-colors',
-      isActive
-        ? 'border-primary text-foreground'
-        : 'border-transparent text-muted-foreground hover:text-foreground',
-    )
   return (
-    <header>
-      <h1 className="text-2xl font-semibold tracking-tight">내 기록</h1>
-      <nav aria-label="내 기록" className="mt-5 flex gap-6 border-b">
-        <NavLink to="/records" end className={tab}>
-          실습 기록
-        </NavLink>
-        <NavLink to="/records/analysis" className={tab}>
-          분석
-        </NavLink>
-      </nav>
-    </header>
+    <PageHeader
+      title="내 기록"
+      tabs={[
+        ['/records', '실습 기록', true],
+        ['/records/analysis', '분석'],
+      ]}
+    />
   )
 }
 
