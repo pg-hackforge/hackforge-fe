@@ -1,11 +1,11 @@
 import { Dialog as BaseDialog } from '@base-ui/react/dialog'
-import { LoaderCircleIcon, XIcon } from 'lucide-react'
+import { XIcon } from 'lucide-react'
 import { useState, type ReactNode } from 'react'
 
 import { ApiError } from '@/api/errors'
 import type { LabStage, RedeployResponse, ResetLabRequest } from '@/api/generated/types.gen'
 import { ActionButton, CancelButton, Dialog, DialogText } from '@/components/dialog'
-import { Verdict } from '@/components/lab/attack'
+import { Spinner, Verdict } from '@/components/lab/attack'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 
@@ -25,7 +25,7 @@ export function JobButton({
 }) {
   return (
     <Button variant="outline" size="sm" disabled={busy} onClick={onClick} className="gap-2">
-      {running && <LoaderCircleIcon className="size-4 animate-spin" aria-hidden />}
+      {running && <Spinner />}
       {children}
     </Button>
   )

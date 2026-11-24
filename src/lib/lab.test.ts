@@ -68,7 +68,8 @@ describe('실습 화면 로직', () => {
   it('힌트 이름: 공격 힌트는 순서마다 무엇을 알려 주는지', () => {
     expect(hintTitle('ATTACK', 1)).toBe('공격 힌트 1 · 방향')
     expect(hintTitle('ATTACK', 3)).toBe('공격 힌트 3 · 공격 방법')
-    expect(hintTitle('DEFENSE', 2)).toBe('방어 힌트 2')
+    expect(hintTitle('DEFENSE', 2)).toBe('방어 힌트 2 · 위치')
+    expect(hintTitle('DEFENSE', 3)).toBe('방어 힌트 3 · 고치는 방법')
   })
 
   it('기록은 검증과 힌트를 최근 순으로, 방어 검증은 번호', () => {
@@ -201,6 +202,33 @@ describe('실습 화면 로직', () => {
         { line: 1, kind: 'added' },
         { line: 2, kind: 'added' },
       ],
+    })
+  })
+
+  it('해답을 본 뒤의 방어 검증은 기록에 해답 확인 후', () => {
+    const records = labRecords(
+      [
+        {
+          id: 1,
+          type: 'DEFENSE',
+          status: 'PASS',
+          message: '공격이 모두 막히고 정상 기능이 동작해요',
+          durationMs: 2_000,
+          startedAt: '2026-11-24T05:00:00Z',
+          finishedAt: '2026-11-24T05:00:02Z',
+          securityPassed: true,
+          functionalPassed: true,
+          securityMessage: null,
+          functionalMessage: null,
+          defenseHintsRevealed: 1,
+          afterSolution: true,
+        },
+      ],
+      [],
+    )
+    expect(records[0]).toMatchObject({
+      title: '방어 검증 01',
+      detail: '해답 확인 후 · 공격이 모두 막히고 정상 기능이 동작해요 · 2.0초',
     })
   })
 })

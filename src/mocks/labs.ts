@@ -55,6 +55,16 @@ export function labOf(state: LabState, progress = progressOf(state)): LabSession
     status = since < RECREATE_MS / 2 ? 'CREATING' : 'INITIALIZING'
   const ready = status === 'READY'
   const deadline = state === 'idle-warning' ? 3 : 30
+  const defense = progress.verifications.filter((v) => v.type === 'DEFENSE')
+  const failed = defense.filter((v) => v.status === 'FAIL').length
+  // 완료 뒤 입력이 없으면 5분 뒤 종료, [계속하기]를 누르면 평소처럼 30분(ADR 025)
+  const completedAt = progress.completedAt ? Date.parse(progress.completedAt) : null
+  const idleDeadline =
+    completedAt && !progress.continued
+      ? new Date(completedAt + 5 * 60_000).toISOString()
+      : at(deadline)
+  const idleWarningAt =
+    completedAt && !progress.continued ? progress.completedAt! : at(deadline - 5)
   return {
     id: LAB_ID,
     challengeId: LAB_CHALLENGE.id,
@@ -67,11 +77,11 @@ export function labOf(state: LabState, progress = progressOf(state)): LabSession
     attackSkipped: progress.attackSkipped,
     attackHintsRevealed: progress.hints.filter((h) => h.stage === 'ATTACK').length,
     defenseHintsRevealed: progress.hints.filter((h) => h.stage === 'DEFENSE').length,
-    defenseAttempts: 0,
-    maxDefenseAttempts: 5,
-    solutionAvailable: false,
-    solutionViewedAt: null,
-    completedAt: null,
+    defenseAttempts: defense.filter((v) => v.status === 'PASS' || v.status === 'FAIL').length,
+    maxDefenseAttempts: MAX_DEFENSE_ATTEMPTS,
+    solutionAvailable: failed >= MAX_DEFENSE_ATTEMPTS,
+    solutionViewedAt: progress.solutionViewedAt ?? null,
+    completedAt: progress.completedAt ?? null,
     endReason:
       state === 'ended-admin'
         ? 'ADMIN'
@@ -81,8 +91,8 @@ export function labOf(state: LabState, progress = progressOf(state)): LabSession
     createdAt: at(-1),
     readyAt: ready ? at(-1) : null,
     endedAt: status === 'DELETED' ? at(0) : null,
-    idleDeadline: ready ? at(deadline) : null,
-    idleWarningAt: ready ? at(deadline - 5) : null,
+    idleDeadline: ready ? idleDeadline : null,
+    idleWarningAt: ready ? idleWarningAt : null,
   }
 }
 
@@ -98,7 +108,16 @@ export type MockProgress = {
   files: Record<string, string>
   /** 실습 환경 다시 만들기를 요청한 시각 */
   recreateAt?: number
+  /** 해답을 처음 연 시각 */
+  solutionViewedAt?: string
+  /** 첫 방어 검증 PASS 시각(실습 완료) */
+  completedAt?: string
+  /** 완료 뒤 [계속하기]를 눌러 30분 기준으로 돌아갔는지 */
+  continued?: boolean
 }
+
+/** mock 문제의 최대 방어 검증 시도 횟수. 해답까지 빨리 보려고 실제(5)보다 적게 둔다 */
+const MAX_DEFENSE_ATTEMPTS = 3
 
 const progressOf = (state: LabState, saved?: Partial<MockProgress>): MockProgress => ({
   stage: state === 'defense' ? 'DEFENSE' : 'ATTACK',
@@ -145,6 +164,10 @@ export function settleProgress(): MockProgress {
   }
   for (const v of progress.verifications) {
     if (v.status !== 'RUNNING' || v.doneAt > Date.now()) continue
+    if (v.type === 'DEFENSE') {
+      settleDefense(v, scenario.defense ?? 'PASS', progress)
+      continue
+    }
     Object.assign(v, {
       status: result,
       message: {
@@ -230,11 +253,67 @@ const BUILD_LOG_FAIL = `#1 [web internal] load build definition from Dockerfile
 failed to solve: process "/bin/sh -c php -l /var/www/html/index.php" did not complete successfully: exit code: 255
 `
 
-export function startAttackVerification(progress: MockProgress): VerificationResponse {
+/** 방어 검증 결과: 보안 테스트(공격이 막혔나)와 기능 테스트(정상 기능이 되나) */
+function settleDefense(
+  v: MockProgress['verifications'][number],
+  result: NonNullable<Scenario['defense']>,
+  progress: MockProgress,
+) {
+  const now = new Date().toISOString()
+  if (result === 'ERROR') {
+    Object.assign(v, { status: 'ERROR', message: '검증을 실행하지 못했어요', finishedAt: now })
+    return
+  }
+  const secure = result !== 'FAIL-security'
+  const working = result !== 'FAIL-functional'
+  Object.assign(v, {
+    status: secure && working ? 'PASS' : 'FAIL',
+    message:
+      secure && working
+        ? '공격이 모두 막히고 정상 기능이 동작해요'
+        : secure
+          ? '정상 기능이 동작하지 않아요'
+          : '공격이 아직 통해요',
+    securityPassed: secure,
+    functionalPassed: working,
+    securityMessage: secure ? null : '관리자 계정으로 로그인됨(mock)',
+    functionalMessage: working ? null : 'guest 로그인이 실패했어요',
+    durationMs: 6_200,
+    finishedAt: now,
+  })
+  if (secure && working && !progress.completedAt) progress.completedAt = now
+}
+
+export const DEFENSE_HINTS = [
+  '공격이 통한 까닭은 **입력이 쿼리 문장의 일부가 되기** 때문이에요.',
+  '`web/src/index.php`에서 사용자 입력이 쿼리에 들어가는 곳을 찾아봐요.',
+  '입력을 문장에 붙이지 말고 값으로만 넘기는 방식(prepared statement)으로 바꿔 봐요.',
+]
+
+/** mock 해답. 화면 확인용 일반 설명이고 실제 문제의 해답이 아니다 */
+export const MOCK_SOLUTION = `## 공격 방법
+
+mock 해답이에요. 화면 확인용 문구이고, 실제 문제의 해답은 문제 저장소에만 있어요.
+
+## 고치는 방법
+
+1. 취약한 코드가 있는 파일과 줄을 짚어요.
+2. 고친 코드를 보여 줘요.
+
+\`\`\`php
+// 고친 코드 예시(mock)
+\`\`\`
+`
+
+export function startVerification(
+  progress: MockProgress,
+  type: VerificationResponse['type'],
+): VerificationResponse {
   const now = Date.now()
+  const defense = type === 'DEFENSE'
   const verification = {
     id: progress.verifications.length + 1,
-    type: 'ATTACK' as const,
+    type,
     status: 'RUNNING' as const,
     message: null,
     durationMs: null,
@@ -242,8 +321,10 @@ export function startAttackVerification(progress: MockProgress): VerificationRes
     functionalPassed: null,
     securityMessage: null,
     functionalMessage: null,
-    defenseHintsRevealed: null,
-    afterSolution: null,
+    defenseHintsRevealed: defense
+      ? progress.hints.filter((h) => h.stage === 'DEFENSE').length
+      : null,
+    afterSolution: defense ? !!progress.solutionViewedAt : null,
     startedAt: new Date(now).toISOString(),
     finishedAt: null,
     doneAt: now + VERIFY_MS,

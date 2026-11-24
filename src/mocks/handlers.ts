@@ -16,13 +16,15 @@ import { challengeDetail, listChallenges, myProgress } from './challenges'
 import {
   ACTIVE_LABS,
   ATTACK_HINTS,
+  DEFENSE_HINTS,
   jobRunning,
   labOf,
   publicRedeploy,
   publicVerification,
   saveProgress,
   settleProgress,
-  startAttackVerification,
+  MOCK_SOLUTION,
+  startVerification,
   startRedeploy,
   terminalHandler,
 } from './labs'
@@ -355,6 +357,8 @@ export const handlers = [
     const { lab } = loadScenario()
     const state = lab === 'defense' ? lab : 'READY'
     saveScenario({ ...loadScenario(), lab: state })
+    const progress = settleProgress()
+    if (progress.completedAt) saveProgress({ ...progress, continued: true })
     return HttpResponse.json(labOf(state, settleProgress()))
   }),
 
@@ -363,7 +367,7 @@ export const handlers = [
     if (!currentUser()) return unauthenticated()
     const progress = settleProgress()
     if (jobRunning(progress)) return problem(409, 'LAB_JOB_RUNNING', '다른 작업이 실행 중이에요')
-    return HttpResponse.json(startAttackVerification(progress), { status: 202 })
+    return HttpResponse.json(startVerification(progress, 'ATTACK'), { status: 202 })
   }),
   http.get('*/api/labs/:id/verifications', () => {
     if (!currentUser()) return unauthenticated()
@@ -407,6 +411,47 @@ export const handlers = [
     progress.attackSkipped = true
     saveProgress(progress)
     return HttpResponse.json(labOf(loadScenario().lab, progress))
+  }),
+
+  // 방어 검증(ADR 025): 결과는 mock 패널 "방어 검증"에서 고른다. 첫 PASS가 실습 완료
+  http.post('*/api/labs/:id/defense-verifications', () => {
+    if (!currentUser()) return unauthenticated()
+    const progress = settleProgress()
+    if (progress.stage !== 'DEFENSE') return wrongStage()
+    if (jobRunning(progress)) return problem(409, 'LAB_JOB_RUNNING', '다른 작업이 실행 중이에요')
+    return HttpResponse.json(startVerification(progress, 'DEFENSE'), { status: 202 })
+  }),
+  http.post('*/api/labs/:id/defense-hints', () => {
+    if (!currentUser()) return unauthenticated()
+    const progress = settleProgress()
+    if (progress.stage !== 'DEFENSE') return wrongStage()
+    const position = progress.hints.filter((h) => h.stage === 'DEFENSE').length + 1
+    if (position > DEFENSE_HINTS.length)
+      return problem(409, 'NO_MORE_HINTS', '힌트를 모두 열었어요')
+    const hint = {
+      stage: 'DEFENSE' as const,
+      position,
+      content: DEFENSE_HINTS[position - 1],
+      revealedAt: new Date().toISOString(),
+    }
+    progress.hints.push(hint)
+    saveProgress(progress)
+    return HttpResponse.json(hint)
+  }),
+  http.post('*/api/labs/:id/solution', () => {
+    if (!currentUser()) return unauthenticated()
+    const progress = settleProgress()
+    if (!labOf(loadScenario().lab, progress).solutionAvailable) return solutionLocked()
+    progress.solutionViewedAt ??= new Date().toISOString()
+    saveProgress(progress)
+    return HttpResponse.json({ content: MOCK_SOLUTION, viewedAt: progress.solutionViewedAt })
+  }),
+  http.get('*/api/labs/:id/solution', () => {
+    if (!currentUser()) return unauthenticated()
+    const { solutionViewedAt } = settleProgress()
+    return solutionViewedAt
+      ? HttpResponse.json({ content: MOCK_SOLUTION, viewedAt: solutionViewedAt })
+      : solutionLocked()
   }),
 
   // 코드(ADR 024): 방어 단계에서만. 내용은 mock 진행에 경로별로 저장한다
@@ -503,6 +548,9 @@ export const handlers = [
     return HttpResponse.json({ session: labOf(lab, progress), redeploy }, { status: 202 })
   }),
 ]
+
+const solutionLocked = () =>
+  problem(409, 'SOLUTION_LOCKED', '방어 검증을 더 시도하면 해답을 볼 수 있어요')
 
 const wrongStage = () => problem(409, 'WRONG_LAB_STAGE', '방어 단계에서만 할 수 있어요')
 

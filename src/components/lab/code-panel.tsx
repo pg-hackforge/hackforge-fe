@@ -69,6 +69,7 @@ export function CodePanel({
   visible,
   lastRedeployAt,
   onFlush,
+  onSaved,
 }: {
   labId: number
   visible: boolean
@@ -76,6 +77,8 @@ export function CodePanel({
   lastRedeployAt?: string
   /** 저장 안 된 내용을 저장하는 함수를 부모에 알린다(재배포 전에 부름) */
   onFlush: (flush: () => Promise<void>) => void
+  /** 저장(되돌리기 포함)에 성공할 때마다. 재배포하지 않은 변경을 알리는 데 쓴다 */
+  onSaved: () => void
 }) {
   const queryClient = useQueryClient()
   const files = useQuery(listLabFilesOptions({ path: { id: labId } }))
@@ -145,6 +148,7 @@ export function CodePanel({
     [labId],
   )
 
+  const onSavedRef = useRef(onSaved)
   // 타이머와 정리 함수는 늘 최신 flush를 부른다
   const flushRef = useRef<(overwrite?: boolean) => Promise<void>>(async () => {})
   const fontSizeRef = useRef(fontSize)
@@ -172,6 +176,7 @@ export function CodePanel({
           doc.sha = saved.sha256
           doc.dirty = docRef.current === doc && editor.getValue() !== content
           queryClient.setQueryData(fileKey(doc.path), saved)
+          onSavedRef.current()
           // 다른 파일의 M(원본과 다름)은 목록이 알려 준다
           void queryClient.invalidateQueries({
             queryKey: listLabFilesQueryKey({ path: { id: labId } }),
@@ -198,6 +203,7 @@ export function CodePanel({
   useEffect(() => {
     flushRef.current = flush
     fontSizeRef.current = fontSize
+    onSavedRef.current = onSaved
     onFlush(() => flush())
   })
 
@@ -305,6 +311,7 @@ export function CodePanel({
       ).data
       queryClient.setQueryData(fileKey(data.path), data)
       load(data)
+      onSaved()
       void queryClient.invalidateQueries({
         queryKey: listLabFilesQueryKey({ path: { id: labId } }),
       })

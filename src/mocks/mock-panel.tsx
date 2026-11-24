@@ -6,6 +6,7 @@ import { useMe } from '@/api/me'
 import { LOCKED_EMAIL, LOCKING_PASSWORD, WRONG_PASSWORD } from './handlers'
 import {
   ACCOUNTS,
+  DEFENSE_RESULTS,
   LABS,
   loadScenario,
   REDEPLOY_RESULTS,
@@ -54,6 +55,12 @@ export function MockPanel() {
           value={scenario.verify ?? 'PASS'}
           options={VERIFY_RESULTS}
           onChange={(verify) => change({ ...scenario, verify })}
+        />
+        <Select
+          label="방어 검증"
+          value={scenario.defense ?? 'PASS'}
+          options={DEFENSE_RESULTS}
+          onChange={(defense) => change({ ...scenario, defense })}
         />
         <Select
           label="재배포"

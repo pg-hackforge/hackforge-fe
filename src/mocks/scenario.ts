@@ -32,6 +32,14 @@ export const VERIFY_RESULTS = {
   ERROR: 'ERROR(실행 못 함)',
 } as const
 
+/** 방어 검증을 요청하면 나올 결과 */
+export const DEFENSE_RESULTS = {
+  PASS: 'PASS(막힘, 정상)',
+  'FAIL-security': 'FAIL(공격이 통함)',
+  'FAIL-functional': 'FAIL(기능이 깨짐)',
+  ERROR: 'ERROR(실행 못 함)',
+} as const
+
 /** 재배포를 요청하면 나올 결과 */
 export const REDEPLOY_RESULTS = {
   SUCCESS: 'SUCCESS(정상)',
@@ -49,6 +57,7 @@ export type Scenario = {
   account: keyof typeof ACCOUNTS
   lab: keyof typeof LABS
   verify?: keyof typeof VERIFY_RESULTS
+  defense?: keyof typeof DEFENSE_RESULTS
   redeploy?: keyof typeof REDEPLOY_RESULTS
   save?: keyof typeof SAVE_RESULTS
   /** 실습 중 검증·힌트·건너뛰기로 쌓인 진행. 실습 시나리오를 바꾸면 지운다 */
