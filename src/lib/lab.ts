@@ -321,3 +321,45 @@ export function lineChanges(
   flush(start + m + 1)
   return { added, removed, lines }
 }
+
+const END_REASON_SHORT: Record<NonNullable<LabSessionResponse['endReason']>, string> = {
+  USER: '직접 종료',
+  IDLE: '입력 없음',
+  POD_LOST: '환경 오류',
+  ADMIN: '관리자 종료',
+}
+
+/** 세션 하나의 결과 한 줄(홈의 최근 기록, 내 실습 기록). 완료는 첫 방어 검증 PASS */
+export function labResult(
+  lab: Pick<LabSessionResponse, 'status' | 'endReason' | 'completedAt' | 'solutionViewedAt'>,
+): { label: string; tone: 'active' | 'pass' | 'muted' } {
+  if (lab.completedAt)
+    return { label: lab.solutionViewedAt ? '해답 확인 후 완료' : '완료', tone: 'pass' }
+  if (lab.status === 'FAILED') return { label: '생성 실패', tone: 'muted' }
+  if (!isEnded(lab.status) && !lab.endReason) return { label: '진행 중', tone: 'active' }
+  return {
+    label: lab.endReason ? `끝내지 못함 · ${END_REASON_SHORT[lab.endReason]}` : '끝내지 못함',
+    tone: 'muted',
+  }
+}
+
+/** 세션 하나의 진행 한 줄(최근 기록): 어디까지 했는지와 걸린 시간. 결과는 labResult가 따로 보여 준다 */
+export function labSummary(
+  lab: Pick<
+    LabSessionResponse,
+    'status' | 'endReason' | 'stage' | 'attackSkipped' | 'defenseAttempts' | 'createdAt' | 'endedAt'
+  >,
+  now: number,
+): string {
+  if (lab.status === 'FAILED') return '실습 환경을 만들지 못했어요'
+  const live = !isEnded(lab.status) && !lab.endReason
+  const parts = []
+  if (lab.attackSkipped) parts.push('공격 건너뜀')
+  if (lab.defenseAttempts > 0) parts.push(`방어 검증 ${lab.defenseAttempts}번`)
+  else if (!lab.attackSkipped) parts.push(lab.stage === 'ATTACK' ? '공격 단계' : '방어 단계')
+  const end = live || !lab.endedAt ? now : Date.parse(lab.endedAt)
+  const minutes = Math.max(1, Math.floor((end - Date.parse(lab.createdAt)) / 60_000))
+  const time = minutes < 60 ? `${minutes}분` : `${Math.floor(minutes / 60)}시간 ${minutes % 60}분`
+  parts.push(live ? `${time}째` : time)
+  return parts.join(' · ')
+}

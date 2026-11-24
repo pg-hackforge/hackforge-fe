@@ -2,6 +2,7 @@ import { Link } from 'react-router'
 
 import { useMe } from '@/api/me'
 import { buttonVariants } from '@/components/ui/button'
+import { HomePage } from '@/pages/home-page'
 
 /** 아직 만들지 않은 화면의 자리. 각 화면은 기능별 이슈에서 채운다 */
 function Placeholder({ title, note }: { title: string; note: string }) {
@@ -16,16 +17,7 @@ function Placeholder({ title, note }: { title: string; note: string }) {
 /** `/`: 로그인 전에는 소개 화면, 로그인 후에는 홈 */
 export function IndexPage() {
   const me = useMe()
-  return me.data ? <HomePage nickname={me.data.nickname} /> : <LandingPage />
-}
-
-function HomePage({ nickname }: { nickname: string }) {
-  return (
-    <Placeholder
-      title={`안녕하세요, ${nickname}님`}
-      note="홈 화면은 문제 목록 이슈에서 만들어요."
-    />
-  )
+  return me.data ? <HomePage me={me.data} /> : <LandingPage />
 }
 
 function LandingPage() {
