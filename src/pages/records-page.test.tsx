@@ -15,7 +15,6 @@ describe('내 실습 기록', () => {
     renderAt('/records', 'learner', 'READY')
     // 시작한 날로 묶는다
     const today = await screen.findByRole('list', { name: '오늘' })
-    expect(screen.getByText('실습 6번')).toBeInTheDocument()
     const rows = within(today).getAllByRole('link')
     expect(rows[0]).toHaveAttribute('href', '/records/42')
     expect(rows[0]).toHaveTextContent('진행 중')

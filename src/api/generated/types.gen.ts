@@ -184,6 +184,98 @@ export type MyProgressResponse = {
     categories: Array<CategoryProgressResponse>;
 };
 
+export type MyActivityResponse = {
+    /**
+     * 전체 문제 수(`GET /api/me/progress`와 같은 기준)
+     */
+    totalChallenges: number;
+    /**
+     * 분류 표시 순서. 문제가 없는 분류도 넣는다
+     */
+    categories: Array<CategoryTotalResponse>;
+    /**
+     * 내 세션 수(생성 실패 제외)
+     */
+    sessions: number;
+    /**
+     * 내 세션마다 시작부터 종료(진행 중이면 지금)까지 시간의 합(분, 버림)
+     */
+    totalMinutes: number;
+    /**
+     * 최근 365일(오늘 포함). 오래된 날부터, 0인 날도 넣는다
+     */
+    days: Array<ActivityDayResponse>;
+    /**
+     * 결과가 난 세션이 있는 문제마다 한 줄. 순서는 정하지 않는다
+     */
+    challenges: Array<ChallengeActivityResponse>;
+};
+
+export type CategoryTotalResponse = {
+    key: string;
+    name: string;
+    total: number;
+};
+
+export type ActivityDayResponse = {
+    /**
+     * 한국 시간(`Asia/Seoul`) 날짜
+     */
+    date: string;
+    /**
+     * 그날 시작한 내 세션 수(생성 실패 제외)
+     */
+    count: number;
+};
+
+/**
+ * 가장 좋은 세션의 결과. `COMPLETED` 해답 없이 완료, `COMPLETED_AFTER_SOLUTION` 해답을 연 뒤 완료, `UNFINISHED` 끝내지 못함
+ */
+export type ChallengeActivityResult = 'COMPLETED' | 'COMPLETED_AFTER_SOLUTION' | 'UNFINISHED';
+
+/**
+ * 시도한 문제 하나의 사실. 공격과 방어는 가장 좋은 세션 기준
+ */
+export type ChallengeActivityResponse = {
+    challengeId: number;
+    title: string;
+    category: ChallengeCategoryResponse;
+    difficulty: ChallengeDifficulty;
+    /**
+     * 이 문제의 결과가 난 내 세션 수
+     */
+    sessions: number;
+    result: ChallengeActivityResult;
+    attack: AttackActivityResponse;
+    defense: DefenseActivityResponse;
+};
+
+export type AttackActivityResponse = {
+    /**
+     * 공격 검증 PASS가 있음
+     */
+    passed: boolean;
+    /**
+     * 공격을 건너뜀
+     */
+    skipped: boolean;
+    /**
+     * 연 공격 힌트 수(0~3)
+     */
+    hints: number;
+};
+
+export type DefenseActivityResponse = {
+    /**
+     * 판정이 난(PASS, FAIL) 방어 검증 수. 완료한 세션은 완료까지만 센다
+     */
+    attempts: number;
+    /**
+     * 연 방어 힌트 수(0~3)
+     */
+    hints: number;
+};
+
 export type CategoryProgressResponse = {
     key: string;
     name: string;
@@ -699,6 +791,31 @@ export type GetMyProgressResponses = {
 };
 
 export type GetMyProgressResponse = GetMyProgressResponses[keyof GetMyProgressResponses];
+
+export type GetMyActivityData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/me/activity';
+};
+
+export type GetMyActivityErrors = {
+    /**
+     * 로그인하지 않음(`UNAUTHENTICATED`)
+     */
+    401: Problem;
+};
+
+export type GetMyActivityError = GetMyActivityErrors[keyof GetMyActivityErrors];
+
+export type GetMyActivityResponses = {
+    /**
+     * 내 분석
+     */
+    200: MyActivityResponse;
+};
+
+export type GetMyActivityResponse = GetMyActivityResponses[keyof GetMyActivityResponses];
 
 export type ChangeMyPasswordData = {
     body: ChangePasswordRequest;

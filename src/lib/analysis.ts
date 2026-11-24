@@ -1,28 +1,12 @@
-import type { ChallengeDifficulty } from '@/api/generated/types.gen'
+import type {
+  ChallengeActivityResponse,
+  ChallengeDifficulty,
+  MyActivityResponse,
+} from '@/api/generated/types.gen'
 
-// 시안: 백엔드 `GET /api/me/activity`(ADR 030 예정)가 생기면 생성 타입으로 바꾼다
-
-/** 시도한 문제 하나의 사실. 세션이 여럿이면 가장 좋은 세션(해답 없이 완료 > 해답 확인 후 완료 > 끝내지 못함) 기준 */
-export type ChallengeFact = {
-  challengeId: number
-  title: string
-  category: { key: string; name: string }
-  difficulty: ChallengeDifficulty
-  sessions: number
-  result: 'COMPLETED' | 'COMPLETED_AFTER_SOLUTION' | 'UNFINISHED'
-  attack: { passed: boolean; skipped: boolean; hints: number }
-  defense: { attempts: number; hints: number }
-}
-
-export type MyActivity = {
-  totalChallenges: number
-  categories: { key: string; name: string; total: number }[]
-  sessions: number
-  totalMinutes: number
-  /** 최근 365일, 오래된 날부터. 날짜는 YYYY-MM-DD(한국 시간) */
-  days: { date: string; count: number }[]
-  challenges: ChallengeFact[]
-}
+/** 시도한 문제 하나의 사실(`GET /api/me/activity`, ADR 030). 가장 좋은 세션 기준 */
+export type ChallengeFact = ChallengeActivityResponse
+export type MyActivity = MyActivityResponse
 
 /** 어려운 문제를 더 친다(solved.ac 태그 레이팅처럼 난이도로 무게를 둔다) */
 const WEIGHT: Record<ChallengeDifficulty, number> = {

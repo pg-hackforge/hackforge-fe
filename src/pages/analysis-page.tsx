@@ -2,11 +2,12 @@ import { useQuery } from '@tanstack/react-query'
 import { ChevronRightIcon, CircleHelpIcon } from 'lucide-react'
 import { Link } from 'react-router'
 
-import { useMyActivity } from '@/api/activity'
+import { getMyActivityOptions } from '@/api/generated/@tanstack/react-query.gen'
 import { listChallengesOptions } from '@/api/generated/@tanstack/react-query.gen'
 import { FormAlert } from '@/components/form'
 import { ActivityGrid } from '@/components/lab/activity'
 import { RecordsHeader } from '@/components/lab/records-header'
+import { buttonVariants } from '@/components/ui/button'
 import {
   categoryStats,
   formatMinutes,
@@ -23,7 +24,7 @@ import { cn } from '@/lib/utils'
 
 /** `/records/analysis` 내 분석: 분류별 공격·방어, 강점과 보완점, 추천 문제, 최근 1년 활동 */
 export function AnalysisPage() {
-  const activity = useMyActivity()
+  const activity = useQuery(getMyActivityOptions())
   const data = activity.data
   const stats = data ? categoryStats(data) : []
   const tried = stats.filter((s) => s.tried > 0)
@@ -65,24 +66,39 @@ export function AnalysisPage() {
             />
           </dl>
 
-          <div className="mt-5 grid items-start gap-5 lg:grid-cols-[minmax(0,1fr)_360px]">
-            <CategoryChart stats={stats} />
-            <div className="grid gap-5">
-              <Findings
-                title="강점"
-                empty="아직 강점을 말하기엔 기록이 적어요."
-                findings={strengths(stats)}
-                tone="strong"
-              />
-              <Findings
-                title="보완할 점"
-                empty="뚜렷하게 약한 분류가 없어요."
-                findings={weak}
-                tone="weak"
-              />
-              {weak[0] && <NextProblem finding={weak[0]} />}
+          {data.challenges.length === 0 ? (
+            // 결과가 난 실습이 없으면 분류 막대가 모두 비어 뜻이 없다. 시작할 곳을 알려 준다
+            <div className="mt-5 rounded-xl border border-dashed px-5 py-10 text-center">
+              <p className="text-sm text-muted-foreground">
+                아직 분석할 실습이 없어요. 실습을 하나 끝내면 분류별 공격·방어를 보여 드려요.
+              </p>
+              <Link
+                to="/problems"
+                className={buttonVariants({ variant: 'outline', className: 'mt-4' })}
+              >
+                문제 보기
+              </Link>
             </div>
-          </div>
+          ) : (
+            <div className="mt-5 grid items-start gap-5 lg:grid-cols-[minmax(0,1fr)_360px]">
+              <CategoryChart stats={stats} />
+              <div className="grid gap-5">
+                <Findings
+                  title="강점"
+                  empty="아직 강점을 말하기엔 기록이 적어요."
+                  findings={strengths(stats)}
+                  tone="strong"
+                />
+                <Findings
+                  title="보완할 점"
+                  empty="뚜렷하게 약한 분류가 없어요."
+                  findings={weak}
+                  tone="weak"
+                />
+                {weak[0] && <NextProblem finding={weak[0]} />}
+              </div>
+            </div>
+          )}
 
           <section className="mt-5 rounded-xl border bg-card p-5">
             <h2 className="mb-3 text-sm font-semibold">최근 1년 활동</h2>

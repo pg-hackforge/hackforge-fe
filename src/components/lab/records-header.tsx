@@ -1,7 +1,8 @@
+import { useQuery } from '@tanstack/react-query'
 import { ChevronRightIcon } from 'lucide-react'
 import { Link, NavLink } from 'react-router'
 
-import { useMyActivity } from '@/api/activity'
+import { getMyActivityOptions } from '@/api/generated/@tanstack/react-query.gen'
 import { ActivityGrid } from '@/components/lab/activity'
 import { categoryStats, formatMinutes, SIDE_LABEL, strengths, weaknesses } from '@/lib/analysis'
 import { cn } from '@/lib/utils'
@@ -32,7 +33,7 @@ export function RecordsHeader() {
 
 /** 실습 기록 탭 오른쪽: 숫자 요약과 최근 18주 활동, 분석의 핵심 한 줄 */
 export function SummaryPanel() {
-  const activity = useMyActivity().data
+  const activity = useQuery(getMyActivityOptions()).data
   if (!activity) return <aside className="hidden lg:block" />
   const completed = activity.challenges.filter((c) => c.result !== 'UNFINISHED').length
   // 보완할 점이 있으면 그것, 없으면 강점

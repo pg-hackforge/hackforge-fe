@@ -315,7 +315,7 @@ export const handlers = [
   http.get('*/api/me/progress', () =>
     currentUser() ? HttpResponse.json(myProgress()) : unauthenticated(),
   ),
-  // 시안: 백엔드 API(ADR 030 예정) 전 내 분석
+  // 내 분석(ADR 030). 문제와 분류가 많은 서비스를 가정한 mock
   http.get('*/api/me/activity', () =>
     currentUser() ? HttpResponse.json(myActivity()) : unauthenticated(),
   ),
