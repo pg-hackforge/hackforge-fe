@@ -1,9 +1,11 @@
-import type { RouteObject } from 'react-router'
+import { Navigate, type RouteObject } from 'react-router'
 
 import { AppLayout } from '@/components/app-layout'
 import { RequireAdmin, RequireLoggedOut, RequireLogin } from '@/components/route-guards'
 import { LoginPage, SignupPage } from '@/pages/auth-pages'
 import { AccountPage } from '@/pages/account-page'
+import { AdminLabPage } from '@/pages/admin-lab-page'
+import { AdminLabsPage } from '@/pages/admin-labs-page'
 import { AdminPage } from '@/pages/admin-page'
 import { IndexPage } from '@/pages/placeholder-pages'
 import { LabPage } from '@/pages/lab-page'
@@ -34,7 +36,15 @@ export const routes: RouteObject[] = [
           { path: 'records/analysis', element: <AnalysisPage /> },
           { path: 'records/:id', element: <RecordPage /> },
           { path: 'account', element: <AccountPage /> },
-          { element: <RequireAdmin />, children: [{ path: 'admin', element: <AdminPage /> }] },
+          {
+            element: <RequireAdmin />,
+            children: [
+              { path: 'admin', element: <Navigate to="/admin/labs" replace /> },
+              { path: 'admin/labs', element: <AdminLabsPage /> },
+              { path: 'admin/labs/:id', element: <AdminLabPage /> },
+              { path: 'admin/users', element: <AdminPage /> },
+            ],
+          },
         ],
       },
       { path: '*', element: <NotFoundPage /> },

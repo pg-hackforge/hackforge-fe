@@ -1,7 +1,7 @@
 import { Tabs } from '@base-ui/react/tabs'
 import { useMutation, useQueries, useQueryClient } from '@tanstack/react-query'
 import { CheckIcon, CopyIcon, KeyRoundIcon } from 'lucide-react'
-import { useState, type ComponentProps } from 'react'
+import { useState } from 'react'
 import { useSearchParams } from 'react-router'
 
 import { ApiError } from '@/api/errors'
@@ -14,10 +14,11 @@ import {
 } from '@/api/generated/sdk.gen'
 import type { AdminUserResponse, UserResponse } from '@/api/generated/types.gen'
 import { useMe } from '@/api/me'
+import { AdminHeader } from '@/components/admin/admin-header'
+import { SmallButton } from '@/components/admin/small-button'
 import { ActionButton, CancelButton, Dialog, DialogText } from '@/components/dialog'
 import { FormAlert } from '@/components/form'
 import { ROLE_LABEL, STATUS_LABEL } from '@/lib/account'
-import { cn } from '@/lib/utils'
 
 type Status = UserResponse['status']
 type Role = UserResponse['role']
@@ -49,7 +50,7 @@ function errorText(error: Error) {
   return error.message
 }
 
-/** `/admin` 회원 관리(DESIGN.md "계정 화면"). 본문 1240px 틀을 가운데에 두고 왼쪽 정렬 */
+/** `/admin/users` 회원 관리(DESIGN.md "계정 화면"). 본문 1240px 틀을 가운데에 두고 왼쪽 정렬 */
 export function AdminPage() {
   const me = useMe().data
   const queryClient = useQueryClient()
@@ -96,8 +97,8 @@ export function AdminPage() {
 
   return (
     <div className="mx-auto w-full max-w-332 px-4 pt-10 pb-14 sm:px-11">
-      <h1 className="text-2xl font-semibold tracking-tight">회원 관리</h1>
-      <p className="mt-1 text-sm text-muted-foreground">
+      <AdminHeader />
+      <p className="mt-4 text-sm text-muted-foreground">
         가입을 승인하고, 회원의 권한과 비밀번호를 관리해요.
       </p>
       {error && <FormAlert tone="error">{error}</FormAlert>}
@@ -300,25 +301,6 @@ function UserTable({
         </tbody>
       </table>
     </div>
-  )
-}
-
-/** 줄 오른쪽 끝의 작은 보조 버튼(30px). 승인만 초록 선과 글자 */
-function SmallButton({
-  approve,
-  className,
-  ...props
-}: ComponentProps<'button'> & { approve?: boolean }) {
-  return (
-    <button
-      type="button"
-      className={cn(
-        'ml-1.5 inline-flex h-7.5 items-center gap-1.25 rounded-lg border border-input bg-card px-2.75 text-[13px] font-medium outline-none hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring/50 disabled:opacity-45 disabled:hover:bg-card [&_svg]:size-3.5',
-        approve && 'border-pass/55 text-pass',
-        className,
-      )}
-      {...props}
-    />
   )
 }
 

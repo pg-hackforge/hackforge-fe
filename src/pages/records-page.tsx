@@ -1,6 +1,6 @@
 import { keepPreviousData, useQuery } from '@tanstack/react-query'
 import { ArrowLeftIcon, ChevronRightIcon } from 'lucide-react'
-import { useState } from 'react'
+import { useState, type ReactNode } from 'react'
 import { Link, useParams, useSearchParams } from 'react-router'
 
 import { ApiError } from '@/api/errors'
@@ -129,7 +129,10 @@ function byDay(labs: LabSessionResponse[]): [string, LabSessionResponse[]][] {
  * `/records/:id` 세션 하나의 기록: 시작부터 종료까지 상태 변경과 검증·힌트·재배포를 오래된 순으로,
  * 방어 검증은 펼쳐서 결과를 보고, 해답을 열었던 세션이면 그 해답을 다시 본다(ADR 026)
  */
-export function RecordPage() {
+/** 관리자가 다른 학습자의 세션을 볼 때 머리에 넣을 것 */
+export type AdminView = { learner: ReactNode; actions: ReactNode }
+
+export function RecordPage({ admin }: { admin?: AdminView } = {}) {
   const id = Number(useParams().id)
   const lab = useLab(id)
   const enabled = !!lab.data
@@ -151,10 +154,11 @@ export function RecordPage() {
   return (
     <div className="mx-auto w-full max-w-200 px-4 pt-8 pb-14 sm:px-6">
       <Link
-        to="/records"
+        to={admin ? '/admin/labs' : '/records'}
         className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"
       >
-        <ArrowLeftIcon className="size-4" aria-hidden />내 기록
+        <ArrowLeftIcon className="size-4" aria-hidden />
+        {admin ? '실습 세션' : '내 기록'}
       </Link>
       {failed && (
         <FormAlert tone="error">기록을 불러오지 못했어요. 잠시 뒤 다시 시도해 주세요.</FormAlert>
@@ -163,6 +167,7 @@ export function RecordPage() {
         <>
           <Header
             lab={l}
+            admin={admin}
             stats={
               loaded
                 ? {
@@ -191,18 +196,22 @@ export function RecordPage() {
             />
           )}
           {/* 해답은 이 세션에서 연 적이 있을 때만 다시 본다. 처음 여는 것은 실습 화면에서 */}
-          {l.solutionViewedAt && <SolutionSection lab={l} />}
+          {/* 관리자는 해답을 다시 보지 않는다(ADR 026) */}
+          {!admin && l.solutionViewedAt && <SolutionSection lab={l} />}
         </>
       )}
     </div>
   )
 }
 
+/** 세션 머리. 관리자가 보면(admin) 학습자 줄과 강제 종료가 [실습으로 돌아가기] 자리에 온다 */
 function Header({
   lab,
+  admin,
   stats,
 }: {
   lab: LabSessionResponse
+  admin?: AdminView
   stats?: { attack: number; defense: number; hints: number; redeploys: number }
 }) {
   const live = labResult(lab).tone === 'active'
@@ -230,9 +239,11 @@ function Header({
             {date} {clockTime(lab.createdAt)} 시작
             {lab.status === 'FAILED' && ' · 실습 환경을 만들지 못했어요'}
           </p>
+          {admin?.learner}
         </div>
         <div className="flex shrink-0 gap-2 sm:mt-1">
-          {live && (
+          {admin?.actions}
+          {!admin && live && (
             <Link to={`/labs/${lab.id}`} className={buttonVariants({ size: 'sm' })}>
               실습으로 돌아가기
             </Link>

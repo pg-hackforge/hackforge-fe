@@ -13,6 +13,7 @@ import type {
 } from '@/api/generated/types.gen'
 
 import { myActivity } from './activity'
+import { adminLab, adminLabs, terminateAdminLab } from './admin-labs'
 import { challengeDetail, listChallenges, myProgress } from './challenges'
 import {
   ACTIVE_LABS,
@@ -272,6 +273,17 @@ export const handlers = [
       return validationFailed([{ field: 'newPassword', message: PASSWORD_MESSAGE }])
     return new HttpResponse(null, { status: 204 })
   }),
+
+  // 관리자 세션 목록과 강제 종료(ADR 026)
+  http.get('*/api/admin/labs', ({ request }) =>
+    asAdmin(() => HttpResponse.json(adminLabs(new URL(request.url).searchParams))),
+  ),
+  http.post('*/api/admin/labs/:id/terminate', ({ params }) =>
+    asAdmin(() => {
+      const session = terminateAdminLab(Number(params.id))
+      return session ? HttpResponse.json(session, { status: 202 }) : labNotFound()
+    }),
+  ),
 
   http.get('*/api/admin/users', ({ request }) =>
     asAdmin(() => {
@@ -582,10 +594,12 @@ export const handlers = [
 ]
 
 /** 지난 세션이면 그 기록, 진행 중 세션(LAB_ID)이면 undefined, 내 세션이 아니면 null */
+/** 지난 세션(또는 관리자가 보는 다른 학습자의 세션)의 기록. 시나리오 세션이면 undefined, 없으면 null */
 function pastOf(params: Record<string, string | readonly string[] | undefined>) {
   const id = Number(params.id)
   if (id === LAB_ID) return undefined
-  return pastRecord(id) ?? null
+  const other = currentUser()?.role === 'ADMIN' ? adminLab(id)?.session : undefined
+  return pastRecord(id, other) ?? null
 }
 
 const labNotFound = () => problem(404, 'LAB_NOT_FOUND', '실습 세션을 찾을 수 없어요')

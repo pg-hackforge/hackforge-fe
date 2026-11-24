@@ -8,6 +8,7 @@ import { afterAll, afterEach, beforeAll, beforeEach } from 'vitest'
 import '@/api/query' // 앱과 같은 공통 처리(CSRF, 오류 변환)를 기본 client에 붙인다
 import { client } from '@/api/generated/client.gen'
 import { ThemeProvider } from '@/components/theme-provider'
+import { resetAdminLabs } from '@/mocks/admin-labs'
 import { allHandlers } from '@/mocks/handlers'
 import { saveScenario, type Scenario } from '@/mocks/scenario'
 import { routes } from '@/routes'
@@ -24,6 +25,7 @@ export function setupMockServer() {
   beforeEach(() => {
     client.setConfig({ baseUrl: 'http://localhost' }) // Node의 fetch는 상대 주소를 받지 않는다
     localStorage.clear()
+    resetAdminLabs() // 강제 종료한 mock 세션을 잊는다
     document.cookie = 'XSRF-TOKEN=mock; path=/'
   })
   return server

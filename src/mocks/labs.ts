@@ -484,8 +484,10 @@ export function eventsOf(lab: LabSessionResponse): LabEventResponse[] {
  * 지난 세션 하나의 기록(내 실습 기록). `myLabs`의 지난 세션에 맞춰 공격 검증, 힌트, 재배포, 방어 검증을 만든다.
  * 진행 중 세션은 시나리오 진행을 쓰므로 여기서 다루지 않는다
  */
-export function pastRecord(id: number) {
-  const lab = myLabs().items.find((l) => l.id === id && l.id !== LAB_ID)
+export function pastRecord(
+  id: number,
+  lab = myLabs().items.find((l) => l.id === id && l.id !== LAB_ID),
+) {
   if (!lab) return undefined
   const start = Date.parse(lab.createdAt)
   const iso = (ms: number) => new Date(ms).toISOString()
