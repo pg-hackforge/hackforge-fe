@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
 import {
+  recordSections,
   clampFontSize,
   endNotice,
   fileTree,
@@ -414,5 +415,31 @@ describe('실습 화면 로직', () => {
         [],
       ).map((r) => r.title),
     ).toEqual(['실습 시작', '공격 힌트 1 · 방향 열람'])
+  })
+
+  it('기록을 학습 단계로 나눔: 상태 변경은 앞 줄을 따르고, 건너뛴 공격은 빈 단계', () => {
+    const r = (title: string, stage?: 'ATTACK' | 'DEFENSE') => ({
+      key: title,
+      at: '',
+      title,
+      stage,
+    })
+    const shape = (skipped: boolean, ...records: ReturnType<typeof r>[]) =>
+      recordSections(records, skipped).map((s) => [
+        s.stage ?? '-',
+        s.skipped ? 'skipped' : s.records.map((x) => x.title).join(','),
+      ])
+    expect(
+      shape(false, r('시작'), r('준비'), r('공격', 'ATTACK'), r('방어', 'DEFENSE'), r('종료')),
+    ).toEqual([
+      ['-', '시작,준비'],
+      ['ATTACK', '공격'],
+      ['DEFENSE', '방어,종료'],
+    ])
+    expect(shape(true, r('시작'), r('방어 힌트', 'DEFENSE'))).toEqual([
+      ['-', '시작'],
+      ['ATTACK', 'skipped'],
+      ['DEFENSE', '방어 힌트'],
+    ])
   })
 })

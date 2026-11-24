@@ -5,8 +5,17 @@ import type { LabSessionResponse } from '@/api/generated/types.gen'
 import { clockTime, labResult, labSummary } from '@/lib/lab'
 import { cn } from '@/lib/utils'
 
-/** 세션 한 줄(홈의 최근 기록, 내 실습 기록): 시작 시각, 문제와 진행, 결과. 누르면 그 세션의 기록 */
-export function LabRow({ lab }: { lab: LabSessionResponse }) {
+/**
+ * 세션 한 줄(홈의 최근 기록, 내 실습 기록): 시작 시각, 문제와 진행, 결과. 누르면 그 세션의 기록.
+ * 날짜로 묶은 목록에서는 시각만(`time="clock"`)
+ */
+export function LabRow({
+  lab,
+  time = 'date',
+}: {
+  lab: LabSessionResponse
+  time?: 'date' | 'clock'
+}) {
   const date = new Date(lab.createdAt)
   // 진행 중 세션의 "N분째"는 화면을 연 시각 기준이면 충분하다
   const [now] = useState(Date.now)
@@ -14,10 +23,14 @@ export function LabRow({ lab }: { lab: LabSessionResponse }) {
     <li className="border-b last:border-b-0">
       <Link
         to={`/records/${lab.id}`}
-        className="-mx-2.5 grid grid-cols-[92px_1fr_auto] items-center gap-3 rounded-md px-2.5 py-3 hover:bg-muted/50"
+        className={cn(
+          '-mx-2.5 grid items-center gap-3 rounded-md px-2.5 py-3 hover:bg-muted/50',
+          time === 'date' ? 'grid-cols-[92px_1fr_auto]' : 'grid-cols-[44px_1fr_auto]',
+        )}
       >
         <span className="font-mono text-[13px] text-muted-foreground tabular-nums">
-          {`${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`}{' '}
+          {time === 'date' &&
+            `${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')} `}
           {clockTime(lab.createdAt)}
         </span>
         <span className="min-w-0">

@@ -1,7 +1,7 @@
 import { screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { http, HttpResponse } from 'msw'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, onTestFinished, vi } from 'vitest'
 
 import { renderAt, setupMockServer } from '@/test/app'
 
@@ -9,14 +9,19 @@ const server = setupMockServer()
 
 describe('내 실습 기록', () => {
   it('목록: 세션마다 진행과 결과, 누르면 그 세션의 기록', async () => {
+    // mock 진행 중 세션은 1분 전 시작이라 자정 직후면 어제로 묶인다. 시계만 낮으로 고정
+    vi.useFakeTimers({ toFake: ['Date'], now: new Date(2026, 10, 24, 12) })
+    onTestFinished(() => void vi.useRealTimers())
     renderAt('/records', 'learner', 'READY')
-    const list = await screen.findByRole('list', { name: '실습 기록' })
+    // 시작한 날로 묶는다
+    const today = await screen.findByRole('list', { name: '오늘' })
     expect(screen.getByText('실습 6번')).toBeInTheDocument()
-    const rows = within(list).getAllByRole('link')
+    const rows = within(today).getAllByRole('link')
     expect(rows[0]).toHaveAttribute('href', '/records/42')
     expect(rows[0]).toHaveTextContent('진행 중')
-    expect(within(list).getByText('해답 확인 후 완료')).toBeInTheDocument()
-    expect(within(list).getByText('실습 환경을 만들지 못했어요')).toBeInTheDocument()
+    expect(screen.getByRole('list', { name: '어제' })).toBeInTheDocument()
+    expect(screen.getByText('해답 확인 후 완료')).toBeInTheDocument()
+    expect(screen.getByText('실습 환경을 만들지 못했어요')).toBeInTheDocument()
   })
 
   it('기록이 없으면 문제 보기로 안내', async () => {
@@ -38,13 +43,15 @@ describe('내 실습 기록', () => {
     expect(screen.queryByRole('link', { name: '실습으로 돌아가기' })).not.toBeInTheDocument()
 
     const timeline = await screen.findByRole('list', { name: '이 실습의 기록' })
-    const titles = within(timeline)
-      .getAllByRole('listitem')
-      .map((item) => item.querySelector('.font-semibold')?.textContent)
+    const titles = [...timeline.querySelectorAll('[data-slot="record-title"]')].map(
+      (title) => title.textContent,
+    )
     expect(titles[0]).toBe('실습 시작')
     expect(titles.indexOf('해답 열람')).toBeLessThan(titles.indexOf('방어 검증 06'))
     expect(titles.at(-2)).toBe('실습 완료')
     expect(titles.at(-1)).toBe('실습 종료')
+    expect(within(timeline).getByRole('heading', { name: '방어 단계' })).toBeInTheDocument()
+    expect(screen.getByText('방어 검증').nextElementSibling).toHaveTextContent('6번')
 
     expect(screen.getAllByText('기존 공격 차단')[0]).not.toBeVisible()
     await user.click(screen.getByText('방어 검증 01'))

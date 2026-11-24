@@ -122,6 +122,10 @@ export type LabRecord = {
   title: string
   detail?: string
   status?: VerificationStatus
+  /** 어느 학습 단계의 일인지. 상태 변경(시작, 준비, 종료)은 없음 */
+  stage?: LabStage
+  /** 굵게 보일 이정표(시작, 완료, 종료) */
+  milestone?: boolean
 }
 
 /** 실습 화면 "기록": 검증과 힌트 열람을 최근 순으로. 방어 검증은 몇 번째인지 붙인다 */
@@ -149,6 +153,7 @@ export function labRecords(
               .filter(Boolean)
               .join(' · '),
       status: v.status,
+      stage: v.type,
     })),
     ...redeploys.map((r) => ({
       key: `r${r.id}`,
@@ -157,11 +162,13 @@ export function labRecords(
       detail: r.status === 'RUNNING' ? '진행 중' : withDuration(r.message, r.durationMs),
       // 성공은 판정 표시 없이 줄만, 실패만 눈에 띄게
       status: r.status === 'SUCCESS' ? undefined : r.status,
+      stage: 'DEFENSE' as const,
     })),
     ...hints.map((h) => ({
       key: `h${h.stage}${h.position}`,
       at: h.revealedAt,
       title: `${hintTitle(h.stage, h.position)} 열람`,
+      stage: h.stage,
     })),
   ]
   return records.sort((a, b) => b.at.localeCompare(a.at))
@@ -358,11 +365,20 @@ export function labSummary(
   if (lab.attackSkipped) parts.push('공격 건너뜀')
   if (lab.defenseAttempts > 0) parts.push(`방어 검증 ${lab.defenseAttempts}번`)
   else if (!lab.attackSkipped) parts.push(lab.stage === 'ATTACK' ? '공격 단계' : '방어 단계')
-  const end = live || !lab.endedAt ? now : Date.parse(lab.endedAt)
-  const minutes = Math.max(1, Math.floor((end - Date.parse(lab.createdAt)) / 60_000))
-  const time = minutes < 60 ? `${minutes}분` : `${Math.floor(minutes / 60)}시간 ${minutes % 60}분`
+  const time = labDuration(lab, now)
   parts.push(live ? `${time}째` : time)
   return parts.join(' · ')
+}
+
+/** 세션이 걸린 시간(분, 1시간 넘으면 시간과 분). 진행 중이면 지금까지 */
+export function labDuration(
+  lab: Pick<LabSessionResponse, 'status' | 'endReason' | 'createdAt' | 'endedAt'>,
+  now: number,
+): string {
+  const live = !isEnded(lab.status) && !lab.endReason
+  const end = live || !lab.endedAt ? now : Date.parse(lab.endedAt)
+  const minutes = Math.max(1, Math.floor((end - Date.parse(lab.createdAt)) / 60_000))
+  return minutes < 60 ? `${minutes}분` : `${Math.floor(minutes / 60)}시간 ${minutes % 60}분`
 }
 
 /**
@@ -381,7 +397,14 @@ export function sessionRecords(
   let preparing = ''
   events.forEach((e, i) => {
     const record = (title: string, detail?: string) =>
-      records.push({ key: `e${i}`, at: e.at, title, detail })
+      records.push({
+        // 생성 실패는 화면이 실패 색으로 보이도록 이름을 정해 둔다(세션마다 한 번)
+        key: e.toStatus === 'FAILED' ? 'failed' : `e${i}`,
+        at: e.at,
+        title,
+        detail,
+        milestone: e.fromStatus === null || e.toStatus === 'TERMINATING' || e.toStatus === 'FAILED',
+      })
     if (e.fromStatus === null) {
       preparing = e.at
       record('실습 시작')
@@ -416,11 +439,43 @@ export function sessionRecords(
   })
   // 상태 기록이 생기기 전(ADR 026, V13) 세션은 시작만 세션 시각으로
   if (events.length === 0 && lab.createdAt)
-    records.push({ key: 'start', at: lab.createdAt, title: '실습 시작' })
+    records.push({ key: 'start', at: lab.createdAt, title: '실습 시작', milestone: true })
   if (lab.solutionViewedAt)
-    records.push({ key: 'solution', at: lab.solutionViewedAt, title: '해답 열람' })
-  if (lab.completedAt) records.push({ key: 'completed', at: lab.completedAt, title: '실습 완료' })
+    records.push({
+      key: 'solution',
+      at: lab.solutionViewedAt,
+      title: '해답 열람',
+      stage: 'DEFENSE',
+    })
+  if (lab.completedAt)
+    records.push({
+      key: 'completed',
+      at: lab.completedAt,
+      title: '실습 완료',
+      stage: 'DEFENSE',
+      milestone: true,
+    })
   // labRecords는 최근 순이라 뒤집어 합친다. 같은 시각이면 넣은 순서를 지킨다
   records.push(...labRecords(verifications, hints, redeploys).reverse())
   return records.sort((a, b) => a.at.localeCompare(b.at))
+}
+
+export type RecordSection = { stage?: LabStage; skipped?: boolean; records: LabRecord[] }
+
+/**
+ * 세션 기록을 학습 단계로 나눈다. 단계가 없는 줄(상태 변경)은 앞 줄의 단계를 따르고,
+ * 처음 단계가 나오기 전 줄(시작, 준비)은 단계 없이 둔다. 공격을 건너뛰었으면 시각이 없어 빈 공격 단계로 표시한다
+ */
+export function recordSections(records: LabRecord[], attackSkipped: boolean): RecordSection[] {
+  const sections: RecordSection[] = []
+  for (const record of records) {
+    const current = sections.at(-1)
+    const stage = record.stage ?? current?.stage
+    if (!current || stage !== current.stage) {
+      if (stage === 'DEFENSE' && attackSkipped && !sections.some((s) => s.stage === 'ATTACK'))
+        sections.push({ stage: 'ATTACK', skipped: true, records: [] })
+      sections.push({ stage, records: [record] })
+    } else current.records.push(record)
+  }
+  return sections
 }
