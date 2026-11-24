@@ -3,6 +3,7 @@ import { CircleHelpIcon } from 'lucide-react'
 import { Link } from 'react-router'
 
 import { getMyActivityOptions } from '@/api/generated/@tanstack/react-query.gen'
+import { isLive, useCurrentLab } from '@/api/labs'
 import { useRecommendedProblem } from '@/api/recommend'
 import { FormAlert } from '@/components/form'
 import { ActivityGrid } from '@/components/lab/activity'
@@ -295,7 +296,12 @@ function Findings({
 }
 
 function NextProblem({ finding }: { finding: Finding }) {
-  const challenge = useRecommendedProblem(finding)
+  // 지금 진행 중인 실습의 문제는 추천하지 않는다
+  const current = useCurrentLab().data
+  const challenge = useRecommendedProblem(
+    finding,
+    isLive(current) ? current.challengeId : undefined,
+  )
   if (!challenge) return null
   return (
     <section className="rounded-xl border bg-card p-5">

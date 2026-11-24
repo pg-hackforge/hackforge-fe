@@ -25,7 +25,21 @@ describe('홈', () => {
       'href',
       '/problems?myStatus=UNFINISHED',
     )
-    expect(screen.getByText('/ 23 완료')).toBeInTheDocument()
+    // 내 진행: 진행한 분류만 많이 완료한 순, 안 해 본 분류는 한 줄로 그 분류들의 문제 목록에
+    const progress = (await screen.findByRole('heading', { name: '내 진행' })).closest('section')!
+    expect(await within(progress).findByText('/ 120 완료')).toBeInTheDocument()
+    expect(within(progress).getByRole('link', { name: '문제 보기' })).toHaveAttribute(
+      'href',
+      '/problems',
+    )
+    expect(within(progress).getAllByRole('link', { name: /\d+\/\d+$/ })[0]).toHaveAttribute(
+      'href',
+      '/problems?category=xss',
+    )
+    expect(within(progress).getByRole('link', { name: '안 해 본 분류 2개' })).toHaveAttribute(
+      'href',
+      '/problems?category=xxe&category=deserialization',
+    )
     // 진행 중인 문제는 끝내지 못한 문제 목록에 다시 나오지 않는다
     const pending = screen.getByRole('heading', { name: /끝내지 못한 문제/ }).closest('section')!
     expect(within(pending).queryByText('SQL Injection 로그인 우회')).not.toBeInTheDocument()
@@ -51,7 +65,7 @@ describe('홈', () => {
       http.get('*/api/me/activity', () => HttpResponse.json({ ...myActivity(), challenges: [] })),
     )
     renderAt('/', 'learner')
-    expect(await screen.findByText('/ 23 완료')).toBeInTheDocument()
+    expect(await screen.findByText('/ 120 완료')).toBeInTheDocument()
     expect(screen.queryByRole('heading', { name: '추천 문제' })).not.toBeInTheDocument()
   })
 
