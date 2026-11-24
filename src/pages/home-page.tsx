@@ -331,7 +331,7 @@ function RecentLab({ lab }: { lab: LabSessionResponse }) {
     <li className="border-b last:border-b-0">
       <Link
         to={`/records/${lab.id}`}
-        className="grid grid-cols-[92px_1fr_auto] items-center gap-3 py-3 hover:bg-muted/40"
+        className="-mx-2.5 grid grid-cols-[92px_1fr_auto] items-center gap-3 rounded-md px-2.5 py-3 hover:bg-muted/50"
       >
         <span className="font-mono text-[13px] text-muted-foreground tabular-nums">
           {`${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`}{' '}
