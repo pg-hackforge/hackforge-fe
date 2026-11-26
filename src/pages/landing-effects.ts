@@ -225,7 +225,7 @@ export function startLandingEffects(root: HTMLElement): () => void {
     passive: true,
   })
   cooling()
-  later(() => sparks(wrap, hot, 18, 0.75, [70, 120]), 580)
+  later(() => sparks(wrap, hot, 18, 0.5, [70, 120]), 580)
 
   const fx = q('.fx')!
   function burst(x: number, y: number, n = 22, len = 150) {
@@ -264,7 +264,7 @@ export function startLandingEffects(root: HTMLElement): () => void {
           const r = hot.getBoundingClientRect()
           burst(
             r.left + r.width * (0.3 + Math.random() * 0.4),
-            r.bottom - r.height * 0.25,
+            r.top + r.height * 0.5,
             10 + i * 6,
             80 + i * 30,
           )
