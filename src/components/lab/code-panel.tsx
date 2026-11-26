@@ -34,6 +34,7 @@ import {
   readFontSize,
 } from '@/lib/lab'
 import { cn } from '@/lib/utils'
+import { CODE_FONT, onCodeFontReady } from '@/lib/code-font'
 
 /** 편집기 글자 크기를 저장하는 곳(터미널과 따로) */
 const FONT_SIZE_KEY = 'hackforge.editor-font-size'
@@ -230,7 +231,7 @@ export function CodePanel({
     applyEditorTheme()
     const editor = monaco.editor.create(host.current!, {
       value: '',
-      fontFamily: "'JetBrains Mono', ui-monospace, monospace",
+      fontFamily: CODE_FONT,
       fontSize: fontSizeRef.current,
       lineHeight: 1.7,
       automaticLayout: true,
@@ -239,6 +240,7 @@ export function CodePanel({
       renderLineHighlight: 'all',
     })
     editorRef.current = editor
+    onCodeFontReady(() => monaco.editor.remeasureFonts())
     decorations.current = editor.createDecorationsCollection()
     const change = editor.onDidChangeModelContent(() => {
       clearTimeout(diffTimer.current)
