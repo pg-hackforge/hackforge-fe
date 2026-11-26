@@ -1857,7 +1857,20 @@
   margin-left: auto;
   background: transparent;
   color: var(--band-foreground);
-  border-color: color-mix(in srgb, var(--band-foreground) 22%, transparent);
+  border-color: var(--input);
+}
+/* 확정 시안(colors/final-dark-landing-01.html) 끝에 붙은 색 확정 규칙: 판정 배지는 PASS 초록 선, FAIL 빨강 채움 */
+.lp .big {
+  border-color: var(--pass);
+  color: var(--pass);
+}
+.lp .big.f {
+  background: var(--fail);
+  border-color: var(--fail);
+  color: var(--fail-foreground);
+}
+.lp .l > span:last-child {
+  padding-left: 14px;
 }
 .lp .end .btns {
   display: flex;
@@ -1899,6 +1912,10 @@
   }
 }
 @media (max-width: 640px) {
+  /* 시안은 body에 걸었던 규칙 */
+  .lp {
+    font-size: 14.5px;
+  }
   .lp .top {
     height: 56px;
     gap: 10px;

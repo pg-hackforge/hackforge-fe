@@ -801,8 +801,11 @@
   --sidebar-ring: #ff7a33;
 }
 
-/* 모드와 상관없는 색: 템퍼링 색(진행선·구분선, 위는 뜨겁고 아래로 갈수록 식음), 불티 그라데이션(로고·불티) */
-@theme {
+/*
+ * 모드와 상관없는 색: 템퍼링 색(진행선·구분선, 위는 뜨겁고 아래로 갈수록 식음), 불티 그라데이션(로고·불티).
+ * static: 소개 화면이 var(--color-temper-N)처럼 문자열로만 쓰는 값도 CSS에 남긴다(Tailwind는 안 쓰인 변수를 뺀다)
+ */
+@theme static {
   --color-temper-1: #f6ebb8;
   --color-temper-2: #e8c46a;
   --color-temper-3: #b5803a;

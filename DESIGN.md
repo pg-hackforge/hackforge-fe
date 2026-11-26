@@ -217,7 +217,7 @@ components:
 - 캡처: 첫 화면 `design/screens/landing-dark`(시안), 구간별 화면 `landing-desktop-dark`(1440px, 효과가 끝난 뒤 7장), 페이지 전체 `landing-mobile-dark`(390px)
 - 제품 화면은 실제 앱을 mock 모드 다크로 찍은 `landing-lab-*`(편집기, 공격 대상, 기록)를 쓴다. 지금 앱 화면과 같게 하려는 것이고, 실제 문제의 공격 문자열이나 고친 코드가 보여도 된다(2026-11-26 사람이 결정)
 - 소개 화면도 앱 결정을 따른다. 문구는 해요체와 화면 용어(ADR 019), 분류 타일은 실제 분류 목록(ADR 020, 테스트가 mock 분류 목록과 대조), 숫자와 기능 설명은 실제 동작과 같게 쓴다. 관련 결정이 바뀌면 소개 화면도 같이 고친다(2026-11-26 사람이 결정)
-- 코드: 시안의 CSS·스크립트를 `src/pages/landing.css`, `landing-effects.ts`로 옮겼다. 시안 class 중 Tailwind 유틸리티와 이름이 같은 것(outline, ring)은 Tailwind 스타일이 덧붙어 이름을 바꿨다. 새 class를 더할 때도 Tailwind 유틸리티 이름을 피한다
+- 코드: 시안의 CSS·스크립트를 `src/pages/landing.css`, `landing-effects.ts`로 옮겼다. 시안 class 중 Tailwind 유틸리티와 이름이 같은 것(outline, ring)은 Tailwind 스타일이 덧붙어 이름을 바꿨다. 새 class를 더할 때도 Tailwind 유틸리티 이름을 피한다. Tailwind는 class에서 안 쓰인 테마 변수를 CSS에서 빼므로, `var(--color-...)`처럼 문자열로만 쓰는 토큰은 `@theme static` 블록에 둔다(템퍼링 색)
 - 상단 줄은 앱 상단 줄 대신 소개 화면 것(로고, 구간 메뉴, 로그인, 가입 신청. 640px 이하는 메뉴 버튼). 맨 아래 줄에 개발자 이름과 연락처, HTML `meta author`(hackforge-docs ADR 016)
 - 본문 최대 폭 1160px(안쪽 1096px). 구간 사이 110px, 태블릿 84px, 휴대폰 64px. 구간 구분선은 앞뒤 구간과 같은 간격 가운데에 둔다
 - 1024px 이하: 상단 메뉴를 숨기고 여러 열을 세로로 쌓는다. 640px 이하: 버튼을 폭 가득, 양옆 여백 16px
