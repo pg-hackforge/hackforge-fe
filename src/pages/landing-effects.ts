@@ -399,12 +399,12 @@ export function startLandingEffects(root: HTMLElement): () => void {
   function card(pass: boolean, done?: () => void) {
     if (!vc) return
     vc.innerHTML =
-      `<div class="rh"><span class="big badge ${pass ? '' : 'f'}">${pass ? 'PASS' : 'FAIL'}</span><h4>방어 검증 ${pass ? '05' : '04'}</h4><small>${pass ? '남은 시도 3 / 5' : '남은 시도 4 / 5'}</small></div>` +
+      `<div class="rh"><span class="big badge ${pass ? '' : 'f'}">${pass ? 'PASS' : 'FAIL'}</span><h4>방어 검증 ${pass ? '05' : '04'}</h4><small>${pass ? '시도 5' : '시도 4'}</small></div>` +
       ROWS.map(([name, ok]) => {
         const o = pass || ok
         return `<div class="row ${o ? '' : 'no-row'}"><span>${name}</span><span class="st ${o ? 'ok' : 'no'}">${o ? CHECK : CROSS}${name.startsWith('정상') ? '정상' : o ? '막힘' : '아직 통함'}</span></div>`
       }).join('') +
-      '<p class="cap">공격만 막고 정상 기능을 깨뜨린 수정은 통과하지 못합니다.</p>' +
+      '<p class="cap">공격만 막고 정상 기능을 깨뜨린 수정은 통과하지 못해요.</p>' +
       (pass ? SEAL_SVG : '')
     const rows = [...vc.querySelectorAll('.row')]
     rows.forEach((r, i) => later(() => r.classList.add('in'), R ? 0 : 200 + i * 230))
@@ -598,7 +598,7 @@ export function startLandingEffects(root: HTMLElement): () => void {
         press()
         await wait(140)
         attackBlocked()
-        verdict('아이디 또는 비밀번호가 틀립니다 · 막힘', 'good')
+        verdict('로그인 실패 · 막힘', 'good')
         await wait(3200)
       }
     }

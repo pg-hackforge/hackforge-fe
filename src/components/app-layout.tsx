@@ -19,7 +19,7 @@ const MENU = [
 export function AppLayout() {
   const me = useMe()
   const { pathname } = useLocation()
-  // 로그인 전 소개 화면은 자기 상단 줄(구간 메뉴, 가입 신청)을 쓴다(DESIGN.md "소개 화면")
+  // 로그인 전 소개 화면은 자기 상단 줄(구간 메뉴, 회원가입)을 쓴다(DESIGN.md "소개 화면")
   const landing = me.data === null && pathname === '/'
 
   return (

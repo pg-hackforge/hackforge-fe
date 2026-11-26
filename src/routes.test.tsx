@@ -10,12 +10,12 @@ const server = setupMockServer()
 const nav = () => screen.findByRole('navigation', { name: '주 메뉴' })
 
 describe('로그인 안 됨', () => {
-  it('첫 화면은 소개 화면: 자기 상단 줄에 로그인·가입 신청, 주 메뉴는 없음', async () => {
+  it('첫 화면은 소개 화면: 자기 상단 줄에 로그인·회원가입, 주 메뉴는 없음', async () => {
     renderAt('/', 'logged-out')
     // 내 계정을 묻는 동안은 앱 상단 줄이라, 소개 화면이 뜬 뒤 상단 줄을 본다
     expect(await screen.findByRole('heading', { level: 1, name: /Strike hot/ })).toBeInTheDocument()
     const topBar = within(screen.getByRole('banner'))
-    expect(topBar.getByRole('link', { name: '가입 신청' })).toHaveAttribute('href', '/signup')
+    expect(topBar.getByRole('link', { name: '회원가입' })).toHaveAttribute('href', '/signup')
     // 휴대폰 폭의 메뉴 안에도 로그인이 있다
     expect(topBar.getAllByRole('link', { name: '로그인' })[0]).toHaveAttribute('href', '/login')
     expect(screen.queryByRole('navigation', { name: '주 메뉴' })).not.toBeInTheDocument()
@@ -95,7 +95,7 @@ describe('로그인함', () => {
     await userEvent.click(await screen.findByRole('menuitem', { name: '로그아웃' }))
     expect(await screen.findByRole('heading', { level: 1, name: /Strike hot/ })).toBeInTheDocument()
     expect(
-      within(screen.getByRole('banner')).getByRole('link', { name: '가입 신청' }),
+      within(screen.getByRole('banner')).getByRole('link', { name: '회원가입' }),
     ).toBeInTheDocument()
     expect(router.state.location.pathname).toBe('/')
   })

@@ -5,13 +5,16 @@ import { MenuIcon } from 'lucide-react'
 import { useEffect, useRef, type CSSProperties } from 'react'
 import { Link } from 'react-router'
 
-import labCode from '../../design/screens/lab-code-dark.webp'
-import labRecords from '../../design/screens/lab-records-dark.webp'
-import labTarget from '../../design/screens/lab-target-dark.webp'
+import labCode from '../../design/screens/landing-lab-code.webp'
+import labRecords from '../../design/screens/landing-lab-records.webp'
+import labTarget from '../../design/screens/landing-lab-target.webp'
 import { LogoMark } from '@/components/logo'
 import { startLandingEffects } from '@/pages/landing-effects'
 
-/** 제품 화면은 확정 캡처(design/screens)의 다크 화면(시안은 iframe) */
+/**
+ * 제품 화면은 실제 앱을 mock 모드 다크로 찍은 캡처(시안은 iframe). 실제 문제의 공격 문자열이나 고친 코드가
+ * 보이지 않게 mock의 가짜 코드와 빈 입력 칸으로 찍는다
+ */
 const SCREENS = {
   code: { src: labCode, alt: '방어 단계의 코드 편집기 화면' },
   target: { src: labTarget, alt: '공격 대상 화면' },
@@ -58,7 +61,7 @@ const STEPS = [
   {
     n: '01',
     title: '공격',
-    text: '취약한 웹 서비스가 브라우저 안에서 실행됩니다. 직접 요청을 보내고 터미널로 서버 안을 살피며 취약점을 찾습니다.',
+    text: '취약한 웹 서비스가 브라우저 안에서 실행돼요. 직접 요청을 보내고 터미널로 서버 안을 살피며 취약점을 찾아요.',
     points: ['웹 화면과 터미널을 함께 제공', '막히면 방향 → 위치 → 방법 순서의 힌트'],
     screen: 'target',
     caption: '공격 대상 화면',
@@ -66,16 +69,16 @@ const STEPS = [
   {
     n: '02',
     title: '방어',
-    text: '공격에 성공하면 코드가 열립니다. 웹 편집기에서 원인이 된 코드를 고치고 재배포하면 고친 서비스가 다시 뜹니다.',
+    text: '공격에 성공하면 코드가 열려요. 웹 편집기에서 원인이 된 코드를 고치고 재배포하면 고친 서비스가 다시 떠요.',
     points: ['편집 내용 자동 저장', '재배포, 언제든 처음 상태로 초기화'],
     screen: 'code',
-    caption: '웹 IDE',
+    caption: '코드 편집기',
   },
   {
     n: '03',
     title: '방어 검증',
-    text: '통했던 공격을 모두 다시 실행하고, 정상 기능이 그대로인지 함께 확인합니다. 둘 다 만족해야 통과입니다.',
-    points: ['무엇이 아직 통하는지 단계적으로 공개', '통과하면 기록에 각인'],
+    text: '통했던 공격을 모두 다시 실행하고, 정상 기능이 그대로인지 함께 확인해요. 둘 다 만족해야 통과예요.',
+    points: ['아직 통하는 공격과 깨진 기능을 결과로 확인', '통과하면 내 실습 기록에 남음'],
     screen: 'records',
     caption: '방어 검증 결과',
   },
@@ -103,7 +106,7 @@ const CATEGORIES: [string, string][] = [
   ['CSRF', '요청 위조'],
   ['XXE', 'XML 외부 개체'],
   ['역직렬화', '객체 주입'],
-  ['기타', '설정·정보 노출'],
+  ['정보 노출', '설정·오류 정보'],
 ]
 
 const delay = (s: number, i?: number) =>
@@ -166,7 +169,7 @@ export function LandingPage() {
             로그인
           </Link>
           <Link to="/signup" className="btn p">
-            가입 신청
+            회원가입
           </Link>
           <details className="menu">
             <summary aria-label="메뉴">
@@ -196,18 +199,18 @@ export function LandingPage() {
             </span>
           </h1>
           <p className="lead">
-            실제로 취약한 웹 서비스가 나만 쓰는 격리된 환경에서 실행됩니다. 공격에 성공하면 코드를
-            고치고, 같은 공격이 막혔는지 정상 기능은 그대로인지 자동으로 검증합니다.
+            실제로 취약한 웹 서비스가 나만 쓰는 격리된 환경에서 실행돼요. 공격에 성공하면 코드를
+            고치고, 같은 공격이 막혔는지 정상 기능은 그대로인지 자동으로 검증해요.
           </p>
           <div className="cta">
             <Link to="/signup" className="btn p lg">
-              가입 신청
+              회원가입
             </Link>
             <a className="btn lg" href="#how">
               실습 방식 보기
             </a>
           </div>
-          <small>가입 신청 뒤 관리자가 승인하면 바로 시작할 수 있습니다</small>
+          <small>회원가입 뒤 관리자가 승인하면 바로 시작할 수 있어요</small>
           <div className="shot">
             <Screen name="code" eager />
           </div>
@@ -218,8 +221,8 @@ export function LandingPage() {
       <section className="w sec" id="demo" aria-labelledby="demo-title">
         <div className="rv">
           <div className="k">미리 보기</div>
-          <h2 id="demo-title">공격이 통하면, 고쳐서 막습니다</h2>
-          <p className="d">실제 실습 흐름을 그대로 줄였습니다. 공격 문자열은 가려 두었습니다.</p>
+          <h2 id="demo-title">공격이 통하면, 고쳐서 막아요</h2>
+          <p className="d">실제 실습 흐름을 그대로 줄였어요. 공격 문자열은 가려 두었어요.</p>
         </div>
         <div className="re">
           <div className="win">
@@ -292,11 +295,11 @@ export function LandingPage() {
           <h2 id="how-title">
             한 문제를 공격부터 방어까지
             <br />
-            끝까지 따라갑니다
+            끝까지 따라가요
           </h2>
           <p className="d">
-            취약점을 설명으로만 배우지 않습니다. 같은 서비스를 먼저 공격하고, 그 공격을 막는 코드를
-            직접 씁니다.
+            취약점을 설명으로만 배우지 않아요. 같은 서비스를 먼저 공격하고, 그 공격을 막는 코드를
+            직접 써요.
           </p>
         </div>
         {/* 넓은 화면은 이 구간에서 화면을 고정하고, 스크롤에 따라 단계와 오른쪽 화면이 바뀐다 */}
@@ -343,12 +346,12 @@ export function LandingPage() {
             <h2 id="verify-title">
               통과 여부는 입력이 아니라
               <br />
-              결과로 판정합니다
+              결과로 판정해요
             </h2>
             <p className="d">
-              공격은 서비스에 남은 기록으로 확인합니다. 방어는 통했던 공격을 다시 실행하고, 정상
-              사용자의 동작까지 함께 테스트합니다. 공격만 막고 서비스를 망가뜨린 수정은 통과하지
-              못합니다.
+              공격은 서비스에 남은 기록으로 확인해요. 방어는 통했던 공격을 다시 실행하고, 정상
+              사용자의 동작까지 함께 테스트해요. 공격만 막고 서비스를 망가뜨린 수정은 통과하지
+              못해요.
             </p>
           </div>
           <div className="rv" style={delay(0.12)}>
@@ -356,7 +359,7 @@ export function LandingPage() {
               <div className="rh">
                 <span className="big badge f">FAIL</span>
                 <h4>방어 검증 04</h4>
-                <small>남은 시도 4 / 5</small>
+                <small>시도 4</small>
               </div>
               {VERDICT_ROWS.map(([name, ok]) => (
                 <div key={name} className={ok ? 'row' : 'row no-row'}>
@@ -367,7 +370,7 @@ export function LandingPage() {
                   </span>
                 </div>
               ))}
-              <p className="cap">공격만 막고 정상 기능을 깨뜨린 수정은 통과하지 못합니다.</p>
+              <p className="cap">공격만 막고 정상 기능을 깨뜨린 수정은 통과하지 못해요.</p>
             </div>
           </div>
         </div>
@@ -379,8 +382,8 @@ export function LandingPage() {
           <div className="k">실습 환경</div>
           <h2 id="env-title">마음껏 공격해도 되는 환경</h2>
           <p className="d">
-            실습을 시작하면 나만 쓰는 환경이 새로 만들어지고, 끝나면 지워집니다. 다른 사람의
-            실습이나 외부에는 영향을 주지 않습니다.
+            실습을 시작하면 나만 쓰는 환경이 새로 만들어지고, 끝나면 지워져요. 다른 사람의 실습이나
+            외부에는 영향을 주지 않아요.
           </p>
         </div>
         <div className="facts" id="facts">
@@ -395,7 +398,7 @@ export function LandingPage() {
             </div>
             <b>1인 1환경</b>
             <span>격리된 실습 환경</span>
-            <p>웹 서버와 DB가 다른 학습자와 분리되어 실행됩니다.</p>
+            <p>웹 서버와 DB가 다른 학습자와 분리되어 실행돼요.</p>
           </div>
           <div className="fact rv" style={delay(0.08)}>
             <div className="viz" aria-hidden>
@@ -406,7 +409,7 @@ export function LandingPage() {
             </div>
             <b>차단</b>
             <span>외부 인터넷</span>
-            <p>실습 환경에서 밖으로 나가는 연결은 모두 막혀 있습니다.</p>
+            <p>실습 환경에서 밖으로 나가는 연결은 모두 막혀 있어요.</p>
           </div>
           <div className="fact rv" style={delay(0.16)}>
             <div className="viz" aria-hidden>
@@ -423,7 +426,7 @@ export function LandingPage() {
               분
             </b>
             <span>환경 준비</span>
-            <p>문제를 고르면 1분 안팎으로 공격을 시작할 수 있습니다.</p>
+            <p>문제를 고르면 1분 안팎으로 공격을 시작할 수 있어요.</p>
           </div>
           <div className="fact rv" style={delay(0.24)}>
             <div className="viz" aria-hidden>
@@ -437,8 +440,8 @@ export function LandingPage() {
               </em>
               분
             </b>
-            <span>자동 정리</span>
-            <p>입력이 없으면 환경을 정리합니다. 검증 기록은 남습니다.</p>
+            <span>자동 종료</span>
+            <p>입력이 없으면 실습이 끝나고 환경이 지워져요. 검증 기록은 남아요.</p>
           </div>
         </div>
       </section>
@@ -451,11 +454,11 @@ export function LandingPage() {
               웹 서비스에서 실제로 나오는 취약점을 분류별로
             </h2>
             <p className="d">
-              문제마다 공격 힌트 3개, 방어 힌트 3개가 있고, 방어 검증 기회를 모두 쓰면 해답이
-              열립니다.
+              문제마다 공격 힌트 3개, 방어 힌트 3개가 있고, 방어 검증 기회를 모두 쓰면 해답을 열 수
+              있어요.
             </p>
           </div>
-          <ul className="cats" id="cats">
+          <ul className="cats" id="cats" aria-label="취약점 분류">
             {CATEGORIES.map(([name, note], i) => (
               <li
                 key={name}
@@ -468,7 +471,7 @@ export function LandingPage() {
             ))}
           </ul>
           <div className="more">
-            <span>문제는 계속 추가됩니다.</span>
+            <span>문제는 계속 추가돼요.</span>
             <Link to="/problems" className="btn">
               전체 문제 둘러보기
             </Link>
@@ -481,7 +484,7 @@ export function LandingPage() {
         <h2 id="end-title">입문 문제부터 시작해 보세요</h2>
         <div className="flow">
           <span>
-            <b>1</b>가입 신청
+            <b>1</b>회원가입
           </span>
           →
           <span>
@@ -494,7 +497,7 @@ export function LandingPage() {
         </div>
         <div className="btns">
           <Link to="/signup" className="btn p lg">
-            가입 신청
+            회원가입
           </Link>
           <Link to="/login" className="btn lg">
             로그인
@@ -511,7 +514,7 @@ export function LandingPage() {
         </span>
         <span>
           이 서비스의 실습 환경 밖에서 배운 기법을 쓰지 마세요. 허가받지 않은 시스템 공격은
-          불법입니다.
+          불법이에요.
         </span>
         <span className="credit">
           기획·개발<b>고성노</b> · <a href="mailto:rhtjdsh35@gmail.com">rhtjdsh35@gmail.com</a>

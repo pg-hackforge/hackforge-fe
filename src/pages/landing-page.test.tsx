@@ -1,28 +1,39 @@
 import { screen, within } from '@testing-library/react'
 import { describe, expect, it } from 'vitest'
 
+import { CATEGORIES } from '@/mocks/challenges'
 import { renderAt, setupMockServer } from '@/test/app'
 
 setupMockServer()
 
 describe('소개 화면', () => {
-  it('구간 순서대로 제목, 가입 신청과 로그인으로 가는 길', async () => {
+  it('구간 순서대로 제목, 회원가입과 로그인으로 가는 길', async () => {
     renderAt('/', 'logged-out')
     expect(await screen.findByRole('heading', { level: 1, name: /Strike hot/ })).toBeInTheDocument()
     expect(screen.getAllByRole('heading', { level: 2 }).map((h) => h.textContent)).toEqual([
-      '공격이 통하면, 고쳐서 막습니다',
-      '한 문제를 공격부터 방어까지끝까지 따라갑니다',
-      '통과 여부는 입력이 아니라결과로 판정합니다',
+      '공격이 통하면, 고쳐서 막아요',
+      '한 문제를 공격부터 방어까지끝까지 따라가요',
+      '통과 여부는 입력이 아니라결과로 판정해요',
       '마음껏 공격해도 되는 환경',
       '웹 서비스에서 실제로 나오는 취약점을 분류별로',
       '입문 문제부터 시작해 보세요',
     ])
-    for (const link of screen.getAllByRole('link', { name: '가입 신청' }))
+    for (const link of screen.getAllByRole('link', { name: '회원가입' }))
       expect(link).toHaveAttribute('href', '/signup')
     expect(screen.getByRole('link', { name: '실습 방식 보기' })).toHaveAttribute('href', '#how')
     expect(screen.getByRole('link', { name: '전체 문제 둘러보기' })).toHaveAttribute(
       'href',
       '/problems',
+    )
+  })
+
+  it('문제 분류 타일은 실제 분류 목록과 같은 이름, 같은 순서(백엔드 V8, ADR 020)', async () => {
+    renderAt('/', 'logged-out')
+    const tiles = within(await screen.findByRole('list', { name: '취약점 분류' })).getAllByRole(
+      'listitem',
+    )
+    expect(tiles.map((tile) => tile.querySelector('b')?.textContent)).toEqual(
+      CATEGORIES.map(([, name]) => name),
     )
   })
 

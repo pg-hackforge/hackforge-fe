@@ -214,7 +214,9 @@ components:
 - 구간 순서: 첫 화면, 미리 보기, 실습 방식, 검증, 실습 환경, 문제, 마무리, 쇳물 글자, 맨 아래 줄
 - 다크만 있다. 앱 테마와 상관없이 확정 시안(`.impeccable/mocks/decision/colors/final-dark-landing-01.html`)대로 다크로 보인다(2026-11-26 사람이 결정). 뿌리에 `dark` class를 붙여 앱 다크 토큰을 쓰고, 바탕은 면 색(`card`)이다
 - 글꼴: 영문은 Geist, 한글은 Pretendard(`font-display`). 2026-11-26 후보 6개(Pretendard, Inter + Noto Sans KR, Geist + Pretendard, SUIT, Wanted Sans, IBM Plex Sans KR)를 같은 구간에서 비교해 사람이 정했다
-- 캡처: 첫 화면 `design/screens/landing-dark`(시안), 구간별 화면 `landing-desktop-dark`(1440px, 효과가 끝난 뒤 7장), 페이지 전체 `landing-mobile-dark`(390px). 제품 화면은 확정 캡처 `lab-*-dark`를 쓴다
+- 캡처: 첫 화면 `design/screens/landing-dark`(시안), 구간별 화면 `landing-desktop-dark`(1440px, 효과가 끝난 뒤 7장), 페이지 전체 `landing-mobile-dark`(390px)
+- 제품 화면은 실제 앱을 mock 모드 다크로 찍은 `landing-lab-*`(편집기, 공격 대상, 기록)를 쓴다. 공개 화면이라 실제 문제의 공격 문자열, 고친 코드, 해답이 보이면 안 된다(확정 캡처 `lab-*`에는 보여서 쓰지 않는다)
+- 소개 화면도 앱 결정을 따른다. 문구는 해요체와 화면 용어(ADR 019), 분류 타일은 실제 분류 목록(ADR 020, 테스트가 mock 분류 목록과 대조), 숫자와 기능 설명은 실제 동작과 같게 쓴다. 관련 결정이 바뀌면 소개 화면도 같이 고친다(2026-11-26 사람이 결정)
 - 코드: 시안의 CSS·스크립트를 `src/pages/landing.css`, `landing-effects.ts`로 옮겼다. 시안 class 중 Tailwind 유틸리티와 이름이 같은 것(outline, ring)은 Tailwind 스타일이 덧붙어 이름을 바꿨다. 새 class를 더할 때도 Tailwind 유틸리티 이름을 피한다
 - 상단 줄은 앱 상단 줄 대신 소개 화면 것(로고, 구간 메뉴, 로그인, 가입 신청. 640px 이하는 메뉴 버튼). 맨 아래 줄에 개발자 이름과 연락처, HTML `meta author`(hackforge-docs ADR 016)
 - 본문 최대 폭 1160px(안쪽 1096px). 구간 사이 110px, 태블릿 84px, 휴대폰 64px. 구간 구분선은 앞뒤 구간과 같은 간격 가운데에 둔다
