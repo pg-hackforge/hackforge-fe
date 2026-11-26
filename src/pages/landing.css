@@ -77,10 +77,10 @@
 }
 .lp .hero h1 {
   font:
-    600 96px/1.02 Geist,
+    800 120px/1.02 Geist,
     Inter,
     sans-serif;
-  letter-spacing: -0.055em;
+  letter-spacing: -0.065em;
   margin: 22px 0 20px;
 }
 .lp .hero p.lead {
@@ -1539,7 +1539,7 @@
     padding-top: 56px;
   }
   .lp .hero h1 {
-    font-size: 72px;
+    font-size: 90px;
   }
   .lp .split {
     grid-template-columns: 1fr;
@@ -1570,7 +1570,7 @@
     padding-top: 40px;
   }
   .lp .hero h1 {
-    font-size: 52px;
+    font-size: 62px;
     margin: 18px 0 14px;
   }
   .lp .hero p.lead {

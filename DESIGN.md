@@ -167,7 +167,7 @@ components:
 줄바꿈은 낱말 단위다(`body`에 `word-break: keep-all`). 한글이 낱말 중간에서 끊기지 않게 한다.
 
 ### Hierarchy
-- **Display** (Geist 600, 96px → 태블릿 72px → 휴대폰 52px, 1.02): 소개 화면 헤드라인 "Strike Hot / Fix Cold"에만 쓴다.
+- **Display** (Geist 800, 120px → 태블릿 90px → 휴대폰 62px, 1.02, 자간 -0.065em. 2026-11-26 후보 5개를 같은 첫 화면에 입혀 비교해 정함): 소개 화면 헤드라인 "Strike Hot / Fix Cold"에만 쓴다.
 - **Headline** (700, 38px, 1.25): 소개 화면 구간 제목, 메인 페이지 제목(24px 600).
 - **Title** (600, 15~17px): 카드와 패널 제목.
 - **Body** (400, 14~15px, 1.6): 본문. 설명 문단은 560~640px 폭을 넘기지 않는다.
