@@ -61,7 +61,7 @@ const STEPS = [
   {
     n: '01',
     title: '공격',
-    text: '취약한 웹 서비스가 브라우저 안에서 실행돼요. 직접 요청을 보내고 터미널로 서버 안을 살피며 취약점을 찾아요.',
+    text: '직접 요청을 보내고 터미널로 서버 안을 살피며 취약점을 찾아요.',
     points: ['웹 화면과 터미널을 함께 제공', '막히면 방향 → 위치 → 방법 순서의 힌트'],
     screen: 'target',
     caption: '공격 대상 화면',
@@ -69,7 +69,7 @@ const STEPS = [
   {
     n: '02',
     title: '방어',
-    text: '공격에 성공하면 코드가 열려요. 웹 편집기에서 원인이 된 코드를 고치고 재배포하면 고친 서비스가 다시 떠요.',
+    text: '공격에 성공하면 코드가 열려요. 웹 편집기에서 원인이 된 코드를 고치고 재배포하면, 고친 코드로 서비스가 다시 실행돼요.',
     points: ['편집 내용 자동 저장', '재배포, 언제든 처음 상태로 초기화'],
     screen: 'code',
     caption: '코드 편집기',
@@ -199,8 +199,8 @@ export function LandingPage() {
             </span>
           </h1>
           <p className="lead">
-            실제로 취약한 웹 서비스가 나만 쓰는 격리된 환경에서 실행돼요. 공격에 성공하면 코드를
-            고치고, 같은 공격이 막혔는지 정상 기능은 그대로인지 자동으로 검증해요.
+            Hackforge는 웹 보안 실습 서비스예요. 취약한 웹 서비스를 직접 공격하고, 원인이 된 코드를
+            고쳐 막은 뒤, 정말 막혔는지 자동으로 검증받아요.
           </p>
           <div className="cta">
             <Link to="/signup" className="btn p lg">
@@ -222,7 +222,10 @@ export function LandingPage() {
         <div className="rv">
           <div className="k">미리 보기</div>
           <h2 id="demo-title">공격이 통하면, 고쳐서 막아요</h2>
-          <p className="d">실제 실습 흐름을 그대로 줄였어요. 공격 문자열은 가려 두었어요.</p>
+          <p className="d">
+            로그인 우회 공격이 통하면, 원인이 된 쿼리를 고쳐 재배포하고 같은 공격이 막히는지
+            확인해요.
+          </p>
         </div>
         <div className="re">
           <div className="win">
@@ -293,13 +296,12 @@ export function LandingPage() {
         <div className="w rv">
           <div className="k">실습 방식</div>
           <h2 id="how-title">
-            한 문제를 공격부터 방어까지
+            문제 하나를 공격부터
             <br />
-            끝까지 따라가요
+            방어 검증까지 이어서 풀어요
           </h2>
           <p className="d">
-            취약점을 설명으로만 배우지 않아요. 같은 서비스를 먼저 공격하고, 그 공격을 막는 코드를
-            직접 써요.
+            CTF와 워게임은 공격에 성공하면 끝나요. Hackforge에서는 그 공격을 막는 코드까지 고쳐요.
           </p>
         </div>
         {/* 넓은 화면은 이 구간에서 화면을 고정하고, 스크롤에 따라 단계와 오른쪽 화면이 바뀐다 */}
@@ -350,8 +352,7 @@ export function LandingPage() {
             </h2>
             <p className="d">
               공격은 서비스에 남은 기록으로 확인해요. 방어는 통했던 공격을 다시 실행하고, 정상
-              사용자의 동작까지 함께 테스트해요. 공격만 막고 서비스를 망가뜨린 수정은 통과하지
-              못해요.
+              사용자의 동작까지 함께 테스트해요.
             </p>
           </div>
           <div className="rv" style={delay(0.12)}>
@@ -441,7 +442,7 @@ export function LandingPage() {
               분
             </b>
             <span>자동 종료</span>
-            <p>입력이 없으면 실습이 끝나고 환경이 지워져요. 검증 기록은 남아요.</p>
+            <p>30분 동안 입력이 없으면 실습이 끝나고 환경이 지워져요. 검증 기록은 남아요.</p>
           </div>
         </div>
       </section>
@@ -451,11 +452,10 @@ export function LandingPage() {
           <div className="rv">
             <div className="k">문제</div>
             <h2 id="problems-title" className="h2d">
-              웹 서비스에서 실제로 나오는 취약점을 분류별로
+              웹 서비스에 흔한 취약점을 분류별로 연습해요
             </h2>
             <p className="d">
-              문제마다 공격 힌트 3개, 방어 힌트 3개가 있고, 방어 검증 기회를 모두 쓰면 해답을 열 수
-              있어요.
+              문제마다 공격·방어 힌트가 3개씩 있고, 방어 검증 기회를 다 쓰면 해답을 볼 수 있어요.
             </p>
           </div>
           <ul className="cats" id="cats" aria-label="취약점 분류">

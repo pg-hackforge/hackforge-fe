@@ -12,10 +12,10 @@ describe('소개 화면', () => {
     expect(await screen.findByRole('heading', { level: 1, name: /Strike Hot/ })).toBeInTheDocument()
     expect(screen.getAllByRole('heading', { level: 2 }).map((h) => h.textContent)).toEqual([
       '공격이 통하면, 고쳐서 막아요',
-      '한 문제를 공격부터 방어까지끝까지 따라가요',
+      '문제 하나를 공격부터방어 검증까지 이어서 풀어요',
       '통과 여부는 입력이 아니라결과로 판정해요',
       '마음껏 공격해도 되는 환경',
-      '웹 서비스에서 실제로 나오는 취약점을 분류별로',
+      '웹 서비스에 흔한 취약점을 분류별로 연습해요',
       '입문 문제부터 시작해 보세요',
     ])
     for (const link of screen.getAllByRole('link', { name: '회원가입' }))
