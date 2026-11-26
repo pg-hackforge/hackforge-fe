@@ -288,29 +288,6 @@
   letter-spacing: -0.04em;
   line-height: 1.2;
 }
-.lp .flow {
-  display: inline-flex;
-  gap: 10px;
-  align-items: center;
-  margin-top: 26px;
-  font-size: 14px;
-  color: var(--t2);
-}
-.lp .flow span {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  height: 34px;
-  padding: 0 14px;
-  border: 1px solid var(--hair);
-  border-radius: 999px;
-}
-.lp .flow span b {
-  font:
-    600 11px 'JetBrains Mono Variable',
-    monospace;
-  color: var(--t3);
-}
 .lp .smog {
   position: fixed;
   inset: 0;
@@ -1684,16 +1661,6 @@
   }
   .lp .end h2 {
     font-size: 30px;
-  }
-  .lp .flow {
-    flex-wrap: wrap;
-    justify-content: center;
-    gap: 6px;
-    font-size: 13px;
-  }
-  .lp .flow span {
-    height: 30px;
-    padding: 0 10px;
   }
   .lp .foot {
     flex-direction: column;

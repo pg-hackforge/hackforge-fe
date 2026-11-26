@@ -482,19 +482,6 @@ export function LandingPage() {
       <Divider from="temper-6" to="temper-7" />
       <section className="w end rv" aria-labelledby="end-title">
         <h2 id="end-title">입문 문제부터 시작해 보세요</h2>
-        <div className="flow">
-          <span>
-            <b>1</b>회원가입
-          </span>
-          →
-          <span>
-            <b>2</b>관리자 승인
-          </span>
-          →
-          <span>
-            <b>3</b>문제 골라 시작
-          </span>
-        </div>
         <div className="btns">
           <Link to="/signup" className="btn p lg">
             회원가입
