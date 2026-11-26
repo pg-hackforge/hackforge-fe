@@ -212,7 +212,8 @@ components:
 
 ### 소개 화면 (로그인 전, 반응형)
 - 구간 순서: 첫 화면, 미리 보기, 실습 방식, 검증, 실습 환경, 문제, 마무리, 쇳물 글자, 맨 아래 줄
-- 캡처: 첫 화면 `design/screens/landing-*`(시안), 페이지 전체 `landing-full-*`(1440px)와 `landing-mobile-*`(390px). 제품 화면은 확정 캡처 `lab-*`를 테마에 맞춰 쓴다
+- 캡처: 첫 화면 `design/screens/landing-*`(시안), 구간별 화면 `landing-desktop-*`(1440px, 효과가 끝난 뒤 7장), 페이지 전체 `landing-mobile-*`(390px). 제품 화면은 확정 캡처 `lab-*`를 테마에 맞춰 쓴다
+- 코드: 시안의 CSS·스크립트를 `src/pages/landing.css`, `landing-effects.ts`로 옮겼다. 시안 class 중 Tailwind 유틸리티와 이름이 같은 것(outline, ring)은 Tailwind 스타일이 덧붙어 이름을 바꿨다. 새 class를 더할 때도 Tailwind 유틸리티 이름을 피한다
 - 상단 줄은 앱 상단 줄 대신 소개 화면 것(로고, 구간 메뉴, 로그인, 가입 신청. 640px 이하는 메뉴 버튼). 맨 아래 줄에 개발자 이름과 연락처, HTML `meta author`(hackforge-docs ADR 016)
 - 본문 최대 폭 1160px(안쪽 1096px). 구간 사이 110px, 태블릿 84px, 휴대폰 64px. 구간 구분선은 앞뒤 구간과 같은 간격 가운데에 둔다
 - 1024px 이하: 상단 메뉴를 숨기고 여러 열을 세로로 쌓는다. 640px 이하: 버튼을 폭 가득, 양옆 여백 16px

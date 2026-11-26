@@ -2,6 +2,7 @@ import '@fontsource-variable/geist'
 import './landing.css'
 
 import { MenuIcon } from 'lucide-react'
+import { useEffect, useRef, type CSSProperties } from 'react'
 import { Link } from 'react-router'
 
 import labCodeDark from '../../design/screens/lab-code-dark.webp'
@@ -11,8 +12,9 @@ import labRecordsLight from '../../design/screens/lab-records-light.webp'
 import labTargetDark from '../../design/screens/lab-target-dark.webp'
 import labTargetLight from '../../design/screens/lab-target-light.webp'
 import { LogoMark } from '@/components/logo'
+import { startLandingEffects } from '@/pages/landing-effects'
 
-/** 제품 화면은 확정 캡처(design/screens)를 테마에 맞춰 보여 준다 */
+/** 제품 화면은 확정 캡처(design/screens)를 테마에 맞춰 보여 준다(시안은 iframe) */
 const SCREENS = {
   code: { light: labCodeLight, dark: labCodeDark, alt: '방어 단계의 코드 편집기 화면' },
   target: { light: labTargetLight, dark: labTargetDark, alt: '공격 대상 화면' },
@@ -49,7 +51,7 @@ const NAV: [string, string][] = [
   ['#problems', '문제'],
 ]
 
-/** 구간 구분선의 색. 위는 달궈진 밀짚색, 아래로 갈수록 식은 파랑·회색(템퍼링 색) */
+/** 구간 구분선. 위는 달궈진 밀짚색, 아래로 갈수록 식은 파랑·회색(템퍼링 색). 화면에 들어오면 그려짐 */
 function Divider({ from, to }: { from: string; to: string }) {
   return (
     <div className="w tdivw" aria-hidden>
@@ -88,6 +90,7 @@ const STEPS = [
   },
 ] as const
 
+/** 판정 카드의 처음 모습(FAIL). 효과가 돌면 한 줄씩 채워지고 다시 검증해 PASS가 된다 */
 const VERDICT_ROWS: [string, boolean][] = [
   ['기존 공격 1', true],
   ['기존 공격 2', true],
@@ -112,13 +115,47 @@ const CATEGORIES: [string, string][] = [
   ['기타', '설정·정보 노출'],
 ]
 
+const delay = (s: number, i?: number) =>
+  ({ transitionDelay: `${s}s`, ...(i !== undefined && { '--i': i }) }) as CSSProperties
+
 /**
  * `/` 로그인 전 소개 화면(hackforge-docs ADR 016, specs/landing). 구간 순서: 첫 화면, 미리 보기, 실습 방식, 검증,
- * 실습 환경, 문제, 마무리, 쇳물 글자, 맨 아래 줄. 반응형(1024px, 640px). 시연에 실제 공격 문자열은 쓰지 않는다
+ * 실습 환경, 문제, 마무리, 쇳물 글자, 맨 아래 줄. 반응형(1024px, 640px). 시연에 실제 공격 문자열은 쓰지 않는다.
+ * 효과는 시안 스크립트를 옮긴 startLandingEffects가 붙이고, 화면을 떠나면 모두 걷어 낸다
  */
 export function LandingPage() {
+  const root = useRef<HTMLDivElement>(null)
+  useEffect(() => startLandingEffects(root.current!), [])
+
   return (
-    <div className="lp">
+    <div className="lp" ref={root}>
+      <div className="smog s2" aria-hidden>
+        <svg preserveAspectRatio="none" viewBox="0 0 800 400">
+          <filter id="smk">
+            <feTurbulence type="fractalNoise" baseFrequency="0.006 0.012" numOctaves={4} seed={7}>
+              <animate
+                attributeName="baseFrequency"
+                dur="30s"
+                values="0.006 0.012;0.007 0.015;0.006 0.012"
+                repeatCount="indefinite"
+              />
+            </feTurbulence>
+            <feColorMatrix values="0 0 0 0 .78  0 0 0 0 .76  0 0 0 0 .74  0 0 0 1.4 -.55" />
+          </filter>
+          <rect width="800" height="400" filter="url(#smk)">
+            <animateTransform
+              attributeName="transform"
+              type="translate"
+              values="0 0;-30 -18;0 0"
+              dur="34s"
+              repeatCount="indefinite"
+            />
+          </rect>
+        </svg>
+      </div>
+      <div className="fx" aria-hidden />
+      <div className="progress" aria-hidden />
+
       <div className="topbar">
         <header className="w top">
           <Link to="/" aria-label="Hackforge 홈" className="flex items-center gap-2 font-semibold">
@@ -155,36 +192,43 @@ export function LandingPage() {
         </header>
       </div>
 
-      <section className="w hero" aria-labelledby="hero-title">
-        <h1 id="hero-title">
-          <span className="ln">
-            Strike <span className="hot">hot</span>
-          </span>
-          <span className="steel">Fix cold</span>
-        </h1>
-        <p className="lead">
-          실제로 취약한 웹 서비스가 나만 쓰는 격리된 환경에서 실행됩니다. 공격에 성공하면 코드를
-          고치고, 같은 공격이 막혔는지 정상 기능은 그대로인지 자동으로 검증합니다.
-        </p>
-        <div className="cta">
-          <Link to="/signup" className="btn p lg">
-            가입 신청
-          </Link>
-          <a className="btn lg" href="#how">
-            실습 방식 보기
-          </a>
-        </div>
-        <small>가입 신청 뒤 관리자가 승인하면 바로 시작할 수 있습니다</small>
-        <div className="shot">
-          <Screen name="code" eager />
-        </div>
-      </section>
+      <div className="hero-wrap">
+        <canvas className="embers" aria-hidden />
+        <section className="w hero" aria-labelledby="hero-title">
+          <h1 id="hero-title" className="shake">
+            <span className="ln l1">
+              Strike <span className="hot">hot</span>
+            </span>
+            <span className="mask">
+              <span className="steel">Fix cold</span>
+            </span>
+          </h1>
+          <p className="lead">
+            실제로 취약한 웹 서비스가 나만 쓰는 격리된 환경에서 실행됩니다. 공격에 성공하면 코드를
+            고치고, 같은 공격이 막혔는지 정상 기능은 그대로인지 자동으로 검증합니다.
+          </p>
+          <div className="cta">
+            <Link to="/signup" className="btn p lg">
+              가입 신청
+            </Link>
+            <a className="btn lg" href="#how">
+              실습 방식 보기
+            </a>
+          </div>
+          <small>가입 신청 뒤 관리자가 승인하면 바로 시작할 수 있습니다</small>
+          <div className="shot">
+            <Screen name="code" eager />
+          </div>
+        </section>
+      </div>
 
       <Divider from="temper-1" to="temper-2" />
       <section className="w sec" id="demo" aria-labelledby="demo-title">
-        <div className="k">미리 보기</div>
-        <h2 id="demo-title">공격이 통하면, 고쳐서 막습니다</h2>
-        <p className="d">실제 실습 흐름을 그대로 줄였습니다. 공격 문자열은 가려 두었습니다.</p>
+        <div className="rv">
+          <div className="k">미리 보기</div>
+          <h2 id="demo-title">공격이 통하면, 고쳐서 막습니다</h2>
+          <p className="d">실제 실습 흐름을 그대로 줄였습니다. 공격 문자열은 가려 두었습니다.</p>
+        </div>
         <div className="re">
           <div className="win">
             <div className="wb">
@@ -193,19 +237,18 @@ export function LandingPage() {
               <i />
               공격 대상 · 실습 환경의 웹 서비스
             </div>
-            <div className="app">
-              <div className="login">
+            <div className="app" id="reApp">
+              <div className="hotveil" />
+              <div className="steelsheen" />
+              <div className="login" id="reCard">
                 <h4>회원 로그인</h4>
-                <div className="in f" aria-label="가린 공격 입력">
-                  admin
-                  {Array.from({ length: 6 }, (_, i) => (
-                    <i key={i} className="redact" />
-                  ))}
-                </div>
+                <div className="in f" id="reU" aria-label="가린 공격 입력" />
                 <div className="in">••••</div>
-                <div className="go">로그인</div>
+                <div className="go" id="reGo">
+                  로그인
+                </div>
               </div>
-              <div className="verdict">관리자(admin)로 로그인됨 · 통함</div>
+              <div className="verdict" id="reV" />
             </div>
           </div>
           <div className="win">
@@ -215,24 +258,34 @@ export function LandingPage() {
               <i />
               index.php
             </div>
-            <div className="code">
+            <div className="code" id="reCode">
               <div className="l">
                 <span>12</span>
                 <span>$u = $_POST['username'];</span>
               </div>
-              <div className="l">
+              <div className="l" id="reDel">
                 <span>13</span>
                 <span>$sql = "SELECT ... WHERE user = '" . $u . "'";</span>
+              </div>
+              <div className="l add hide" id="reAdd1">
+                <span>13</span>
+                <span id="reT1" />
+              </div>
+              <div className="l add hide" id="reAdd2">
+                <span>14</span>
+                <span id="reT2" />
               </div>
               <div className="l">
                 <span>15</span>
                 <span>// 로그인 처리</span>
               </div>
             </div>
-            <div className="build" />
+            <div className="build">
+              <i id="reBuild" />
+            </div>
           </div>
         </div>
-        <div className="stage-tag">
+        <div className="stage-tag" id="reTags">
           <span className="on">공격</span>
           <span>방어 · 코드 수정</span>
           <span>재배포</span>
@@ -242,7 +295,7 @@ export function LandingPage() {
 
       <Divider from="temper-2" to="temper-3" />
       <section className="sec" id="how" aria-labelledby="how-title">
-        <div className="w">
+        <div className="w rv">
           <div className="k">실습 방식</div>
           <h2 id="how-title">
             한 문제를 공격부터 방어까지
@@ -253,10 +306,14 @@ export function LandingPage() {
             취약점을 설명으로만 배우지 않습니다. 같은 서비스를 먼저 공격하고, 그 공격을 막는 코드를
             직접 씁니다.
           </p>
-          <div className="story">
+        </div>
+        {/* 넓은 화면은 이 구간에서 화면을 고정하고, 스크롤에 따라 단계와 오른쪽 화면이 바뀐다 */}
+        <div className="story-track">
+          <div className="w story-sticky">
             <div>
               {STEPS.map((step, i) => (
                 <div key={step.n} className={i === 0 ? 'stp on' : 'stp'}>
+                  <i className="fill" />
                   <span className="n">{step.n}</span>
                   <h3>{step.title}</h3>
                   <p>{step.text}</p>
@@ -275,10 +332,12 @@ export function LandingPage() {
               ))}
             </div>
             <div className="story-frames">
-              <div className="frame">
-                <span className="fcap">{STEPS[0].caption}</span>
-                <Screen name={STEPS[0].screen} />
-              </div>
+              {STEPS.map((step, i) => (
+                <div key={step.n} className={i === 0 ? 'frame on' : 'frame'}>
+                  <span className="fcap">{step.caption}</span>
+                  <Screen name={step.screen} />
+                </div>
+              ))}
             </div>
           </div>
         </div>
@@ -287,7 +346,7 @@ export function LandingPage() {
       <Divider from="temper-3" to="temper-4" />
       <section className="w sec" id="verify" aria-labelledby="verify-title">
         <div className="split">
-          <div>
+          <div className="rv">
             <div className="k">검증</div>
             <h2 id="verify-title">
               통과 여부는 입력이 아니라
@@ -300,36 +359,40 @@ export function LandingPage() {
               못합니다.
             </p>
           </div>
-          <div className="card" aria-label="방어 검증 결과 예시">
-            <div className="rh">
-              <span className="big f">FAIL</span>
-              <h4>방어 검증 04</h4>
-              <small>남은 시도 4 / 5</small>
-            </div>
-            {VERDICT_ROWS.map(([name, ok]) => (
-              <div key={name} className="row">
-                <span>{name}</span>
-                <span className={ok ? 'st' : 'st no'}>
-                  {ok ? <Check /> : <Cross />}
-                  {name.startsWith('정상') ? '정상' : ok ? '막힘' : '아직 통함'}
-                </span>
+          <div className="rv" style={delay(0.12)}>
+            <div className="card vcard" id="vcard" aria-label="방어 검증 결과 예시">
+              <div className="rh">
+                <span className="big badge f">FAIL</span>
+                <h4>방어 검증 04</h4>
+                <small>남은 시도 4 / 5</small>
               </div>
-            ))}
-            <p className="cap">공격만 막고 정상 기능을 깨뜨린 수정은 통과하지 못합니다.</p>
+              {VERDICT_ROWS.map(([name, ok]) => (
+                <div key={name} className={ok ? 'row' : 'row no-row'}>
+                  <span>{name}</span>
+                  <span className={ok ? 'st ok' : 'st no'}>
+                    {ok ? <Check /> : <Cross />}
+                    {name.startsWith('정상') ? '정상' : ok ? '막힘' : '아직 통함'}
+                  </span>
+                </div>
+              ))}
+              <p className="cap">공격만 막고 정상 기능을 깨뜨린 수정은 통과하지 못합니다.</p>
+            </div>
           </div>
         </div>
       </section>
 
       <Divider from="temper-4" to="temper-5" />
       <section className="w sec" id="env" aria-labelledby="env-title">
-        <div className="k">실습 환경</div>
-        <h2 id="env-title">마음껏 공격해도 되는 환경</h2>
-        <p className="d">
-          실습을 시작하면 나만 쓰는 환경이 새로 만들어지고, 끝나면 지워집니다. 다른 사람의 실습이나
-          외부에는 영향을 주지 않습니다.
-        </p>
-        <div className="facts">
-          <div className="fact">
+        <div className="rv">
+          <div className="k">실습 환경</div>
+          <h2 id="env-title">마음껏 공격해도 되는 환경</h2>
+          <p className="d">
+            실습을 시작하면 나만 쓰는 환경이 새로 만들어지고, 끝나면 지워집니다. 다른 사람의
+            실습이나 외부에는 영향을 주지 않습니다.
+          </p>
+        </div>
+        <div className="facts" id="facts">
+          <div className="fact rv" style={delay(0)}>
             <div className="viz" aria-hidden>
               <div className="boxes">
                 <i />
@@ -339,36 +402,50 @@ export function LandingPage() {
               </div>
             </div>
             <b>1인 1환경</b>
-            <span className="t">격리된 실습 환경</span>
+            <span>격리된 실습 환경</span>
             <p>웹 서버와 DB가 다른 학습자와 분리되어 실행됩니다.</p>
           </div>
-          <div className="fact">
+          <div className="fact rv" style={delay(0.08)}>
             <div className="viz" aria-hidden>
               <div className="src" />
+              <i className="pkt" />
               <div className="wall" />
               <div className="net" />
             </div>
             <b>차단</b>
-            <span className="t">외부 인터넷</span>
+            <span>외부 인터넷</span>
             <p>실습 환경에서 밖으로 나가는 연결은 모두 막혀 있습니다.</p>
           </div>
-          <div className="fact">
+          <div className="fact rv" style={delay(0.16)}>
             <div className="viz" aria-hidden>
-              <svg className="ring" viewBox="0 0 44 44">
+              <svg className="gauge" viewBox="0 0 44 44">
                 <circle className="bg" cx="22" cy="22" r="20" />
                 <circle className="arc" cx="22" cy="22" r="20" />
               </svg>
             </div>
-            <b>약 1분</b>
-            <span className="t">환경 준비</span>
+            <b>
+              약{' '}
+              <em data-count="1" className="not-italic">
+                1
+              </em>
+              분
+            </b>
+            <span>환경 준비</span>
             <p>문제를 고르면 1분 안팎으로 공격을 시작할 수 있습니다.</p>
           </div>
-          <div className="fact">
+          <div className="fact rv" style={delay(0.24)}>
             <div className="viz" aria-hidden>
-              <span className="clock">30:00</span>
+              <span className="clock" data-clock>
+                30:00
+              </span>
             </div>
-            <b>30분</b>
-            <span className="t">자동 정리</span>
+            <b>
+              <em data-count="30" className="not-italic">
+                30
+              </em>
+              분
+            </b>
+            <span>자동 정리</span>
             <p>입력이 없으면 환경을 정리합니다. 검증 기록은 남습니다.</p>
           </div>
         </div>
@@ -376,17 +453,23 @@ export function LandingPage() {
 
       <section className="dark-band" id="problems" aria-labelledby="problems-title">
         <div className="w">
-          <div className="k">문제</div>
-          <h2 id="problems-title" className="h2d">
-            웹 서비스에서 실제로 나오는 취약점을 분류별로
-          </h2>
-          <p className="d">
-            문제마다 공격 힌트 3개, 방어 힌트 3개가 있고, 방어 검증 기회를 모두 쓰면 해답이
-            열립니다.
-          </p>
-          <ul className="cats">
-            {CATEGORIES.map(([name, note]) => (
-              <li key={name} className="ct">
+          <div className="rv">
+            <div className="k">문제</div>
+            <h2 id="problems-title" className="h2d">
+              웹 서비스에서 실제로 나오는 취약점을 분류별로
+            </h2>
+            <p className="d">
+              문제마다 공격 힌트 3개, 방어 힌트 3개가 있고, 방어 검증 기회를 모두 쓰면 해답이
+              열립니다.
+            </p>
+          </div>
+          <ul className="cats" id="cats">
+            {CATEGORIES.map(([name, note], i) => (
+              <li
+                key={name}
+                className="ct rv"
+                style={delay((i % 4) * 0.06, (i % 4) + Math.floor(i / 4))}
+              >
                 <b>{name}</b>
                 <span>{note}</span>
               </li>
@@ -402,27 +485,21 @@ export function LandingPage() {
       </section>
 
       <Divider from="temper-6" to="temper-7" />
-      <section className="w end" aria-labelledby="end-title">
+      <section className="w end rv" aria-labelledby="end-title">
         <h2 id="end-title">입문 문제부터 시작해 보세요</h2>
-        <ol className="flow">
-          <li>
-            <span>
-              <b>1</b>가입 신청
-            </span>
-          </li>
-          <li aria-hidden>→</li>
-          <li>
-            <span>
-              <b>2</b>관리자 승인
-            </span>
-          </li>
-          <li aria-hidden>→</li>
-          <li>
-            <span>
-              <b>3</b>문제 골라 시작
-            </span>
-          </li>
-        </ol>
+        <div className="flow">
+          <span>
+            <b>1</b>가입 신청
+          </span>
+          →
+          <span>
+            <b>2</b>관리자 승인
+          </span>
+          →
+          <span>
+            <b>3</b>문제 골라 시작
+          </span>
+        </div>
         <div className="btns">
           <Link to="/signup" className="btn p lg">
             가입 신청
@@ -452,12 +529,20 @@ export function LandingPage() {
   )
 }
 
-/** 쇳물 글자 HACKFORGE: 다 차오른 모습. 위는 밝은 쇳물, 아래로 갈수록 식은 붉은색 */
+/**
+ * 쇳물 글자 HACKFORGE. 효과가 돌면 글자 모양 안에서 쇳물 표면이 꿀렁이며 차오르고(wmBody, wmSkin),
+ * 효과가 없으면 다 차오른 모습으로 둔다
+ */
 function Wordmark() {
   return (
-    <section className="w wm" aria-label="Hackforge">
+    <section className="w wm" id="wm" aria-label="Hackforge">
       <svg viewBox="0 0 1200 210" aria-hidden>
         <defs>
+          <clipPath id="wmclip">
+            <text x="600" y="186" textAnchor="middle">
+              HACKFORGE
+            </text>
+          </clipPath>
           <linearGradient id="wmgrad" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="0" y2="210">
             <stop offset="0" stopColor="#FFE7A3" />
             <stop offset=".05" stopColor="#FFB547" />
@@ -465,21 +550,21 @@ function Wordmark() {
             <stop offset=".6" stopColor="#B8321E" />
             <stop offset="1" stopColor="#6A1A12" />
           </linearGradient>
-          {/* 쇳물 빛. 기본 필터 영역이면 빛이 글자 양 끝에서 잘려 세로 줄이 생겨 영역을 넓힌다 */}
-          <filter id="wmglow" x="-10%" y="-40%" width="120%" height="180%">
-            <feDropShadow dx="0" dy="0" stdDeviation="7" floodColor="#FF7A1A" floodOpacity=".45" />
-          </filter>
         </defs>
-        <text
-          className="molten"
-          x="600"
-          y="186"
-          textAnchor="middle"
-          fill="url(#wmgrad)"
-          filter="url(#wmglow)"
-        >
+        <text className="wm-outline" x="600" y="186" textAnchor="middle">
           HACKFORGE
         </text>
+        <g clipPath="url(#wmclip)" className="molten">
+          <path id="wmBody" fill="url(#wmgrad)" d="M0 0 H1200 V210 H0 Z" />
+          <path
+            id="wmSkin"
+            d=""
+            fill="none"
+            stroke="rgba(255,248,220,.85)"
+            strokeWidth="2.2"
+            style={{ filter: 'blur(0.6px)' }}
+          />
+        </g>
       </svg>
     </section>
   )
