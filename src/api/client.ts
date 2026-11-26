@@ -1,3 +1,5 @@
+import { syncServerClock } from '@/lib/server-clock'
+
 import { toApiError } from './errors'
 import type { Client } from './generated/client'
 import { getMe } from './generated/sdk.gen'
@@ -44,6 +46,7 @@ export function configureApiClient(client: Client, options: { onUnauthorized: ()
   })
 
   client.interceptors.response.use((response) => {
+    syncServerClock(response.headers.get('Date'))
     if (response.status === 401) options.onUnauthorized()
     return response
   })

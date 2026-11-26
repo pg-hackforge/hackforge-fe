@@ -3,6 +3,7 @@ import { Link } from 'react-router'
 
 import type { LabSessionResponse } from '@/api/generated/types.gen'
 import { clockTime, labResult, labSummary } from '@/lib/lab'
+import { serverNow } from '@/lib/server-clock'
 import { cn } from '@/lib/utils'
 
 /**
@@ -18,7 +19,7 @@ export function LabRow({
 }) {
   const date = new Date(lab.createdAt)
   // 진행 중 세션의 "N분째"는 화면을 연 시각 기준이면 충분하다
-  const [now] = useState(Date.now)
+  const [now] = useState(serverNow)
   return (
     <li className="border-b last:border-b-0">
       <Link

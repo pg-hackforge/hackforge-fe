@@ -11,6 +11,7 @@ import { TerminateDialog, type TerminateTarget } from '@/components/admin/termin
 import { FormAlert } from '@/components/form'
 import { Pagination } from '@/components/pagination'
 import { adminDuration, adminEnd, adminProgress, adminStatus, canTerminate } from '@/lib/admin'
+import { toServerTime } from '@/lib/server-clock'
 import { cn } from '@/lib/utils'
 
 const FILTERS: [AdminLabFilter, string][] = [
@@ -94,7 +95,7 @@ export function AdminLabsPage() {
                 <SessionTable
                   sessions={data.items}
                   dim={list.isPlaceholderData}
-                  now={list.dataUpdatedAt}
+                  now={toServerTime(list.dataUpdatedAt)}
                   onTerminate={(s) =>
                     setTarget({
                       id: s.session.id,

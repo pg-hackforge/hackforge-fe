@@ -27,6 +27,7 @@ import {
   sessionRecords,
   type LabRecord,
 } from '@/lib/lab'
+import { serverNow } from '@/lib/server-clock'
 import { cn } from '@/lib/utils'
 import { NotFoundPage } from '@/pages/status-pages'
 
@@ -215,7 +216,7 @@ function Header({
   stats?: { attack: number; defense: number; hints: number; redeploys: number }
 }) {
   const live = labResult(lab).tone === 'active'
-  const [now] = useState(Date.now)
+  const [now] = useState(serverNow)
   const start = new Date(lab.createdAt)
   const date = `${start.getFullYear()}-${String(start.getMonth() + 1).padStart(2, '0')}-${String(start.getDate()).padStart(2, '0')}`
   const items: [string, string][] = stats

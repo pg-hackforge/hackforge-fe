@@ -13,7 +13,7 @@ import {
   TerminalIcon,
   type LucideIcon,
 } from 'lucide-react'
-import { lazy, Suspense, useEffect, useRef, useState, type ReactNode } from 'react'
+import { lazy, Suspense, useRef, useState, type ReactNode } from 'react'
 import { Link, NavLink, useNavigate, useParams } from 'react-router'
 
 import { ApiError } from '@/api/errors'
@@ -45,6 +45,7 @@ import { JobButton, RedeployNotice, ResetDialog } from '@/components/lab/jobs'
 import { RecordsPanel } from '@/components/lab/records'
 import { Button, buttonVariants } from '@/components/ui/button'
 import { endNotice, formatRemaining, isEnded, PREP_STEPS } from '@/lib/lab'
+import { serverNow, useServerNow } from '@/lib/server-clock'
 import { cn } from '@/lib/utils'
 import { NotFoundPage } from '@/pages/status-pages'
 
@@ -193,7 +194,7 @@ export function LabPage() {
                       visible={shown === 'code'}
                       lastRedeployAt={redeploys?.find((r) => r.kind === 'REDEPLOY')?.startedAt}
                       onFlush={(flush) => (flushCode.current = flush)}
-                      onSaved={() => setLastSavedAt(Date.now())}
+                      onSaved={() => setLastSavedAt(serverNow())}
                     />
                   </Suspense>
                 )}
@@ -400,16 +401,6 @@ function Rail({
   )
 }
 
-/** 1초마다 지금 시각 */
-function useNow() {
-  const [now, setNow] = useState(() => Date.now())
-  useEffect(() => {
-    const timer = setInterval(() => setNow(Date.now()), 1000)
-    return () => clearInterval(timer)
-  }, [])
-  return now
-}
-
 function StatusBar({
   lab,
   latest,
@@ -419,7 +410,7 @@ function StatusBar({
   latest?: VerificationResponse
   nickname?: string
 }) {
-  const now = useNow()
+  const now = useServerNow()
   const deadline = lab?.idleDeadline ? Date.parse(lab.idleDeadline) : null
   const stage = lab ? ['공격', '방어', '방어 검증', '실습 완료'][stageIndex(lab)] : ''
   return (
@@ -455,7 +446,7 @@ function StatusBar({
 
 /** 종료 5분 전부터: 곧 끝난다는 안내와 [계속하기](openapi.yaml idle 종료) */
 function IdleWarning({ lab }: { lab: LabSessionResponse }) {
-  const now = useNow()
+  const now = useServerNow()
   const queryClient = useQueryClient()
   const keep = useMutation({
     mutationFn: async () =>
@@ -546,7 +537,7 @@ function TargetPanel({ url }: { url: LabSessionResponse['targetUrl'] }) {
 
 /** 준비 단계(ADR 021). 단계마다 끝남·진행 중·남음 */
 function PrepView({ lab }: { lab: LabSessionResponse }) {
-  const now = useNow()
+  const now = useServerNow()
   const current = PREP_STEPS.findIndex(([step]) => step === lab.prepStep)
   const elapsed = Math.max(0, Math.floor((now - Date.parse(lab.createdAt)) / 1000))
   const terminating = lab.status === 'TERMINATING'
