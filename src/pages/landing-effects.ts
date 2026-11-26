@@ -309,7 +309,7 @@ export function startLandingEffects(root: HTMLElement): () => void {
       w: Math.random() * 6.28,
       t: 0,
     })
-    const ps = Array.from({ length: 26 }, () => make(Math.random() * H))
+    const ps = Array.from({ length: 70 }, () => make(Math.random() * H))
     let visible = true
     watch((es) => (visible = es[0].isIntersecting), { threshold: 0 }).observe(wrap)
     let raf = 0
@@ -339,10 +339,11 @@ export function startLandingEffects(root: HTMLElement): () => void {
     cleanups.push(() => cancelAnimationFrame(raf))
   }
 
-  // 주 버튼을 누르면 작은 불티, 얇은 충격파, 버튼이 달았다 식음, 살짝 흔들림
+  // 소개 화면 빈 곳을 누르면 작은 불티와 얇은 충격파. 버튼·링크 같은 조작 요소를 누를 때는 없음
   listen(document, 'click', (e) => {
-    const b = (e.target as Element | null)?.closest<HTMLElement>('.lp .btn.p')
-    if (!b || R) return
+    const t = e.target as Element | null
+    if (R || !t?.closest('.lp') || t.closest('a, button, summary, input, textarea, select, label'))
+      return
     const { clientX: x, clientY: y } = e as MouseEvent
     const ring = document.createElement('i')
     ring.className = 'shock'
@@ -358,37 +359,6 @@ export function startLandingEffects(root: HTMLElement): () => void {
       { duration: 520, easing: 'cubic-bezier(.1,.7,.3,1)' },
     ).onfinish = () => ring.remove()
     burst(x, y, 6, 45)
-    const br = b.getBoundingClientRect()
-    const glow = document.createElement('i')
-    glow.className = 'heat'
-    glow.style.left = `${x - br.left}px`
-    glow.style.top = `${y - br.top}px`
-    let layer = b.querySelector<HTMLElement>(':scope > .heatlayer')
-    if (!layer) {
-      layer = document.createElement('span')
-      layer.className = 'heatlayer'
-      b.appendChild(layer)
-    }
-    layer.appendChild(glow)
-    glow.animate(
-      [
-        { opacity: 1, transform: 'scale(.4)' },
-        { opacity: 0.8, transform: 'scale(1.6)', offset: 0.3 },
-        { opacity: 0, transform: 'scale(2.4)' },
-      ],
-      { duration: 900, easing: 'ease-out' },
-    ).onfinish = () => glow.remove()
-    replay(b, 'dent')
-    b.parentElement?.animate(
-      [
-        { transform: 'translate(0,0)' },
-        { transform: 'translate(-1.5px,1px)' },
-        { transform: 'translate(1.5px,-1px)' },
-        { transform: 'translate(-1px,0)' },
-        { transform: 'translate(0,0)' },
-      ],
-      { duration: 240 },
-    )
   })
 
   // 구간 구분선이 화면에 들어오면 그려짐

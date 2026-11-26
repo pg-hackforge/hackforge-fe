@@ -9,7 +9,7 @@ setupMockServer()
 describe('소개 화면', () => {
   it('구간 순서대로 제목, 회원가입과 로그인으로 가는 길', async () => {
     renderAt('/', 'logged-out')
-    expect(await screen.findByRole('heading', { level: 1, name: /Strike hot/ })).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { level: 1, name: /Strike Hot/ })).toBeInTheDocument()
     expect(screen.getAllByRole('heading', { level: 2 }).map((h) => h.textContent)).toEqual([
       '공격이 통하면, 고쳐서 막아요',
       '한 문제를 공격부터 방어까지끝까지 따라가요',
@@ -50,6 +50,6 @@ describe('소개 화면', () => {
   it('로그인한 사람에게는 홈', async () => {
     renderAt('/', 'learner')
     expect(await screen.findByRole('heading', { name: /안녕하세요/ })).toBeInTheDocument()
-    expect(screen.queryByRole('heading', { name: /Strike hot/ })).not.toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: /Strike Hot/ })).not.toBeInTheDocument()
   })
 })

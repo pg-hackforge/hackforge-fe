@@ -13,7 +13,7 @@ describe('로그인 안 됨', () => {
   it('첫 화면은 소개 화면: 자기 상단 줄에 로그인·회원가입, 주 메뉴는 없음', async () => {
     renderAt('/', 'logged-out')
     // 내 계정을 묻는 동안은 앱 상단 줄이라, 소개 화면이 뜬 뒤 상단 줄을 본다
-    expect(await screen.findByRole('heading', { level: 1, name: /Strike hot/ })).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { level: 1, name: /Strike Hot/ })).toBeInTheDocument()
     const topBar = within(screen.getByRole('banner'))
     expect(topBar.getByRole('link', { name: '회원가입' })).toHaveAttribute('href', '/signup')
     // 휴대폰 폭의 메뉴 안에도 로그인이 있다
@@ -93,7 +93,7 @@ describe('로그인함', () => {
     const router = renderAt('/problems', 'learner')
     await userEvent.click(await screen.findByRole('button', { name: /forge_kim/ }))
     await userEvent.click(await screen.findByRole('menuitem', { name: '로그아웃' }))
-    expect(await screen.findByRole('heading', { level: 1, name: /Strike hot/ })).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { level: 1, name: /Strike Hot/ })).toBeInTheDocument()
     expect(
       within(screen.getByRole('banner')).getByRole('link', { name: '회원가입' }),
     ).toBeInTheDocument()

@@ -192,10 +192,10 @@ export function LandingPage() {
         <section className="w hero" aria-labelledby="hero-title">
           <h1 id="hero-title" className="shake">
             <span className="ln l1">
-              Strike <span className="hot">hot</span>
+              Strike <span className="hot">Hot</span>
             </span>
             <span className="mask">
-              <span className="steel">Fix cold</span>
+              <span className="steel">Fix Cold</span>
             </span>
           </h1>
           <p className="lead">

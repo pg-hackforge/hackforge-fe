@@ -638,7 +638,7 @@
 
 @theme inline {
   --font-heading: var(--font-sans);
-  /* 소개 화면 영어 헤드라인(Strike hot / Fix cold)과 쇳물 글자. 글꼴은 소개 화면에서만 불러온다(@fontsource-variable/geist) */
+  /* 소개 화면 영어 헤드라인(Strike Hot / Fix Cold)과 쇳물 글자. 글꼴은 소개 화면에서만 불러온다(@fontsource-variable/geist) */
   --font-display: 'Geist Variable', var(--font-sans);
   --font-sans:
     'Pretendard Variable', Pretendard, -apple-system, BlinkMacSystemFont, system-ui, sans-serif;

@@ -433,36 +433,6 @@
 .lp .btn.p {
   position: relative;
 }
-.lp .heatlayer {
-  position: absolute;
-  inset: 0;
-  border-radius: inherit;
-  overflow: hidden;
-  pointer-events: none;
-}
-.lp .heat {
-  position: absolute;
-  width: 120px;
-  height: 120px;
-  margin: -60px;
-  border-radius: 50%;
-  background: radial-gradient(
-    closest-side,
-    rgba(255, 236, 170, 0.95),
-    rgba(255, 140, 60, 0.5) 45%,
-    transparent
-  );
-  mix-blend-mode: screen;
-  pointer-events: none;
-}
-.lp .dent {
-  animation: lp-dent 0.2s ease-out;
-}
-@keyframes lp-dent {
-  40% {
-    transform: scale(0.94) translateY(2px);
-  }
-}
 .lp .jolt {
   animation: lp-jolt2 0.3s cubic-bezier(0.36, 0.07, 0.19, 0.97);
 }
@@ -747,7 +717,6 @@
     transition: none;
   }
   .lp .hero h1 .beat,
-  .lp .dent,
   .lp .jolt,
   .lp .code .l.glitch {
     animation: none;
