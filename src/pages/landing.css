@@ -1,0 +1,989 @@
+/*
+ * 소개 화면(hackforge-docs ADR 016, DESIGN.md "소개 화면"). 시안 .impeccable/mocks/decision/landing을 옮겼다.
+ * 이름이 흔해(.w, .btn, .sec) 앱 화면과 섞이지 않게 모두 .lp 아래에 둔다. 색은 앱 토큰을 쓴다.
+ * 효과(움직임)는 specs/landing 작업 3·4에서 더하고, 여기서는 효과가 끝난 모습을 그린다
+ */
+.lp {
+  --t1: var(--foreground);
+  --t2: var(--muted-foreground);
+  --t3: var(--subtle-foreground);
+  --hair: var(--border);
+  --hair2: var(--input);
+  --s1: var(--muted);
+  --acc: var(--primary);
+  --mono: var(--font-mono);
+  font-size: 15px;
+  line-height: 1.6;
+  letter-spacing: -0.01em;
+  color: var(--t1);
+  background: var(--background);
+}
+.lp svg.ic {
+  width: 16px;
+  height: 16px;
+  stroke: currentColor;
+  fill: none;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  flex: none;
+}
+.lp [id] {
+  scroll-margin-top: 72px;
+}
+.lp .w {
+  max-width: 1160px;
+  margin: 0 auto;
+  padding: 0 32px;
+}
+
+/* 상단 줄 */
+.lp .topbar {
+  position: sticky;
+  top: 0;
+  z-index: 40;
+  border-bottom: 1px solid transparent;
+  background: color-mix(in srgb, var(--background) 72%, transparent);
+  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(12px);
+}
+.lp .top {
+  height: 60px;
+  display: flex;
+  align-items: center;
+  gap: 28px;
+  font-size: 16px;
+}
+.lp .top nav {
+  display: flex;
+  gap: 22px;
+  font-size: 14px;
+  color: var(--t2);
+}
+.lp .top nav a:hover {
+  color: var(--t1);
+}
+.lp .sp {
+  flex: 1;
+}
+.lp .btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  height: 38px;
+  padding: 0 16px;
+  border-radius: 9px;
+  font-size: 14px;
+  font-weight: 500;
+  border: 1px solid var(--hair2);
+  background: var(--card);
+  color: var(--t1);
+  white-space: nowrap;
+  outline: none;
+}
+.lp .btn:focus-visible {
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--ring) 50%, transparent);
+}
+.lp .btn.ghost {
+  border-color: transparent;
+  background: transparent;
+}
+.lp .btn.p {
+  position: relative;
+  background: var(--primary);
+  color: var(--primary-foreground);
+  border-color: var(--primary);
+}
+.lp .btn.lg {
+  height: 46px;
+  padding: 0 22px;
+  font-size: 15px;
+  border-radius: 10px;
+}
+.lp .menu {
+  display: none;
+  position: relative;
+}
+.lp .menu summary {
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  border: 1px solid var(--hair2);
+  border-radius: 9px;
+  list-style: none;
+  cursor: pointer;
+}
+.lp .menu summary::-webkit-details-marker {
+  display: none;
+}
+.lp .menu .panel {
+  position: absolute;
+  right: 0;
+  top: 46px;
+  display: grid;
+  min-width: 160px;
+  padding: 6px;
+  border: 1px solid var(--hair);
+  border-radius: 12px;
+  background: var(--popover);
+  box-shadow: 0 14px 34px -14px rgba(0, 0, 0, 0.25);
+}
+.lp .menu .panel a {
+  padding: 8px 10px;
+  border-radius: 8px;
+  font-size: 14px;
+}
+.lp .menu .panel a:hover {
+  background: var(--muted);
+}
+
+/* 첫 화면 */
+.lp .hero {
+  padding-top: 76px;
+  text-align: center;
+}
+.lp .hero h1 {
+  font:
+    600 96px/1.02 var(--font-display),
+    sans-serif;
+  letter-spacing: -0.055em;
+  margin: 22px 0 20px;
+}
+.lp .hero h1 .ln {
+  display: block;
+}
+.lp .hero .hot {
+  color: var(--acc);
+  text-shadow: 0 0 26px color-mix(in srgb, var(--acc) 55%, transparent);
+}
+.lp .hero .steel {
+  display: block;
+  padding-bottom: 0.1em;
+  margin-bottom: -0.1em;
+  background: linear-gradient(180deg, var(--t1) 15%, var(--t3) 115%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+.lp .hero p.lead {
+  font-size: 18px;
+  color: var(--t2);
+  max-width: 640px;
+  margin: 0 auto;
+  line-height: 1.7;
+}
+.lp .hero .cta {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+  margin-top: 30px;
+}
+.lp .hero small {
+  display: block;
+  margin-top: 12px;
+  font-size: 12.5px;
+  color: var(--t3);
+}
+/* 제품 화면: 1440×900 캡처의 위쪽을 잘라 보이고 아래는 바탕으로 흐림 */
+.lp .shot,
+.lp .frame,
+.lp .mframe {
+  position: relative;
+  overflow: hidden;
+  border: 1px solid var(--hair2);
+  background: var(--card);
+}
+.lp .shot img,
+.lp .frame img,
+.lp .mframe img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: top left;
+}
+.lp .shot {
+  margin: 56px auto 0;
+  width: 100%;
+  max-width: 1096px;
+  aspect-ratio: 1096/620;
+  border-radius: 16px;
+  box-shadow:
+    0 40px 80px -40px rgba(0, 0, 0, 0.35),
+    0 0 0 8px var(--s1);
+}
+.lp .shot::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 120px;
+  background: linear-gradient(transparent, var(--background));
+}
+
+/* 구간 공통 */
+.lp .sec {
+  padding-top: 110px;
+}
+.lp .k {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--t2);
+  letter-spacing: 0.02em;
+}
+.lp .sec h2,
+.lp .h2d {
+  font-size: 38px;
+  line-height: 1.25;
+  font-weight: 700;
+  letter-spacing: -0.035em;
+  margin: 10px 0 14px;
+}
+.lp p.d {
+  font-size: 16.5px;
+  color: var(--t2);
+  max-width: 620px;
+  line-height: 1.75;
+}
+/* 구간 구분선: 위는 달궈진 밀짚색, 아래로 갈수록 파랑·회색으로 식음(템퍼링 색) */
+.lp .tdivw {
+  padding-top: 110px;
+}
+.lp .tdiv {
+  height: 2px;
+  border-radius: 2px;
+  margin: 0 auto;
+  max-width: 1096px;
+  opacity: 0.9;
+}
+
+/* 미리 보기 */
+.lp .re {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 22px;
+  margin-top: 34px;
+}
+.lp .win {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  min-height: 360px;
+  border: 1px solid var(--hair2);
+  border-radius: 14px;
+  overflow: hidden;
+  background: var(--s1);
+}
+.lp .win .wb {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 38px;
+  padding: 0 14px;
+  border-bottom: 1px solid var(--hair);
+  font-size: 12px;
+  color: var(--t3);
+}
+.lp .win .wb i {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--hair2);
+}
+/* 공격 대상은 문제가 만든 서비스라 우리 테마를 따르지 않는다(DESIGN.md "The Target Is Not Ours Rule") */
+.lp .app {
+  position: relative;
+  flex: 1;
+  display: grid;
+  place-items: center;
+  background: white;
+  color: #17171a;
+  overflow: hidden;
+}
+.lp .re .login {
+  width: 260px;
+  padding: 22px;
+  border-radius: 12px;
+  border: 1px solid #e4e3e0;
+  background: white;
+}
+.lp .re .login h4 {
+  font-size: 18px;
+  font-weight: 600;
+  margin-bottom: 12px;
+}
+.lp .re .in {
+  display: flex;
+  align-items: center;
+  gap: 1px;
+  height: 38px;
+  margin-bottom: 8px;
+  padding: 0 10px;
+  border: 1px solid #d3d1cd;
+  border-radius: 7px;
+  font: 13px var(--mono);
+}
+.lp .re .in.f {
+  border-color: #17171a;
+  box-shadow: 0 0 0 3px #ececee;
+}
+.lp .re .go {
+  display: grid;
+  place-items: center;
+  height: 38px;
+  border-radius: 7px;
+  background: #17171a;
+  color: white;
+  font-size: 13px;
+}
+.lp .redact {
+  display: inline-block;
+  width: 8px;
+  height: 14px;
+  background: #17171a;
+  border-radius: 1px;
+}
+.lp .verdict {
+  position: absolute;
+  left: 50%;
+  bottom: 18px;
+  transform: translateX(-50%);
+  padding: 8px 14px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+  background: #c92a2a;
+  color: white;
+}
+.lp .code {
+  flex: 1;
+  padding: 14px 0;
+  font: 12.5px/1.95 var(--mono);
+}
+.lp .code .l {
+  display: grid;
+  grid-template-columns: 44px 1fr;
+  padding-right: 12px;
+  white-space: pre;
+}
+.lp .code .l > span:first-child {
+  color: var(--t3);
+  text-align: right;
+  padding-right: 14px;
+}
+.lp .build {
+  height: 4px;
+  margin: 0 14px 14px;
+  border-radius: 2px;
+  background: var(--muted);
+}
+.lp .stage-tag {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 16px;
+}
+.lp .stage-tag span {
+  padding: 5px 11px;
+  border: 1px solid var(--hair2);
+  border-radius: 999px;
+  font-size: 12.5px;
+  color: var(--t3);
+}
+.lp .stage-tag span.on {
+  background: var(--t1);
+  border-color: var(--t1);
+  color: var(--background);
+}
+
+/* 실습 방식: 왼쪽 단계, 오른쪽 제품 화면(효과 작업에서 화면 고정과 전환을 더함) */
+.lp .story {
+  display: grid;
+  grid-template-columns: 340px 1fr;
+  gap: 56px;
+  align-items: center;
+  margin-top: 44px;
+}
+.lp .story > div {
+  min-width: 0;
+}
+.lp .stp {
+  position: relative;
+  padding: 18px 0 18px 22px;
+  border-left: 2px solid var(--hair);
+  opacity: 0.35;
+}
+.lp .stp.on {
+  opacity: 1;
+  border-left-color: var(--t1);
+}
+.lp .stp .n {
+  font: 500 12px var(--mono);
+  color: var(--t3);
+}
+.lp .stp.on .n {
+  color: var(--acc);
+}
+.lp .stp h3 {
+  margin: 4px 0 6px;
+  font-size: 22px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+.lp .stp p {
+  font-size: 14.5px;
+  color: var(--t2);
+  line-height: 1.7;
+}
+.lp .pts {
+  display: none;
+  margin-top: 10px;
+  font-size: 13.5px;
+  list-style: none;
+}
+.lp .stp.on .pts {
+  display: block;
+}
+.lp .pts li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 0;
+}
+.lp .frame {
+  aspect-ratio: 1440/900;
+  border-radius: 16px;
+  box-shadow:
+    0 40px 80px -40px rgba(0, 0, 0, 0.35),
+    0 0 0 8px var(--s1);
+}
+.lp .fcap {
+  position: absolute;
+  left: 16px;
+  bottom: 14px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: var(--t1);
+  color: var(--background);
+  font-size: 12px;
+}
+.lp .mframe {
+  display: none;
+}
+
+/* 검증 */
+.lp .split {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 56px;
+  align-items: center;
+}
+.lp .card {
+  padding: 24px;
+  border: 1px solid var(--hair);
+  border-radius: 16px;
+  background: var(--card);
+  box-shadow: 0 24px 50px -36px rgba(0, 0, 0, 0.35);
+}
+.lp .rh {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.lp .big {
+  padding: 3px 9px;
+  border-radius: 6px;
+  font-size: 11.5px;
+  font-weight: 600;
+  border: 1px solid var(--t1);
+}
+.lp .big.f {
+  border-color: var(--fail);
+  background: var(--fail);
+  color: var(--fail-foreground);
+}
+.lp .rh h4 {
+  font-size: 17px;
+  font-weight: 600;
+}
+.lp .rh small {
+  margin-left: auto;
+  font-size: 12px;
+  color: var(--t3);
+}
+.lp .row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 11px 0;
+  border-top: 1px solid var(--hair);
+  font-size: 14px;
+}
+.lp .rh + .row {
+  margin-top: 16px;
+}
+.lp .st {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--pass);
+}
+.lp .st.no {
+  color: var(--fail);
+  font-weight: 600;
+}
+.lp .cap {
+  margin-top: 14px;
+  font-size: 12.5px;
+  color: var(--t3);
+}
+
+/* 실습 환경 */
+.lp .facts {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 14px;
+  margin-top: 44px;
+}
+.lp .fact {
+  position: relative;
+  overflow: hidden;
+  padding: 22px;
+  border: 1px solid var(--hair);
+  border-radius: 14px;
+}
+.lp .fact b {
+  display: block;
+  font-size: 30px;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+}
+.lp .fact span.t {
+  display: block;
+  margin-top: 2px;
+  font-size: 14px;
+  font-weight: 600;
+}
+.lp .fact p {
+  margin-top: 8px;
+  font-size: 13.5px;
+  color: var(--t2);
+  line-height: 1.7;
+}
+.lp .viz {
+  position: relative;
+  height: 56px;
+  margin-bottom: 12px;
+}
+.lp .viz .boxes {
+  position: absolute;
+  left: 0;
+  top: 14px;
+  display: flex;
+  gap: 6px;
+}
+.lp .viz .boxes i {
+  width: 24px;
+  height: 24px;
+  border: 1.5px solid var(--hair2);
+  border-radius: 7px;
+}
+.lp .viz .boxes i.me {
+  border-color: var(--acc);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--acc) 20%, transparent);
+}
+.lp .viz .src {
+  position: absolute;
+  left: 0;
+  top: 14px;
+  width: 26px;
+  height: 26px;
+  border: 1.5px solid var(--t1);
+  border-radius: 7px;
+}
+.lp .viz .wall {
+  position: absolute;
+  left: 58%;
+  top: 4px;
+  width: 3px;
+  height: 48px;
+  border-radius: 2px;
+  background: var(--fail);
+}
+.lp .viz .net {
+  position: absolute;
+  right: 0;
+  top: 12px;
+  width: 30px;
+  height: 30px;
+  border: 1.5px dashed var(--t3);
+  border-radius: 50%;
+}
+.lp .viz svg.ring {
+  position: absolute;
+  left: 0;
+  top: 6px;
+  width: 44px;
+  height: 44px;
+}
+.lp .viz .ring circle {
+  fill: none;
+  stroke-width: 4;
+}
+.lp .viz .ring .bg {
+  stroke: var(--hair2);
+}
+.lp .viz .ring .arc {
+  stroke: var(--acc);
+  stroke-dasharray: 126;
+  stroke-dashoffset: 30;
+  transform: rotate(-90deg);
+  transform-origin: 50% 50%;
+}
+.lp .viz .clock {
+  position: absolute;
+  left: 0;
+  top: 10px;
+  font: 600 26px var(--mono);
+  letter-spacing: -0.02em;
+}
+
+/* 문제: 어둡게 강조하는 띠 */
+.lp .dark-band {
+  margin-top: 110px;
+  padding: 90px 0;
+  background: var(--band);
+  color: var(--band-foreground);
+}
+.lp .dark-band .k,
+.lp .dark-band p.d,
+.lp .dark-band .more {
+  color: color-mix(in srgb, var(--band-foreground) 62%, transparent);
+}
+.lp .cats {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 10px;
+  margin-top: 40px;
+}
+.lp .ct {
+  display: grid;
+  padding: 16px 18px;
+  border: 1px solid color-mix(in srgb, var(--band-foreground) 12%, transparent);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--band-foreground) 4%, transparent);
+}
+.lp .ct b {
+  font-weight: 600;
+}
+.lp .ct span {
+  font-size: 12.5px;
+  color: color-mix(in srgb, var(--band-foreground) 52%, transparent);
+}
+.lp .more {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-top: 18px;
+  font-size: 14px;
+}
+.lp .more .btn {
+  margin-left: auto;
+  background: transparent;
+  color: var(--band-foreground);
+  border-color: color-mix(in srgb, var(--band-foreground) 22%, transparent);
+}
+
+/* 마무리 */
+.lp .end {
+  padding-top: 110px;
+  padding-bottom: 90px;
+  text-align: center;
+}
+.lp .end h2 {
+  font-size: 44px;
+  font-weight: 700;
+  letter-spacing: -0.04em;
+  line-height: 1.2;
+}
+.lp .flow {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 26px;
+  font-size: 14px;
+  color: var(--t2);
+}
+.lp .flow span {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 34px;
+  padding: 0 14px;
+  border: 1px solid var(--hair);
+  border-radius: 999px;
+}
+.lp .flow span b {
+  font: 600 11px var(--mono);
+  color: var(--t3);
+}
+.lp .end .btns {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+  margin-top: 30px;
+}
+
+/* 쇳물 글자: 다 차오른 모습(효과 작업에서 꿀렁이며 차오름) */
+.lp .wm {
+  margin-top: 30px;
+  overflow: hidden;
+}
+.lp .wm text {
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 196px;
+  letter-spacing: -9px;
+}
+.lp .wm svg {
+  overflow: visible;
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+/* 맨 아래 줄 */
+.lp .foot {
+  position: relative;
+  display: flex;
+  gap: 20px;
+  padding-top: 26px;
+  padding-bottom: 26px;
+  font-size: 13px;
+  color: var(--t3);
+}
+.lp .foot::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: var(--g, 32px);
+  right: var(--g, 32px);
+  height: 1px;
+  background: var(--hair);
+}
+.lp .foot .brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--t2);
+}
+.lp .credit {
+  margin-left: auto;
+  white-space: nowrap;
+}
+.lp .credit b {
+  margin-left: 6px;
+  color: var(--t2);
+  font-weight: 500;
+}
+.lp .credit a {
+  color: inherit;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+/* 1024px 이하: 상단 메뉴를 숨기고 여러 열을 세로로 쌓는다 */
+@media (max-width: 1024px) {
+  .lp .w {
+    padding: 0 24px;
+  }
+  .lp .foot {
+    --g: 24px;
+  }
+  .lp .top nav {
+    display: none;
+  }
+  .lp .hero {
+    padding-top: 56px;
+  }
+  .lp .hero h1 {
+    font-size: 72px;
+  }
+  .lp .re,
+  .lp .split {
+    grid-template-columns: 1fr;
+    gap: 28px;
+  }
+  .lp .story {
+    grid-template-columns: 1fr;
+    gap: 0;
+    margin-top: 20px;
+  }
+  .lp .story-frames {
+    display: none;
+  }
+  .lp .stp {
+    opacity: 1;
+    border-left: 0;
+    border-top: 1px solid var(--hair);
+    padding: 24px 0;
+  }
+  .lp .stp .pts {
+    display: block;
+  }
+  .lp .mframe {
+    display: block;
+    width: 100%;
+    margin-top: 16px;
+    aspect-ratio: 1440/900;
+    border-radius: 12px;
+  }
+  .lp .facts {
+    grid-template-columns: 1fr 1fr;
+  }
+  .lp .cats {
+    grid-template-columns: repeat(3, 1fr);
+  }
+  .lp .sec,
+  .lp .tdivw {
+    padding-top: 84px;
+  }
+  .lp .dark-band {
+    margin-top: 84px;
+    padding: 72px 0;
+  }
+  .lp .end {
+    padding-top: 84px;
+    padding-bottom: 72px;
+  }
+}
+
+/* 640px 이하: 버튼을 폭 가득, 양옆 여백 16px */
+@media (max-width: 640px) {
+  .lp {
+    font-size: 14.5px;
+  }
+  .lp .w {
+    padding: 0 16px;
+  }
+  .lp .foot {
+    --g: 16px;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .lp .credit {
+    margin-left: 0;
+    white-space: normal;
+  }
+  .lp .top {
+    height: 56px;
+    gap: 10px;
+  }
+  .lp .top .login {
+    display: none;
+  }
+  .lp .top .btn.p {
+    height: 36px;
+    padding: 0 12px;
+    font-size: 13px;
+  }
+  .lp .menu {
+    display: block;
+  }
+  .lp .hero {
+    padding-top: 40px;
+  }
+  .lp .hero h1 {
+    font-size: 52px;
+    margin: 18px 0 14px;
+  }
+  .lp .hero p.lead {
+    font-size: 16px;
+  }
+  .lp .hero .cta,
+  .lp .end .btns {
+    flex-direction: column;
+  }
+  .lp .hero .cta .btn,
+  .lp .end .btns .btn {
+    width: 100%;
+  }
+  .lp .shot {
+    margin-top: 36px;
+    aspect-ratio: 900/640;
+    border-radius: 12px;
+    box-shadow:
+      0 24px 50px -30px rgba(0, 0, 0, 0.35),
+      0 0 0 5px var(--s1);
+  }
+  .lp .mframe {
+    aspect-ratio: 900/640;
+  }
+  .lp .sec,
+  .lp .tdivw {
+    padding-top: 64px;
+  }
+  .lp .sec h2,
+  .lp .h2d {
+    font-size: 28px;
+  }
+  .lp p.d {
+    font-size: 15px;
+  }
+  .lp .card {
+    padding: 18px;
+  }
+  .lp .row {
+    flex-wrap: wrap;
+    gap: 4px;
+  }
+  .lp .facts {
+    gap: 10px;
+    margin-top: 28px;
+  }
+  .lp .fact {
+    padding: 16px;
+  }
+  .lp .fact b {
+    font-size: 22px;
+  }
+  .lp .fact p {
+    font-size: 12.5px;
+  }
+  .lp .dark-band {
+    margin-top: 64px;
+    padding: 56px 0;
+  }
+  .lp .cats {
+    grid-template-columns: 1fr 1fr;
+    margin-top: 28px;
+  }
+  .lp .ct {
+    padding: 14px;
+  }
+  .lp .more {
+    flex-wrap: wrap;
+  }
+  .lp .end {
+    padding-top: 64px;
+    padding-bottom: 56px;
+  }
+  .lp .end h2 {
+    font-size: 30px;
+  }
+  .lp .flow {
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 6px;
+    font-size: 13px;
+  }
+  .lp .flow span {
+    height: 30px;
+    padding: 0 10px;
+  }
+}

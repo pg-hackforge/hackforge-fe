@@ -1,4 +1,4 @@
-import { Link, NavLink, Outlet } from 'react-router'
+import { Link, NavLink, Outlet, useLocation } from 'react-router'
 
 import type { UserResponse } from '@/api/generated/types.gen'
 import { useMe } from '@/api/me'
@@ -18,30 +18,35 @@ const MENU = [
 /** 모든 화면의 틀: 상단 줄, 계정 안내 띠, 본문. 내 계정을 아직 모르면 본문을 그리지 않는다 */
 export function AppLayout() {
   const me = useMe()
+  const { pathname } = useLocation()
+  // 로그인 전 소개 화면은 자기 상단 줄(구간 메뉴, 가입 신청)을 쓴다(DESIGN.md "소개 화면")
+  const landing = me.data === null && pathname === '/'
 
   return (
     <div className="flex min-h-svh flex-col">
-      <header className="sticky top-0 z-40 flex h-12 items-center gap-3 border-b bg-card px-4 sm:gap-6 sm:px-6">
-        <Link to="/" aria-label="Hackforge 홈" className="rounded-md">
-          <Logo compact />
-        </Link>
-        {me.data && <MainMenu me={me.data} />}
-        <div className="ml-auto flex items-center gap-2">
-          {me.data ? (
-            <UserMenu me={me.data} />
-          ) : me.data === null ? (
-            <>
-              <ModeToggle />
-              <Link to="/login" className={buttonVariants({ variant: 'ghost', size: 'sm' })}>
-                로그인
-              </Link>
-              <Link to="/signup" className={buttonVariants({ size: 'sm' })}>
-                회원가입
-              </Link>
-            </>
-          ) : null}
-        </div>
-      </header>
+      {!landing && (
+        <header className="sticky top-0 z-40 flex h-12 items-center gap-3 border-b bg-card px-4 sm:gap-6 sm:px-6">
+          <Link to="/" aria-label="Hackforge 홈" className="rounded-md">
+            <Logo compact />
+          </Link>
+          {me.data && <MainMenu me={me.data} />}
+          <div className="ml-auto flex items-center gap-2">
+            {me.data ? (
+              <UserMenu me={me.data} />
+            ) : me.data === null ? (
+              <>
+                <ModeToggle />
+                <Link to="/login" className={buttonVariants({ variant: 'ghost', size: 'sm' })}>
+                  로그인
+                </Link>
+                <Link to="/signup" className={buttonVariants({ size: 'sm' })}>
+                  회원가입
+                </Link>
+              </>
+            ) : null}
+          </div>
+        </header>
+      )}
       {me.data && <AccountBanner status={me.data.status} />}
       <main className="flex flex-1 flex-col">
         {me.isError ? <BackendDownPage /> : me.isPending ? null : <Outlet />}
