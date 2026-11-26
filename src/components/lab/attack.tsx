@@ -105,7 +105,7 @@ function verifyErrorText(error: Error) {
   return '검증 결과를 받지 못했어요. 기록에서 결과를 확인하거나 다시 요청해 주세요.'
 }
 
-/** 작업 영역 위의 결과 안내 띠. 10초 뒤 저절로 닫히고, 결과는 기록에서 다시 본다 */
+/** 작업 영역 위의 결과 안내 띠. 5초 뒤 저절로 닫히고, 결과는 기록에서 다시 본다 */
 export function VerifyNotice({
   result,
   error,

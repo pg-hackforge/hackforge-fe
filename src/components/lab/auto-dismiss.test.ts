@@ -7,16 +7,16 @@ describe('결과 안내 띠 자동 닫힘', () => {
   beforeEach(() => vi.useFakeTimers())
   afterEach(() => vi.useRealTimers())
 
-  it('10초 뒤 닫는다', () => {
+  it('5초 뒤 닫는다', () => {
     const onDismiss = vi.fn()
     renderHook(() => useAutoDismiss({ status: 'PASS' }, onDismiss))
-    act(() => vi.advanceTimersByTime(9_999))
+    act(() => vi.advanceTimersByTime(4_999))
     expect(onDismiss).not.toHaveBeenCalled()
     act(() => vi.advanceTimersByTime(1))
     expect(onDismiss).toHaveBeenCalledOnce()
   })
 
-  it('마우스를 올려 둔 동안은 기다리고, 내리면 다시 10초를 센다', () => {
+  it('마우스를 올려 둔 동안은 기다리고, 내리면 다시 5초를 센다', () => {
     const onDismiss = vi.fn()
     const result = { status: 'FAIL' }
     const { result: handlers } = renderHook(() => useAutoDismiss(result, onDismiss))
@@ -24,7 +24,7 @@ describe('결과 안내 띠 자동 닫힘', () => {
     act(() => vi.advanceTimersByTime(30_000))
     expect(onDismiss).not.toHaveBeenCalled()
     act(() => handlers.current.onMouseLeave())
-    act(() => vi.advanceTimersByTime(10_000))
+    act(() => vi.advanceTimersByTime(5_000))
     expect(onDismiss).toHaveBeenCalledOnce()
   })
 
