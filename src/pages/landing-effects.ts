@@ -228,12 +228,14 @@ export function startLandingEffects(root: HTMLElement): () => void {
   later(() => sparks(wrap, hot, 18, 0.5, [70, 120]), 580)
 
   const fx = q('.fx')!
-  function burst(x: number, y: number, n = 22, len = 150) {
+  // around: 누른 자리를 중심으로 사방에 퍼짐(아래로 떨어지지 않음). 기본은 위로 튀었다 떨어짐
+  function burst(x: number, y: number, n = 22, len = 150, around = false) {
     if (R) return
     for (let i = 0; i < n; i++) {
       const d = document.createElement('i')
       d.className = 'spark'
-      const a = ((-180 + Math.random() * 180) * Math.PI) / 180
+      const a = ((around ? Math.random() * 360 : -180 + Math.random() * 180) * Math.PI) / 180
+      const fall = around ? 0 : 50
       const l = len * (0.4 + Math.random() * 0.8)
       const rot = (a * 180) / Math.PI + 90
       d.style.left = `${x}px`
@@ -244,7 +246,7 @@ export function startLandingEffects(root: HTMLElement): () => void {
           { opacity: 1, transform: `rotate(${rot}deg)` },
           {
             opacity: 0,
-            transform: `translate(${Math.cos(a) * l}px,${Math.sin(a) * l + 50}px) rotate(${rot + 40}deg) scaleY(.3)`,
+            transform: `translate(${Math.cos(a) * l}px,${Math.sin(a) * l + fall}px) rotate(${rot + 40}deg) scaleY(.3)`,
           },
         ],
         { duration: 500 + Math.random() * 500, easing: 'cubic-bezier(.2,.7,.3,1)' },
@@ -358,7 +360,7 @@ export function startLandingEffects(root: HTMLElement): () => void {
       ],
       { duration: 520, easing: 'cubic-bezier(.1,.7,.3,1)' },
     ).onfinish = () => ring.remove()
-    burst(x, y, 6, 45)
+    burst(x, y, 10, 45, true)
   })
 
   // 구간 구분선이 화면에 들어오면 그려짐

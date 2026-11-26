@@ -430,6 +430,10 @@
   background: linear-gradient(#fff3c4, var(--acc));
   pointer-events: none;
 }
+/* 불티 가운데가 터진 자리에 오게 */
+.lp .fx .spark {
+  margin: -7px 0 0 -1px;
+}
 .lp .btn.p {
   position: relative;
 }
