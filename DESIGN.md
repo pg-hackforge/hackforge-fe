@@ -159,8 +159,8 @@ components:
 ## Typography
 
 **본문 글꼴:** Pretendard Variable (시스템 글꼴로 대체)
-**소개 화면 영어 헤드라인:** Geist (글꼴 파일은 소개 화면을 만들 때 추가하고, 그 전에는 Pretendard로 대체. 토큰 `font-display`)
-**코드:** JetBrains Mono
+**소개 화면 글꼴:** 영문 Geist, 한글 Pretendard. 헤드라인과 본문 모두(토큰 `font-display`, 파일은 소개 화면에서만 불러온다)
+**코드:** JetBrains Mono (파일은 `src/index.css`가 불러온다. 편집기·터미널은 `src/lib/code-font.ts`의 `CODE_FONT`를 쓰고, 글꼴 파일이 늦게 오면 글자 폭을 다시 잰다)
 
 **Character:** 한글 본문은 Pretendard로 단정하게, 영어 헤드라인은 Geist로 단단하게 쓴다. 글자 간격은 큰 글씨일수록 좁힌다.
 
@@ -212,7 +212,9 @@ components:
 
 ### 소개 화면 (로그인 전, 반응형)
 - 구간 순서: 첫 화면, 미리 보기, 실습 방식, 검증, 실습 환경, 문제, 마무리, 쇳물 글자, 맨 아래 줄
-- 캡처: 첫 화면 `design/screens/landing-*`(시안), 구간별 화면 `landing-desktop-*`(1440px, 효과가 끝난 뒤 7장), 페이지 전체 `landing-mobile-*`(390px). 제품 화면은 확정 캡처 `lab-*`를 테마에 맞춰 쓴다
+- 다크만 있다. 앱 테마와 상관없이 확정 시안(`.impeccable/mocks/decision/colors/final-dark-landing-01.html`)대로 다크로 보인다(2026-11-26 사람이 결정). 뿌리에 `dark` class를 붙여 앱 다크 토큰을 쓰고, 바탕은 면 색(`card`)이다
+- 글꼴: 영문은 Geist, 한글은 Pretendard(`font-display`). 2026-11-26 후보 6개(Pretendard, Inter + Noto Sans KR, Geist + Pretendard, SUIT, Wanted Sans, IBM Plex Sans KR)를 같은 구간에서 비교해 사람이 정했다
+- 캡처: 첫 화면 `design/screens/landing-dark`(시안), 구간별 화면 `landing-desktop-dark`(1440px, 효과가 끝난 뒤 7장), 페이지 전체 `landing-mobile-dark`(390px). 제품 화면은 확정 캡처 `lab-*-dark`를 쓴다
 - 코드: 시안의 CSS·스크립트를 `src/pages/landing.css`, `landing-effects.ts`로 옮겼다. 시안 class 중 Tailwind 유틸리티와 이름이 같은 것(outline, ring)은 Tailwind 스타일이 덧붙어 이름을 바꿨다. 새 class를 더할 때도 Tailwind 유틸리티 이름을 피한다
 - 상단 줄은 앱 상단 줄 대신 소개 화면 것(로고, 구간 메뉴, 로그인, 가입 신청. 640px 이하는 메뉴 버튼). 맨 아래 줄에 개발자 이름과 연락처, HTML `meta author`(hackforge-docs ADR 016)
 - 본문 최대 폭 1160px(안쪽 1096px). 구간 사이 110px, 태블릿 84px, 휴대폰 64px. 구간 구분선은 앞뒤 구간과 같은 간격 가운데에 둔다

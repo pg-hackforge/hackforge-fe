@@ -19,23 +19,16 @@ const ROWS: [string, boolean][] = [
   ['정상 기능 3개', true],
 ]
 
-/** 달군 쇠 색: 1 흰빛 → 노랑 → 주황 → 체리빛 → 0 식음. 라이트는 흰 바탕에서 보이도록 주황까지만 */
-const RAMP_DARK: [number, number[]][] = [
+/** 달군 쇠 색: 1 흰빛 → 노랑 → 주황 → 체리빛 → 0 식음 */
+const RAMP: [number, number[]][] = [
   [0, [74, 64, 62]],
   [0.3, [200, 50, 30]],
   [0.55, [255, 122, 26]],
   [0.8, [255, 210, 90]],
   [1, [255, 246, 213]],
 ]
-const RAMP_LIGHT: [number, number[]][] = [
-  [0, [74, 64, 62]],
-  [0.35, [180, 43, 26]],
-  [0.7, [232, 89, 12]],
-  [1, [247, 137, 31]],
-]
 
 const clamp = (v: number) => Math.max(0, Math.min(1, v))
-const isDark = () => document.documentElement.classList.contains('dark')
 
 export function startLandingEffects(root: HTMLElement): () => void {
   // 효과에 필요한 브라우저 기능이 없으면(테스트의 jsdom 등) 효과 없이 끝난 모습을 둔다
@@ -204,7 +197,7 @@ export function startLandingEffects(root: HTMLElement): () => void {
   let beatHeat = 0
   const REST = 0.82
   function heatColor(h: number) {
-    const ramp = isDark() ? RAMP_DARK : RAMP_LIGHT
+    const ramp = RAMP
     for (let i = 1; i < ramp.length; i++) {
       if (h <= ramp[i][0]) {
         const [a, ca] = ramp[i - 1]
@@ -327,13 +320,12 @@ export function startLandingEffects(root: HTMLElement): () => void {
       ctx.clearRect(0, 0, W, H)
       if (heat <= 0) return
       const c = rgb()
-      const dark = isDark()
       for (const p of ps) {
         p.y -= p.v
         p.w += 0.02
         p.x += Math.sin(p.w) * 0.35 * dpr
         p.t++
-        const a = (dark ? 0.7 : 0.4) * heat * clamp(p.y / H) * (0.6 + 0.4 * Math.sin(p.t * 0.15))
+        const a = 0.7 * heat * clamp(p.y / H) * (0.6 + 0.4 * Math.sin(p.t * 0.15))
         ctx.beginPath()
         ctx.fillStyle = `rgba(${c},${a})`
         ctx.shadowColor = `rgba(${c},${a})`

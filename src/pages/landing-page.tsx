@@ -5,31 +5,22 @@ import { MenuIcon } from 'lucide-react'
 import { useEffect, useRef, type CSSProperties } from 'react'
 import { Link } from 'react-router'
 
-import labCodeDark from '../../design/screens/lab-code-dark.webp'
-import labCodeLight from '../../design/screens/lab-code-light.webp'
-import labRecordsDark from '../../design/screens/lab-records-dark.webp'
-import labRecordsLight from '../../design/screens/lab-records-light.webp'
-import labTargetDark from '../../design/screens/lab-target-dark.webp'
-import labTargetLight from '../../design/screens/lab-target-light.webp'
+import labCode from '../../design/screens/lab-code-dark.webp'
+import labRecords from '../../design/screens/lab-records-dark.webp'
+import labTarget from '../../design/screens/lab-target-dark.webp'
 import { LogoMark } from '@/components/logo'
 import { startLandingEffects } from '@/pages/landing-effects'
 
-/** 제품 화면은 확정 캡처(design/screens)를 테마에 맞춰 보여 준다(시안은 iframe) */
+/** 제품 화면은 확정 캡처(design/screens)의 다크 화면(시안은 iframe) */
 const SCREENS = {
-  code: { light: labCodeLight, dark: labCodeDark, alt: '방어 단계의 코드 편집기 화면' },
-  target: { light: labTargetLight, dark: labTargetDark, alt: '공격 대상 화면' },
-  records: { light: labRecordsLight, dark: labRecordsDark, alt: '방어 검증 결과 기록 화면' },
+  code: { src: labCode, alt: '방어 단계의 코드 편집기 화면' },
+  target: { src: labTarget, alt: '공격 대상 화면' },
+  records: { src: labRecords, alt: '방어 검증 결과 기록 화면' },
 }
 
 function Screen({ name, eager }: { name: keyof typeof SCREENS; eager?: boolean }) {
   const s = SCREENS[name]
-  const loading = eager ? 'eager' : 'lazy'
-  return (
-    <>
-      <img src={s.light} alt={s.alt} loading={loading} className="dark:hidden" />
-      <img src={s.dark} alt={s.alt} loading={loading} className="hidden dark:block" />
-    </>
-  )
+  return <img src={s.src} alt={s.alt} loading={eager ? 'eager' : 'lazy'} />
 }
 
 const Check = () => (
@@ -121,14 +112,15 @@ const delay = (s: number, i?: number) =>
 /**
  * `/` 로그인 전 소개 화면(hackforge-docs ADR 016, specs/landing). 구간 순서: 첫 화면, 미리 보기, 실습 방식, 검증,
  * 실습 환경, 문제, 마무리, 쇳물 글자, 맨 아래 줄. 반응형(1024px, 640px). 시연에 실제 공격 문자열은 쓰지 않는다.
- * 효과는 시안 스크립트를 옮긴 startLandingEffects가 붙이고, 화면을 떠나면 모두 걷어 낸다
+ * 효과는 시안 스크립트를 옮긴 startLandingEffects가 붙이고, 화면을 떠나면 모두 걷어 낸다.
+ * 앱 테마와 상관없이 다크로만 보인다(뿌리의 dark class로 앱 다크 토큰을 쓴다)
  */
 export function LandingPage() {
   const root = useRef<HTMLDivElement>(null)
   useEffect(() => startLandingEffects(root.current!), [])
 
   return (
-    <div className="lp" ref={root}>
+    <div className="lp dark" ref={root}>
       <div className="smog s2" aria-hidden>
         <svg preserveAspectRatio="none" viewBox="0 0 800 400">
           <filter id="smk">

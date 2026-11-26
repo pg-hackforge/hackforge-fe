@@ -12,10 +12,17 @@
   --t3: var(--subtle-foreground);
   --hair: var(--border);
   --hair2: var(--input);
-  --s1: var(--muted);
+  --s1: var(--background);
   --s2: var(--muted);
   --acc: var(--primary);
-  --bg: var(--background);
+  --bg: var(--card);
+  /* 소개 화면은 다크만(뿌리에 .dark를 붙여 앱 다크 토큰을 쓴다). 바탕은 시안의 --bg */
+  isolation: isolate;
+  min-height: 100dvh;
+  background: var(--bg);
+  color-scheme: dark;
+  /* 영문은 헤드라인과 같은 Geist, 한글은 앱 글꼴(Pretendard). 2026-11-26 후보 6개 비교 뒤 결정 */
+  font-family: var(--font-display);
   font-size: 15px;
   line-height: 1.6;
   letter-spacing: -0.01em;
@@ -197,7 +204,9 @@
   font-size: 13px;
 }
 .lp .row code {
-  font: 12.5px 'JetBrains Mono';
+  font:
+    12.5px 'JetBrains Mono Variable',
+    monospace;
   background: var(--s1);
   padding: 2px 7px;
   border-radius: 5px;
@@ -262,7 +271,9 @@
   grid-row: 1/3;
   grid-column: 2;
   align-self: center;
-  font: 500 20px 'JetBrains Mono';
+  font:
+    500 20px 'JetBrains Mono Variable',
+    monospace;
   font-style: normal;
   color: var(--primary-foreground);
 }
@@ -295,7 +306,9 @@
   border-radius: 999px;
 }
 .lp .flow span b {
-  font: 600 11px 'JetBrains Mono';
+  font:
+    600 11px 'JetBrains Mono Variable',
+    monospace;
   color: var(--t3);
 }
 .lp .smog {
@@ -552,7 +565,7 @@
   align-items: center;
   padding: 0 10px;
   font:
-    13px 'JetBrains Mono',
+    13px 'JetBrains Mono Variable',
     monospace;
   margin-bottom: 8px;
   gap: 1px;
@@ -648,7 +661,7 @@
 .lp .code {
   flex: 1;
   font:
-    12.5px/1.95 'JetBrains Mono',
+    12.5px/1.95 'JetBrains Mono Variable',
     monospace;
   padding: 14px 0;
 }
@@ -726,7 +739,7 @@
 .lp .stage-tag span.on {
   background: var(--t1);
   border-color: var(--t1);
-  color: var(--background);
+  color: var(--bg);
 }
 .lp .wm {
   position: relative;
@@ -774,7 +787,7 @@
     backdrop-filter 0.3s;
 }
 .lp .topbar.scrolled {
-  background: color-mix(in srgb, var(--background) 72%, transparent);
+  background: color-mix(in srgb, var(--bg) 72%, transparent);
   -webkit-backdrop-filter: blur(12px);
   backdrop-filter: blur(12px);
   border-color: var(--hair);
@@ -1123,7 +1136,7 @@
   left: 0;
   top: 10px;
   font:
-    600 26px 'JetBrains Mono',
+    600 26px 'JetBrains Mono Variable',
     monospace;
   letter-spacing: -0.02em;
 }
@@ -1431,7 +1444,9 @@
   background: var(--t1);
 }
 .lp .stp .n {
-  font: 500 12px 'JetBrains Mono';
+  font:
+    500 12px 'JetBrains Mono Variable',
+    monospace;
   color: var(--t3);
 }
 .lp .stp h3 {
@@ -1798,7 +1813,7 @@
   font-family: var(--font-display), sans-serif;
 }
 .lp .shot::after {
-  background: linear-gradient(transparent, var(--background));
+  background: linear-gradient(transparent, var(--bg));
 }
 /* 제품 화면: 시안의 iframe 대신 확정 캡처(1440×900)의 위쪽을 보인다 */
 .lp .shot img,
@@ -1820,28 +1835,16 @@
   background: var(--band);
   color: var(--band-foreground);
 }
-.dark .lp .dark-band {
-  background: color-mix(in srgb, var(--band) 80%, transparent);
-  -webkit-mask-image: linear-gradient(transparent, #000 70px, #000 calc(100% - 70px), transparent);
-  mask-image: linear-gradient(transparent, #000 70px, #000 calc(100% - 70px), transparent);
-}
 .lp .dark-band .k,
 .lp .dark-band p.d,
 .lp .dark-band .more {
-  color: color-mix(in srgb, var(--band-foreground) 62%, transparent);
+  color: var(--muted-foreground);
 }
 .lp .h2d {
   font-size: 38px;
   font-weight: 700;
   letter-spacing: -0.035em;
   margin: 10px 0 14px;
-}
-.lp .ct {
-  border-color: color-mix(in srgb, var(--band-foreground) 12%, transparent);
-  background: color-mix(in srgb, var(--band-foreground) 4%, transparent);
-}
-.lp .ct span {
-  color: color-mix(in srgb, var(--band-foreground) 52%, transparent);
 }
 .lp .more {
   display: flex;
@@ -1877,10 +1880,6 @@
 .lp .credit a {
   text-decoration: underline;
   text-underline-offset: 2px;
-}
-html:not(.dark) .lp .smog.s2 {
-  mix-blend-mode: multiply;
-  opacity: 0.08;
 }
 /* 스크립트가 돌지 않으면(효과 실패) 처음 숨겨 둔 것도 다 보인다 */
 .lp:not(.js) .rv,
