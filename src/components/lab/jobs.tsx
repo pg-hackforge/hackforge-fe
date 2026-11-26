@@ -6,6 +6,7 @@ import { ApiError } from '@/api/errors'
 import type { LabStage, RedeployResponse, ResetLabRequest } from '@/api/generated/types.gen'
 import { ActionButton, CancelButton, Dialog, DialogText } from '@/components/dialog'
 import { Spinner, Verdict } from '@/components/lab/attack'
+import { useAutoDismiss } from '@/components/lab/auto-dismiss'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 
@@ -38,7 +39,7 @@ function jobErrorText(error: Error) {
   return '결과를 받지 못했어요. 기록에서 결과를 확인하거나 다시 요청해 주세요.'
 }
 
-/** 재배포·서비스 초기화 결과 안내 띠. 빌드 로그가 있으면 [빌드 로그]로 연다 */
+/** 재배포·서비스 초기화 결과 안내 띠. 빌드 로그가 있으면 [빌드 로그]로 연다. 10초 뒤 저절로 닫힌다(로그 창을 연 동안은 기다림) */
 export function RedeployNotice({
   result,
   error,
@@ -49,6 +50,7 @@ export function RedeployNotice({
   onDismiss: () => void
 }) {
   const [logOpen, setLogOpen] = useState(false)
+  const autoDismiss = useAutoDismiss(result ?? error, onDismiss, logOpen)
   if (!result && !error) return null
   const reset = result?.kind === 'RESET'
   let text: string
@@ -64,6 +66,7 @@ export function RedeployNotice({
   return (
     <div
       role="status"
+      {...autoDismiss}
       className={cn(
         'mb-3 flex items-center gap-3 rounded-xl border px-4 py-2.5 text-sm',
         result?.status === 'SUCCESS' && 'border-pass/50',

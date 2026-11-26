@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
 import { CheckIcon, ChevronRightIcon } from 'lucide-react'
-import { useEffect, useState, type ReactNode } from 'react'
+import { useState, type ReactNode } from 'react'
 import { Link } from 'react-router'
 
 import {
@@ -23,6 +23,7 @@ import { LabRow } from '@/components/lab/lab-row'
 import { buttonVariants } from '@/components/ui/button'
 import { categoryStats, weaknesses } from '@/lib/analysis'
 import { clockTime, formatRemaining } from '@/lib/lab'
+import { useServerNow } from '@/lib/server-clock'
 import { cn } from '@/lib/utils'
 import { Difficulty } from '@/pages/problems-page'
 
@@ -134,7 +135,7 @@ function MainHome({
 
 /** 진행 중인 실습 띠: 문제, 단계, 자동 종료까지 남은 시간, [실습으로 돌아가기] */
 function CurrentLab({ lab }: { lab: LabSessionResponse }) {
-  const now = useNow()
+  const now = useServerNow()
   const ready = lab.status === 'READY'
   const left = lab.idleDeadline ? Date.parse(lab.idleDeadline) - now : null
   const step = lab.completedAt ? 3 : lab.stage === 'ATTACK' ? 0 : lab.defenseAttempts > 0 ? 2 : 1
@@ -184,16 +185,6 @@ function CurrentLab({ lab }: { lab: LabSessionResponse }) {
       </div>
     </section>
   )
-}
-
-/** 1초마다 지금 시각 */
-function useNow() {
-  const [now, setNow] = useState(() => Date.now())
-  useEffect(() => {
-    const timer = setInterval(() => setNow(Date.now()), 1000)
-    return () => clearInterval(timer)
-  }, [])
-  return now
 }
 
 function Card({

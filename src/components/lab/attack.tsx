@@ -15,6 +15,7 @@ import type {
 } from '@/api/generated/types.gen'
 import { ActionButton, CancelButton, Dialog, DialogText } from '@/components/dialog'
 import { FormAlert } from '@/components/form'
+import { useAutoDismiss } from '@/components/lab/auto-dismiss'
 import { Markdown } from '@/components/markdown'
 import { Button } from '@/components/ui/button'
 import { clockTime, hintTitle } from '@/lib/lab'
@@ -104,7 +105,7 @@ function verifyErrorText(error: Error) {
   return '검증 결과를 받지 못했어요. 기록에서 결과를 확인하거나 다시 요청해 주세요.'
 }
 
-/** 작업 영역 위의 결과 안내 띠. 닫을 때까지 남는다 */
+/** 작업 영역 위의 결과 안내 띠. 10초 뒤 저절로 닫히고, 결과는 기록에서 다시 본다 */
 export function VerifyNotice({
   result,
   error,
@@ -116,6 +117,7 @@ export function VerifyNotice({
   onOpenRecords: () => void
   onDismiss: () => void
 }) {
+  const autoDismiss = useAutoDismiss(result ?? error, onDismiss)
   if (!result && !error) return null
   let text: ReactNode
   const defense = result?.type === 'DEFENSE'
@@ -131,6 +133,7 @@ export function VerifyNotice({
   return (
     <div
       role="status"
+      {...autoDismiss}
       className={cn(
         'mb-3 flex items-center gap-3 rounded-xl border px-4 py-2.5 text-sm',
         result?.status === 'PASS' && 'border-pass/50',
