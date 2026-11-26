@@ -6,6 +6,7 @@ import { useEffect, useRef, useState } from 'react'
 
 import { clampFontSize, FONT_SIZE, readFontSize, terminalCloseNotice, terminalUrl } from '@/lib/lab'
 import { cn } from '@/lib/utils'
+import { CODE_FONT, onCodeFontReady } from '@/lib/code-font'
 
 /** 한 실습에 열 수 있는 터미널 수(서버 제한, 4429) */
 const MAX_TABS = 3
@@ -215,7 +216,7 @@ function TerminalView({
 
   useEffect(() => {
     const term = new Terminal({
-      fontFamily: "'JetBrains Mono', ui-monospace, monospace",
+      fontFamily: CODE_FONT,
       fontSize: fontSizeRef.current,
       lineHeight: 1.25,
       cursorBlink: true,
@@ -259,7 +260,14 @@ function TerminalView({
       if (host.current?.offsetParent) fit.fit()
     })
     observer.observe(host.current!)
+    let alive = true
+    onCodeFontReady(() => {
+      if (!alive) return
+      term.options.fontFamily = CODE_FONT
+      if (host.current?.offsetParent) fit.fit()
+    })
     return () => {
+      alive = false
       observer.disconnect()
       input.dispose()
       resize.dispose()
