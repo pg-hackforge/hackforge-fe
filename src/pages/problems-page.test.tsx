@@ -15,9 +15,9 @@ describe('문제 목록', () => {
   it('20개씩 보이고 개수와 내 상태', async () => {
     renderAt('/problems', 'learner', 'READY')
     expect(await screen.findByRole('heading', { name: '문제' })).toBeInTheDocument()
-    expect(await screen.findByText('23개')).toBeInTheDocument()
+    expect(await screen.findByText('27개')).toBeInTheDocument()
     expect(await rows()).toHaveLength(20)
-    expect(screen.getByText('전체 23개 중 1–20')).toBeInTheDocument()
+    expect(screen.getByText('전체 27개 중 1–20')).toBeInTheDocument()
     const xss = screen.getByText('게시판 저장형 XSS').closest('a')!
     expect(within(xss).getByText('완료')).toBeInTheDocument()
     expect(xss).toHaveAttribute('href', '/problems?p=112')
@@ -58,7 +58,7 @@ describe('문제 목록', () => {
     await waitFor(() => expect(router.state.location.search).toBe('?category=xss'))
     expect(await rows()).toHaveLength(3)
     expect(
-      screen.getByRole('checkbox', { name: /SQL Injection/ }).closest('label'),
+      screen.getByRole('checkbox', { name: /^SQL Injection/ }).closest('label'),
     ).toHaveTextContent('3')
 
     await userEvent.click(screen.getByRole('checkbox', { name: /완료/ }))
@@ -101,8 +101,28 @@ describe('문제 목록', () => {
   it('다음 페이지', async () => {
     const router = renderAt('/problems', 'learner')
     await userEvent.click(await screen.findByRole('button', { name: '다음 페이지' }))
-    await waitFor(async () => expect(await rows()).toHaveLength(3))
+    await waitFor(async () => expect(await rows()).toHaveLength(7))
     expect(router.state.location.search).toBe('?page=2')
+  })
+
+  it('예정 문제는 공개 문제 뒤에 "(예정)"과 준비 중으로 보이고 개수에 들어감(ADR 031)', async () => {
+    renderAt('/problems?page=2', 'learner')
+    const planned = (await screen.findByText('인사말 템플릿 SSTI')).closest('a')!
+    expect(planned).toHaveTextContent('(예정)인사말 템플릿 SSTI')
+    expect(within(planned).getByText('준비 중')).toBeInTheDocument()
+    expect(within(planned).queryByText('NEW')).not.toBeInTheDocument()
+    const titles = (await rows()).map((row) => row.textContent ?? '')
+    const firstPlanned = titles.findIndex((t) => t.includes('(예정)'))
+    expect(titles.slice(firstPlanned).every((t) => t.includes('(예정)'))).toBe(true)
+    expect(screen.getByRole('checkbox', { name: /SSTI/ }).closest('label')).toHaveTextContent('1')
+  })
+
+  it('예정 문제 상세는 요약과 준비 중이에요, 실습 시작은 막힘', async () => {
+    renderAt('/problems?page=2&p=140', 'learner')
+    const panel = await screen.findByRole('dialog')
+    expect(await within(panel).findByText('준비 중이에요')).toBeInTheDocument()
+    expect(within(panel).getByText(/인사말 미리보기에 템플릿 문법을/)).toBeInTheDocument()
+    expect(within(panel).getByRole('button', { name: '실습 시작' })).toBeDisabled()
   })
 
   it('정렬 드롭다운: 기준마다 기본·반대 방향(ADR 028)', async () => {

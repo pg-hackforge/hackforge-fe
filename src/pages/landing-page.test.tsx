@@ -27,14 +27,15 @@ describe('소개 화면', () => {
     )
   })
 
-  it('문제 분류 타일은 실제 분류 목록과 같은 이름, 같은 순서(백엔드 V8, ADR 020)', async () => {
+  it('문제 분류 타일 12개는 실제 분류 이름이고 분류 표시 순서를 따름(ADR 020, ADR 032)', async () => {
     renderAt('/', 'logged-out')
     const tiles = within(await screen.findByRole('list', { name: '취약점 분류' })).getAllByRole(
       'listitem',
     )
-    expect(tiles.map((tile) => tile.querySelector('b')?.textContent)).toEqual(
-      CATEGORIES.map(([, name]) => name),
-    )
+    const names = tiles.map((tile) => tile.querySelector('b')?.textContent)
+    // 타일은 처음 12개 분류만 둔다(2026-11-26 사람이 결정). ADR 032로 더한 분류는 타일에 없다
+    expect(names).toHaveLength(12)
+    expect(names).toEqual(CATEGORIES.map(([, name]) => name).filter((n) => names.includes(n)))
   })
 
   it('맨 아래 줄에 개발자 이름과 연락처', async () => {

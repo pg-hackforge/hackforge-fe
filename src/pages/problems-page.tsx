@@ -8,6 +8,7 @@ import { isLive, useCurrentLab } from '@/api/labs'
 import type {
   ChallengeFacetsResponse,
   ChallengeMyStatus,
+  ChallengeStatus,
   ChallengeResponse,
   ChallengeSort,
 } from '@/api/generated/types.gen'
@@ -358,7 +359,10 @@ function ProblemTable({
               </span>
               <span className="min-w-0">
                 <span className="flex items-center gap-2 font-semibold">
-                  <span className="truncate">{c.title}</span>
+                  <span className="truncate">
+                    <PlannedMark status={c.status} />
+                    {c.title}
+                  </span>
                   {c.isNew && (
                     <span className="shrink-0 rounded border border-foreground/70 px-1 text-[10px] leading-3.5 font-bold tracking-wide">
                       NEW
@@ -376,7 +380,11 @@ function ProblemTable({
               </span>
               <Difficulty value={c.difficulty} />
               <span className="text-sm tabular-nums">{c.estimatedMinutes}분</span>
-              <MyStatus value={c.myStatus} active={c.id === activeChallengeId} />
+              <MyStatus
+                value={c.myStatus}
+                planned={c.status === 'PLANNED'}
+                active={c.id === activeChallengeId}
+              />
               <ChevronRightIcon className="size-4 text-muted-foreground" aria-hidden />
             </Link>
           </li>
@@ -406,13 +414,32 @@ export function Difficulty({ value }: { value: ChallengeResponse['difficulty'] }
 }
 
 /** 진행 중 실습의 문제는 내 상태 대신 "진행 중" */
+/** 예정 문제 제목 앞의 "(예정)"(ADR 031). 공개 문제는 아무것도 그리지 않는다 */
+export function PlannedMark({ status }: { status: ChallengeStatus }) {
+  if (status !== 'PLANNED') return null
+  return <span className="mr-1 font-medium text-muted-foreground">(예정)</span>
+}
+
+/** 내 상태. 예정 문제는 해 볼 수 없어 내 상태 대신 "준비 중" */
 export function MyStatus({
   value,
+  planned = false,
   active = false,
 }: {
   value: ChallengeMyStatus
+  planned?: boolean
   active?: boolean
 }) {
+  if (planned)
+    return (
+      <span className="flex items-center gap-1.5 text-sm text-muted-foreground">
+        <span
+          aria-hidden
+          className="size-2 rounded-full border border-dashed border-muted-foreground"
+        />
+        준비 중
+      </span>
+    )
   if (active)
     return (
       <span className="flex items-center gap-1.5 text-sm font-medium text-primary">

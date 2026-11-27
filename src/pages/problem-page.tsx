@@ -15,7 +15,7 @@ import { FormAlert } from '@/components/form'
 import { Markdown } from '@/components/markdown'
 import { Button, buttonVariants } from '@/components/ui/button'
 import { NotFoundPage } from '@/pages/status-pages'
-import { Difficulty, MyStatus } from '@/pages/problems-page'
+import { Difficulty, MyStatus, PlannedMark } from '@/pages/problems-page'
 import { cn } from '@/lib/utils'
 
 /** 실습 시작이 거절된 이유 */
@@ -26,6 +26,7 @@ function startErrorText(error: Error) {
   if (error.code === 'ACCOUNT_NOT_APPROVED') return '가입이 승인되면 실습을 시작할 수 있어요.'
   if (error.code === 'LAB_ALREADY_ACTIVE')
     return '이미 진행 중인 실습이 있어요. 그 실습을 끝내면 새로 시작할 수 있어요.'
+  if (error.code === 'CHALLENGE_NOT_PUBLISHED') return '아직 준비 중인 문제예요.'
   return error.message
 }
 
@@ -68,7 +69,10 @@ export function ProblemPage() {
                 </span>
               )}
             </div>
-            <h1 className="mt-1 text-2xl font-semibold tracking-tight">{c.title}</h1>
+            <h1 className="mt-1 text-2xl font-semibold tracking-tight">
+              <PlannedMark status={c.status} />
+              {c.title}
+            </h1>
             <p className="mt-2 max-w-160 text-muted-foreground">{c.summary}</p>
             <div className="mt-4 flex flex-wrap items-center gap-x-5 gap-y-2 border-b pb-5 text-sm">
               <span className="rounded-md border px-2 py-0.5 text-xs">{c.category.name}</span>
@@ -79,13 +83,14 @@ export function ProblemPage() {
               </span>
               <MyStatus
                 value={c.myStatus}
+                planned={c.status === 'PLANNED'}
                 active={isLive(currentLab) && currentLab.challengeId === c.id}
               />
             </div>
-            <Markdown className="mt-6 max-w-160">{c.description}</Markdown>
+            {c.description && <Markdown className="mt-6 max-w-160">{c.description}</Markdown>}
           </article>
           <aside className="sticky top-20 rounded-xl border bg-card p-5">
-            <StartPanel challengeId={c.id} />
+            {c.status === 'PLANNED' ? <PlannedPanel /> : <StartPanel challengeId={c.id} />}
           </aside>
         </div>
       )}
@@ -131,6 +136,7 @@ export function ProblemDrawer({ id, onClose }: { id: number; onClose: () => void
             {c && (
               <>
                 <Dialog.Title className="mt-1 text-[22px] font-semibold tracking-tight">
+                  <PlannedMark status={c.status} />
                   {c.title}
                   {c.isNew && (
                     <span className="ml-2 inline-block rounded border border-foreground/70 px-1 align-middle text-[10px] leading-3.5 font-bold">
@@ -150,21 +156,37 @@ export function ProblemDrawer({ id, onClose }: { id: number; onClose: () => void
                   </span>
                   <MyStatus
                     value={c.myStatus}
+                    planned={c.status === 'PLANNED'}
                     active={isLive(currentLab) && currentLab.challengeId === c.id}
                   />
                 </div>
-                <Markdown className="mt-5 text-sm">{c.description}</Markdown>
+                {c.description && <Markdown className="mt-5 text-sm">{c.description}</Markdown>}
               </>
             )}
           </div>
           {c && (
             <div className="border-t px-6 py-4">
-              <StartPanel challengeId={c.id} />
+              {c.status === 'PLANNED' ? <PlannedPanel /> : <StartPanel challengeId={c.id} />}
             </div>
           )}
         </Dialog.Popup>
       </Dialog.Portal>
     </Dialog.Root>
+  )
+}
+
+/** 예정 문제는 시작 버튼 자리에 준비 중 안내(ADR 031) */
+function PlannedPanel() {
+  return (
+    <>
+      <p className="font-semibold">준비 중이에요</p>
+      <p className="mt-1 text-sm text-muted-foreground">
+        아직 만들고 있는 문제예요. 공개되면 여기서 실습을 시작할 수 있어요.
+      </p>
+      <Button className="mt-4 w-full" disabled>
+        실습 시작
+      </Button>
+    </>
   )
 }
 

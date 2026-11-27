@@ -79,7 +79,12 @@ export type TemporaryPasswordResponse = {
 export type ChallengeDifficulty = 'INTRO' | 'BEGINNER' | 'INTERMEDIATE' | 'ADVANCED';
 
 /**
- * `NEWEST` 새로 추가된 순, `DIFFICULTY` 난이도 낮은 순, `TIME` 예상 시간 짧은 순. 값이 같으면 새로 추가된 순
+ * 문제 상태(hackforge-docs ADR 031). `PUBLISHED` 공개, `PLANNED` 예정(목록에 미리 보이지만 실습을 시작할 수 없음). v1.2에 값이 늘어날 수 있다
+ */
+export type ChallengeStatus = 'PLANNED' | 'PUBLISHED';
+
+/**
+ * `NEWEST` 새로 추가된 순(공개 시각 기준), `DIFFICULTY` 난이도 낮은 순, `TIME` 예상 시간 짧은 순. 값이 같으면 새로 추가된 순
  */
 export type ChallengeSort = 'NEWEST' | 'DIFFICULTY' | 'TIME';
 
@@ -114,8 +119,9 @@ export type ChallengeResponse = {
     category: ChallengeCategoryResponse;
     difficulty: ChallengeDifficulty;
     estimatedMinutes: number;
+    status: ChallengeStatus;
     /**
-     * 처음 등록한 지 14일 안이면 true
+     * 처음 공개한 지 14일 안이면 true. 예정 문제는 false
      */
     isNew: boolean;
     myStatus: ChallengeMyStatus;
@@ -126,9 +132,9 @@ export type ChallengeResponse = {
  */
 export type ChallengeDetailResponse = ChallengeResponse & {
     /**
-     * 문제 설명(Markdown). Challenge 저장소의 `meta/description.md`
+     * 문제 설명(Markdown). Challenge 저장소의 `meta/description.md`. 예정 문제는 `null`
      */
-    description: string;
+    description: string | null;
 };
 
 export type ChallengePageResponse = {
@@ -147,7 +153,7 @@ export type ChallengePageResponse = {
 };
 
 /**
- * 필터별 문제 수. 개수가 0인 항목도 넣는다. 한 조건의 개수는 그 조건을 뺀 나머지 조건(검색어 포함)을 적용해 센다. 예를 들어 난이도 `INTRO`를 골랐어도 분류별 개수는 입문 문제만, 난이도별 개수는 난이도 조건 없이 센다
+ * 필터별 문제 수. 개수가 0인 항목도 넣는다. 목록과 맞추려고 예정 문제도 센다(ADR 031 정정). 한 조건의 개수는 그 조건을 뺀 나머지 조건(검색어 포함)을 적용해 센다. 예를 들어 난이도 `INTRO`를 골랐어도 분류별 개수는 입문 문제만, 난이도별 개수는 난이도 조건 없이 센다
  */
 export type ChallengeFacetsResponse = {
     /**
@@ -186,7 +192,7 @@ export type MyProgressResponse = {
 
 export type MyActivityResponse = {
     /**
-     * 전체 문제 수(`GET /api/me/progress`와 같은 기준)
+     * 전체 문제 수(`GET /api/me/progress`와 같은 기준, 공개 문제만)
      */
     totalChallenges: number;
     /**
@@ -631,7 +637,7 @@ export type Problem = {
     /**
      * 클라이언트가 분기할 때 쓰는 오류 코드
      */
-    code: 'VALIDATION_FAILED' | 'EMAIL_TAKEN' | 'NICKNAME_TAKEN' | 'INVALID_CREDENTIALS' | 'ACCOUNT_LOCKED' | 'CURRENT_PASSWORD_MISMATCH' | 'UNAUTHENTICATED' | 'FORBIDDEN' | 'CSRF_REJECTED' | 'CANNOT_CHANGE_OWN_ROLE' | 'USER_NOT_FOUND' | 'INVALID_STATUS_TRANSITION' | 'NOT_FOUND' | 'METHOD_NOT_ALLOWED' | 'UNSUPPORTED_MEDIA_TYPE' | 'INTERNAL_ERROR' | 'ACCOUNT_NOT_APPROVED' | 'CHALLENGE_NOT_FOUND' | 'LAB_NOT_FOUND' | 'LAB_ALREADY_ACTIVE' | 'LAB_NOT_READY' | 'LAB_CAPACITY_FULL' | 'LAB_JOB_RUNNING' | 'VERIFICATION_NOT_FOUND' | 'WRONG_LAB_STAGE' | 'NO_MORE_HINTS' | 'FILE_NOT_FOUND' | 'FILE_READ_ONLY' | 'FILE_CHANGED' | 'FILE_NOT_EDITABLE' | 'REDEPLOY_NOT_FOUND' | 'SOLUTION_LOCKED';
+    code: 'VALIDATION_FAILED' | 'EMAIL_TAKEN' | 'NICKNAME_TAKEN' | 'INVALID_CREDENTIALS' | 'ACCOUNT_LOCKED' | 'CURRENT_PASSWORD_MISMATCH' | 'UNAUTHENTICATED' | 'FORBIDDEN' | 'CSRF_REJECTED' | 'CANNOT_CHANGE_OWN_ROLE' | 'USER_NOT_FOUND' | 'INVALID_STATUS_TRANSITION' | 'NOT_FOUND' | 'METHOD_NOT_ALLOWED' | 'UNSUPPORTED_MEDIA_TYPE' | 'INTERNAL_ERROR' | 'ACCOUNT_NOT_APPROVED' | 'CHALLENGE_NOT_FOUND' | 'CHALLENGE_NOT_PUBLISHED' | 'LAB_NOT_FOUND' | 'LAB_ALREADY_ACTIVE' | 'LAB_NOT_READY' | 'LAB_CAPACITY_FULL' | 'LAB_JOB_RUNNING' | 'VERIFICATION_NOT_FOUND' | 'WRONG_LAB_STAGE' | 'NO_MORE_HINTS' | 'FILE_NOT_FOUND' | 'FILE_READ_ONLY' | 'FILE_CHANGED' | 'FILE_NOT_EDITABLE' | 'REDEPLOY_NOT_FOUND' | 'SOLUTION_LOCKED';
     /**
      * `VALIDATION_FAILED`일 때 항목별 이유
      */
@@ -1289,7 +1295,7 @@ export type StartLabErrors = {
      */
     404: Problem;
     /**
-     * 진행 중 세션이 이미 있음(`LAB_ALREADY_ACTIVE`). 클라이언트는 `GET /api/labs/current`로 기존 세션을 조회한다
+     * 진행 중 세션이 이미 있음(`LAB_ALREADY_ACTIVE`). 클라이언트는 `GET /api/labs/current`로 기존 세션을 조회한다. 또는 공개되지 않은 문제(`CHALLENGE_NOT_PUBLISHED`, 예정 문제). 세션을 만들지 않는다
      */
     409: Problem;
     /**

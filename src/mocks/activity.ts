@@ -19,6 +19,12 @@ const PROFILE: Record<string, [total: number, tried: number, attack: number, def
   xxe: [8, 0, 0, 0],
   deserialization: [9, 0, 0, 0],
   'info-disclosure': [8, 3, 0.9, 0.85],
+  // ADR 032에서 더한 분류. 아직 공개 문제가 없다
+  'nosql-injection': [0, 0, 0, 0],
+  ssti: [0, 0, 0, 0],
+  'business-logic': [0, 0, 0, 0],
+  'prototype-pollution': [0, 0, 0, 0],
+  misconfiguration: [0, 0, 0, 0],
 }
 
 const DIFFICULTIES: ChallengeDifficulty[] = ['INTRO', 'BEGINNER', 'INTERMEDIATE', 'ADVANCED']
