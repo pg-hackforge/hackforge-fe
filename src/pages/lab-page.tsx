@@ -491,7 +491,7 @@ function ProblemPanel({ challengeId }: { challengeId: number }) {
         <div className="max-w-160">
           <h1 className="text-xl font-semibold tracking-tight">{challenge.title}</h1>
           <p className="mt-1.5 text-muted-foreground">{challenge.summary}</p>
-          <Markdown className="mt-5">{challenge.description}</Markdown>
+          <Markdown className="mt-5">{challenge.description ?? ''}</Markdown>
         </div>
       )}
     </Panel>

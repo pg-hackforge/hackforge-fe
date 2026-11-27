@@ -343,11 +343,14 @@ export const handlers = [
 
   http.get('*/api/labs', () => (currentUser() ? HttpResponse.json(myLabs()) : unauthenticated())),
 
-  http.post('*/api/labs', () => {
+  http.post('*/api/labs', async ({ request }) => {
     const me = currentUser()
     if (!me) return unauthenticated()
     if (me.status !== 'APPROVED')
       return problem(403, 'ACCOUNT_NOT_APPROVED', '가입이 승인되면 실습을 시작할 수 있어요')
+    const { challengeId } = (await request.json()) as { challengeId: number }
+    if (challengeDetail(challengeId)?.status === 'PLANNED')
+      return problem(409, 'CHALLENGE_NOT_PUBLISHED', '아직 준비 중인 문제예요')
     const { lab: state } = loadScenario()
     if (state === 'capacity-full')
       return problem(

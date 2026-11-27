@@ -5,15 +5,19 @@ import type {
   ChallengePageResponse,
   ChallengeResponse,
   ChallengeSort,
+  ChallengeStatus,
   MyProgressResponse,
 } from '@/api/generated/types.gen'
 
-/** 백엔드 V8 seed와 같은 분류와 표시 순서 */
+/** 백엔드 V14와 같은 분류 17개와 표시 순서(비슷한 주제끼리, ADR 032) */
 export const CATEGORIES: [key: string, name: string][] = [
   ['sqli', 'SQL Injection'],
+  ['nosql-injection', 'NoSQL Injection'],
   ['xss', 'XSS'],
+  ['ssti', 'SSTI'],
   ['access-control', '접근 제어'],
   ['auth-session', '인증·세션'],
+  ['business-logic', '비즈니스 로직'],
   ['command-injection', 'Command Injection'],
   ['path-traversal', 'Path Traversal'],
   ['file-upload', '파일 업로드'],
@@ -21,6 +25,8 @@ export const CATEGORIES: [key: string, name: string][] = [
   ['csrf', 'CSRF'],
   ['xxe', 'XXE'],
   ['deserialization', '역직렬화'],
+  ['prototype-pollution', 'Prototype Pollution'],
+  ['misconfiguration', '보안 설정 오류'],
   ['info-disclosure', '정보 노출'],
 ]
 
@@ -310,17 +316,58 @@ const DESCRIPTION = `회원 로그인 페이지예요. 관리자 비밀번호를
 - 정상 계정 \`guest\` / \`guest1234\`로 로그인할 수 있어요
 - 이름에 따옴표가 들어간 계정도 정상적으로 로그인돼야 해요`
 
-function item([
-  id,
-  slug,
-  title,
-  summary,
-  category,
-  difficulty,
-  minutes,
-  ago,
-  myStatus,
-]: Fixture): ChallengeResponse {
+/** 예정 문제(ADR 031). 목록에 보이지만 실습은 시작할 수 없고, 세션이 없어 내 상태는 안 해 봄 */
+const PLANNED_FIXTURES: Fixture[] = [
+  [
+    140,
+    'ssti-greeting',
+    '인사말 템플릿 SSTI',
+    '인사말 미리보기에 템플릿 문법을 넣어 서버에서 코드를 실행하고, 템플릿 사용을 고쳐요',
+    'ssti',
+    'INTERMEDIATE',
+    60,
+    0,
+    'NOT_STARTED',
+  ],
+  [
+    139,
+    'nosql-login',
+    'NoSQL 로그인 우회',
+    '로그인 요청에 연산자를 넣어 비밀번호 없이 로그인하고, 입력 형식을 검사해요',
+    'nosql-injection',
+    'BEGINNER',
+    40,
+    0,
+    'NOT_STARTED',
+  ],
+  [
+    138,
+    'coupon-race',
+    '쿠폰 중복 사용',
+    '동시에 요청을 보내 한 번만 쓸 수 있는 쿠폰을 여러 번 쓰고, 사용 처리를 고쳐요',
+    'business-logic',
+    'INTERMEDIATE',
+    60,
+    0,
+    'NOT_STARTED',
+  ],
+  [
+    137,
+    'proto-merge',
+    '설정 병합 Prototype Pollution',
+    '설정 병합 기능으로 객체 원형을 오염시켜 관리자 권한을 얻고, 병합 코드를 고쳐요',
+    'prototype-pollution',
+    'ADVANCED',
+    90,
+    0,
+    'NOT_STARTED',
+  ],
+]
+
+function item(
+  [id, slug, title, summary, category, difficulty, minutes, ago, myStatus]: Fixture,
+  status: ChallengeStatus = 'PUBLISHED',
+): ChallengeResponse {
   const [, name] = CATEGORIES.find(([key]) => key === category)!
   return {
     id,
@@ -330,16 +377,21 @@ function item([
     category: { key: category, name },
     difficulty,
     estimatedMinutes: minutes,
-    isNew: ago <= 14,
+    status,
+    isNew: status === 'PUBLISHED' && ago <= 14,
     myStatus,
   }
 }
 
-const ITEMS = FIXTURES.map(item)
+const ITEMS = [...FIXTURES.map((f) => item(f)), ...PLANNED_FIXTURES.map((f) => item(f, 'PLANNED'))]
+const PUBLISHED = ITEMS.filter((c) => c.status === 'PUBLISHED')
 
 export const PAGE_SIZE = 20
 
-/** 문제 목록 API와 같은 규칙: 같은 조건은 또는, 다른 조건은 그리고, facet은 자기 조건만 빼고 센다 */
+/**
+ * 문제 목록 API와 같은 규칙: 같은 조건은 또는, 다른 조건은 그리고, facet은 자기 조건만 빼고 센다.
+ * 예정 문제는 어느 정렬이든 공개 문제 뒤이고 facet에도 센다(ADR 031과 정정)
+ */
 export function listChallenges(params: URLSearchParams): ChallengePageResponse {
   const q = params.get('q')?.trim().toLowerCase() ?? ''
   const categories = params.getAll('category')
@@ -363,8 +415,9 @@ export function listChallenges(params: URLSearchParams): ChallengePageResponse {
   }[sort]
   // 반대 방향이어도 동점은 새로 추가된 순(ADR 028)
   const reverse = params.get('reverse') === 'true'
+  const planned = (c: ChallengeResponse) => (c.status === 'PLANNED' ? 1 : 0)
   const matched = ITEMS.filter((c) => match(c)).sort(
-    (a, b) => (reverse ? -byKey(a, b) : byKey(a, b)) || newest(a, b),
+    (a, b) => planned(a) - planned(b) || (reverse ? -byKey(a, b) : byKey(a, b)) || newest(a, b),
   )
   const count = (
     skip: 'category' | 'difficulty' | 'myStatus',
@@ -398,17 +451,18 @@ export function listChallenges(params: URLSearchParams): ChallengePageResponse {
 
 export function challengeDetail(id: number): ChallengeDetailResponse | undefined {
   const found = ITEMS.find((c) => c.id === id)
-  return found && { ...found, description: DESCRIPTION }
+  return found && { ...found, description: found.status === 'PLANNED' ? null : DESCRIPTION }
 }
 
+/** 진행 요약은 공개 문제만 센다(ADR 031) */
 export function myProgress(): MyProgressResponse {
-  const of = (status: ChallengeMyStatus) => ITEMS.filter((c) => c.myStatus === status).length
+  const of = (status: ChallengeMyStatus) => PUBLISHED.filter((c) => c.myStatus === status).length
   return {
-    totalChallenges: ITEMS.length,
+    totalChallenges: PUBLISHED.length,
     completed: of('COMPLETED'),
     unfinished: of('UNFINISHED'),
     categories: CATEGORIES.map(([key, name]) => {
-      const inCategory = ITEMS.filter((c) => c.category.key === key)
+      const inCategory = PUBLISHED.filter((c) => c.category.key === key)
       return {
         key,
         name,

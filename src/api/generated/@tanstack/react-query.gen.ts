@@ -121,7 +121,7 @@ export const getMyProgressQueryKey = (options?: Options<GetMyProgressData>) => c
 /**
  * 내 진행 요약
  *
- * 홈의 내 진행(hackforge-docs ADR 027). 전체 문제 수, 완료한 문제 수, 끝내지 못한 문제 수, 분류별 전체·완료 수. 문제별 상태는 `ChallengeMyStatus`와 같은 규칙으로 센다
+ * 홈의 내 진행(hackforge-docs ADR 027). 전체 문제 수, 완료한 문제 수, 끝내지 못한 문제 수, 분류별 전체·완료 수. 문제별 상태는 `ChallengeMyStatus`와 같은 규칙으로 센다. 공개 문제만 센다(예정 문제 제외, ADR 031)
  */
 export const getMyProgressOptions = (options?: Options<GetMyProgressData>) => queryOptions<GetMyProgressResponse, GetMyProgressError, GetMyProgressResponse, ReturnType<typeof getMyProgressQueryKey>>({
     queryFn: async ({ queryKey, signal }) => {
@@ -376,7 +376,7 @@ export const listChallengesQueryKey = (options?: Options<ListChallengesData>) =>
 /**
  * 문제 목록
  *
- * 검색, 필터, 정렬, 페이지(20개). 같은 조건의 여러 값은 "또는", 다른 조건끼리는 "그리고"로 묶는다. 범위를 넘은 페이지는 빈 `items`를 반환하고 개수 값은 그대로다. 승인 대기·거절 계정도 조회 가능. 승인 여부는 실습 시작 시점에만 확인한다
+ * 검색, 필터, 정렬, 페이지(20개). 같은 조건의 여러 값은 "또는", 다른 조건끼리는 "그리고"로 묶는다. 범위를 넘은 페이지는 빈 `items`를 반환하고 개수 값은 그대로다. 예정(`PLANNED`) 문제도 목록에 넣고, 어느 정렬이든 공개 문제 뒤에 온다(hackforge-docs ADR 031). 예정 문제끼리도 같은 기준으로 정렬하되, 새로 추가된 순 대신 등록 순(최근 등록 먼저)을 쓴다. 승인 대기·거절 계정도 조회 가능. 승인 여부는 실습 시작 시점에만 확인한다
  */
 export const listChallengesOptions = (options?: Options<ListChallengesData>) => queryOptions<ListChallengesResponse, ListChallengesError, ListChallengesResponse, ReturnType<typeof listChallengesQueryKey>>({
     queryFn: async ({ queryKey, signal }) => {
@@ -396,7 +396,7 @@ export const listChallengesInfiniteQueryKey = (options?: Options<ListChallengesD
 /**
  * 문제 목록
  *
- * 검색, 필터, 정렬, 페이지(20개). 같은 조건의 여러 값은 "또는", 다른 조건끼리는 "그리고"로 묶는다. 범위를 넘은 페이지는 빈 `items`를 반환하고 개수 값은 그대로다. 승인 대기·거절 계정도 조회 가능. 승인 여부는 실습 시작 시점에만 확인한다
+ * 검색, 필터, 정렬, 페이지(20개). 같은 조건의 여러 값은 "또는", 다른 조건끼리는 "그리고"로 묶는다. 범위를 넘은 페이지는 빈 `items`를 반환하고 개수 값은 그대로다. 예정(`PLANNED`) 문제도 목록에 넣고, 어느 정렬이든 공개 문제 뒤에 온다(hackforge-docs ADR 031). 예정 문제끼리도 같은 기준으로 정렬하되, 새로 추가된 순 대신 등록 순(최근 등록 먼저)을 쓴다. 승인 대기·거절 계정도 조회 가능. 승인 여부는 실습 시작 시점에만 확인한다
  */
 export const listChallengesInfiniteOptions = (options?: Options<ListChallengesData>) => {
     const opts = infiniteQueryOptions<ListChallengesResponse, ListChallengesError, InfiniteData<ListChallengesResponse>, QueryKey<Options<ListChallengesData>>, number | Pick<QueryKey<Options<ListChallengesData>>[0], 'body' | 'headers' | 'path' | 'query'>>(
@@ -428,7 +428,7 @@ export const getChallengeQueryKey = (options: Options<GetChallengeData>) => crea
 /**
  * 문제 조회
  *
- * 목록 항목에 설명 전문(Markdown)을 더해 반환한다. 승인 대기·거절 계정도 조회 가능
+ * 목록 항목에 설명 전문(Markdown)을 더해 반환한다. 예정 문제도 조회되고 설명은 `null`이다. 승인 대기·거절 계정도 조회 가능
  */
 export const getChallengeOptions = (options: Options<GetChallengeData>) => queryOptions<GetChallengeResponse, GetChallengeError, GetChallengeResponse, ReturnType<typeof getChallengeQueryKey>>({
     queryFn: async ({ queryKey, signal }) => {
